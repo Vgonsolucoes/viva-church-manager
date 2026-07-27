@@ -1,36 +1,85 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Viva Church Manager
 
-## Getting Started
+Sistema de gestao para igreja com painel administrativo web, area mobile, membros, voluntarios, cursos, eventos, acompanhamento, relatorios e modulos ministeriais.
 
-First, run the development server:
+## Ambiente local
+
+1. Instale as dependencias:
+
+```bash
+npm install
+```
+
+2. Configure o arquivo `.env` com base no `.env.example`.
+
+3. Gere o Prisma Client:
+
+```bash
+npx prisma generate
+```
+
+4. Rode as migrations:
+
+```bash
+npx prisma migrate deploy
+```
+
+5. Inicie o sistema:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Deploy no Easypanel
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+O projeto ja esta preparado para deploy via Git com `Dockerfile` na raiz.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Como criar o app no Easypanel
 
-## Learn More
+1. Crie um novo app usando a opcao de deploy por repositório Git.
+2. Aponte para este repositório.
+3. O Easypanel deve detectar automaticamente o `Dockerfile`.
+4. Configure a porta da aplicacao como `3000`.
+5. Adicione as variaveis de ambiente abaixo.
 
-To learn more about Next.js, take a look at the following resources:
+### Variaveis obrigatorias
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `DATABASE_URL`
+- `NEXTAUTH_URL`
+- `NEXTAUTH_SECRET`
+- `APP_ENCRYPTION_KEY`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Variaveis opcionais
 
-## Deploy on Vercel
+- `SEED_SUPER_ADMIN_EMAIL`
+- `SEED_SUPER_ADMIN_PASSWORD`
+- `TEMP_MEMBER_INTAKE_ENABLED`
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Observacoes importantes
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- O container executa `npx prisma migrate deploy` antes de subir a aplicacao.
+- O servidor sobe na porta `3000`.
+- O `HOSTNAME` ja fica configurado como `0.0.0.0` dentro do container.
+- Se usar dominio proprio, defina `NEXTAUTH_URL` com a URL final publica.
+
+## Exemplo de configuracao de ambiente
+
+Use o arquivo `.env.example` como referencia.
+
+Para `APP_ENCRYPTION_KEY`, gere uma chave base64 com 32 bytes.
+
+Exemplo em Node.js:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```
+
+## Scripts uteis
+
+- `npm run dev`
+- `npm run build`
+- `npm run start`
+- `npm run dev:temp-members`
+- `npm run start:temp-members`
+- `npm run prisma:generate`
+- `npm run prisma:migrate`
