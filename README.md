@@ -55,6 +55,28 @@ O projeto ja esta preparado para deploy via Git com `Dockerfile` na raiz.
 - `SEED_SUPER_ADMIN_PASSWORD`
 - `TEMP_MEMBER_INTAKE_ENABLED`
 
+### Tela publica temporaria de cadastro (cadastro-temporario/membros)
+
+Esta tela permite cadastrar membros sem autenticacao, ideal para carga inicial ou coleta direta.
+Ela nao abre por padrao por seguranca. Para habilitar:
+
+1. Defina a variavel de ambiente:
+   ```env
+   TEMP_MEMBER_INTAKE_ENABLED=true
+   ```
+2. Reinicie/redeploy a aplicacao.
+3. Acesse:
+   - Local: `http://localhost:3001/cadastro-temporario/membros`
+   - Producao: `https://SUA-URL/cadastro-temporario/membros`
+   (no Easypanel basta habilitar a variavel no servico `app` e fazer redeploy)
+
+Quando nao for mais usar, desligue a flag para evitar acessos publicos indesejados.
+
+Obrigatoriedades desta tela:
+- Nome completo
+- CPF valido (11 digitos, validade calculada)
+- Pelo menos um tipo selecionado (ex.: Membro / Visitante / etc.)
+
 ### Observacoes importantes
 
 - O container executa `npx prisma migrate deploy` antes de subir a aplicacao.

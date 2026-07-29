@@ -21,11 +21,30 @@ const yearField = z.preprocess((value) => {
   return n;
 }, z.number().int().min(1900).max(currentYear).optional());
 
+function validateCpfDigits(digits: string) {
+  if (digits.length !== 11) return false;
+  if (/^(\d)\1+$/.test(digits)) return false;
+
+  const calc = (length: number, factor: number) => {
+    let sum = 0;
+    for (let i = 0; i < length; i++) {
+      sum += Number(digits[i]) * (factor - i);
+    }
+    const rest = sum % 11;
+    return rest < 2 ? 0 : 11 - rest;
+  };
+
+  const d1 = calc(9, 10);
+  const d2 = calc(10, 11);
+  return Number(digits[9]) === d1 && Number(digits[10]) === d2;
+}
+
 const cpfField = z.preprocess((value) => {
   const digits = String(value ?? "").replace(/\D/g, "");
-  if (!digits) return undefined;
   return digits;
-}, z.string().length(11));
+}, z.string().refine((digits) => validateCpfDigits(digits), {
+  message: "CPF invalido.",
+}));
 
 const createMemberSchema = z.object({
   fullName: z.string().min(2),
@@ -62,99 +81,114 @@ async function createTemporaryMember(formData: FormData) {
 
   if (!isTempMemberIntakeEnabled()) notFound();
 
-  const parsed = createMemberSchema.safeParse({
-    fullName: formData.get("fullName"),
-    cpf: formData.get("cpf"),
-    email: formData.get("email"),
-    phone: formData.get("phone"),
-    ministryIds: formData.getAll("ministryIds").map((value) => String(value)),
-    types: formData.getAll("types").map((value) => String(value)),
-    zip: formData.get("zip"),
-    addressLine1: formData.get("addressLine1"),
-    addressLine2: formData.get("addressLine2"),
-    neighborhood: formData.get("neighborhood"),
-    city: formData.get("city"),
-    state: formData.get("state"),
-    baptized: formData.get("baptized") === "on",
-    baptismYear: formData.get("baptismYear"),
-    conversionYear: formData.get("conversionYear"),
-  });
-
   const intakePath = getTempMemberIntakePath();
-  if (!parsed.success) redirect(`${intakePath}?status=erro`);
 
-  const selectedTypes = getSelectedTypes(parsed.data.types);
-  const primaryType = getPrimaryType(selectedTypes);
-  const normalizedCpf = parsed.data.cpf;
-  const normalizedEmail = parsed.data.email ? parsed.data.email.toLowerCase().trim() : null;
-  const baptized = Boolean(parsed.data.baptized);
+  try {
+    const parsed = createMemberSchema.safeParse({
+      fullName: formData.get("fullName"),
+      cpf: formData.get("cpf"),
+      email: formData.get("email"),
+      phone: formData.get("phone"),
+      ministryIds: formData.getAll("ministryIds").map((value) => String(value)),
+      types: formData.getAll("types").map((value) => String(value)),
+      zip: formData.get("zip"),
+      addressLine1: formData.get("addressLine1"),
+      addressLine2: formData.get("addressLine2"),
+      neighborhood: formData.get("neighborhood"),
+      city: formData.get("city"),
+      state: formData.get("state"),
+      baptized: formData.get("baptized") === "on",
+      baptismYear: formData.get("baptismYear"),
+      conversionYear: formData.get("conversionYear"),
+    });
 
-  const existingByCpf = await prisma.member.findUnique({
-    where: { cpf: normalizedCpf },
-    select: { id: true },
-  });
-  if (existingByCpf) redirect(`${intakePath}?status=cpf-existente`);
+    if (!parsed.success) {
+      const issueCode = parsed.error.issues.find((issue) => issue.path[0] === "cpf")?.code;
+      if (issueCode) redirect(`${intakePath}?status=cpf-invalido`);
+      redirect(`${intakePath}?status=erro`);
+    }
 
-  if (normalizedEmail) {
-    const existing = await prisma.member.findUnique({
-      where: { email: normalizedEmail },
+    const selectedTypes = getSelectedTypes(parsed.data.types);
+    const primaryType = getPrimaryType(selectedTypes);
+    const normalizedCpf = parsed.data.cpf;
+    const normalizedEmail = parsed.data.email ? parsed.data.email.toLowerCase().trim() : null;
+    const baptized = Boolean(parsed.data.baptized);
+
+    const existingByCpf = await prisma.member.findUnique({
+      where: { cpf: normalizedCpf },
       select: { id: true },
     });
-    if (existing) redirect(`${intakePath}?status=email-existente`);
-  }
+    if (existingByCpf) redirect(`${intakePath}?status=cpf-existente`);
 
-  const ministryIds = Array.from(
-    new Set((parsed.data.ministryIds ?? []).map((id) => String(id).trim()).filter(Boolean)),
-  );
-  const validMinistries = ministryIds.length
-    ? await prisma.ministry.findMany({
-        where: { id: { in: ministryIds }, active: true },
+    if (normalizedEmail) {
+      const existingByEmail = await prisma.member.findUnique({
+        where: { email: normalizedEmail },
         select: { id: true },
-      })
-    : [];
-  const validMinistryIds = validMinistries.map((ministry) => ministry.id);
+      });
+      if (existingByEmail) redirect(`${intakePath}?status=email-existente`);
+    }
 
-  const member = await prisma.member.create({
-    data: {
-      fullName: parsed.data.fullName.trim(),
-      cpf: normalizedCpf,
-      email: normalizedEmail,
-      phone: parsed.data.phone ? String(parsed.data.phone).trim() : null,
-      type: primaryType,
-      types: selectedTypes,
-      ministryId: validMinistryIds[0] ?? null,
-      memberMinistries: validMinistryIds.length
-        ? { createMany: { data: validMinistryIds.map((ministryId) => ({ ministryId })) } }
-        : undefined,
-      zip: parsed.data.zip ? String(parsed.data.zip).trim() : null,
-      addressLine1: parsed.data.addressLine1 ? String(parsed.data.addressLine1).trim() : null,
-      addressLine2: parsed.data.addressLine2 ? String(parsed.data.addressLine2).trim() : null,
-      neighborhood: parsed.data.neighborhood ? String(parsed.data.neighborhood).trim() : null,
-      city: parsed.data.city ? String(parsed.data.city).trim() : null,
-      state: parsed.data.state ? String(parsed.data.state).trim().toUpperCase().slice(0, 2) : null,
-      baptized,
-      baptismYear: baptized ? parsed.data.baptismYear ?? null : null,
-      conversionYear: parsed.data.conversionYear ?? null,
-    },
-  });
+    const ministryIds = Array.from(
+      new Set((parsed.data.ministryIds ?? []).map((id) => String(id).trim()).filter(Boolean)),
+    );
+    const validMinistries = ministryIds.length
+      ? await prisma.ministry.findMany({
+          where: { id: { in: ministryIds }, active: true },
+          select: { id: true },
+        })
+      : [];
+    const validMinistryIds = validMinistries.map((ministry) => ministry.id);
 
-  await logAudit({
-    action: "CREATE_TEMP_PUBLIC",
-    entityType: "Member",
-    entityId: member.id,
-    after: {
-      id: member.id,
-      fullName: member.fullName,
-      cpf: member.cpf,
-      email: member.email,
-      phone: member.phone,
-      type: member.type,
-      types: member.types,
-      source: "temp-public-intake",
-    },
-  });
+    const member = await prisma.member.create({
+      data: {
+        fullName: parsed.data.fullName.trim(),
+        cpf: normalizedCpf,
+        email: normalizedEmail,
+        phone: parsed.data.phone ? String(parsed.data.phone).trim() : null,
+        type: primaryType,
+        types: selectedTypes,
+        ministryId: validMinistryIds[0] ?? null,
+        memberMinistries: validMinistryIds.length
+          ? { createMany: { data: validMinistryIds.map((ministryId) => ({ ministryId })) } }
+          : undefined,
+        zip: parsed.data.zip ? String(parsed.data.zip).trim() : null,
+        addressLine1: parsed.data.addressLine1 ? String(parsed.data.addressLine1).trim() : null,
+        addressLine2: parsed.data.addressLine2 ? String(parsed.data.addressLine2).trim() : null,
+        neighborhood: parsed.data.neighborhood ? String(parsed.data.neighborhood).trim() : null,
+        city: parsed.data.city ? String(parsed.data.city).trim() : null,
+        state: parsed.data.state ? String(parsed.data.state).trim().toUpperCase().slice(0, 2) : null,
+        baptized,
+        baptismYear: baptized ? parsed.data.baptismYear ?? null : null,
+        conversionYear: parsed.data.conversionYear ?? null,
+      },
+    });
 
-  redirect(`${intakePath}?status=ok`);
+    try {
+      await logAudit({
+        actorUserId: null,
+        action: "CREATE_TEMP_PUBLIC",
+        entityType: "Member",
+        entityId: member.id,
+        after: {
+          id: member.id,
+          fullName: member.fullName,
+          cpf: member.cpf,
+          email: member.email,
+          phone: member.phone,
+          type: member.type,
+          types: member.types,
+          source: "temp-public-intake",
+        },
+      });
+    } catch {
+      // audit nao deve quebrar o cadastro publico
+    }
+
+    redirect(`${intakePath}?status=ok`);
+  } catch (err) {
+    console.error("[temp-members] Falha ao processar cadastro temporario:", err);
+    redirect(`${intakePath}?status=falha-servidor`);
+  }
 }
 
 function getMessage(status: string | undefined) {
@@ -176,6 +210,20 @@ function getMessage(status: string | undefined) {
     return {
       tone: "warning",
       text: "Ja existe um cadastro com este CPF no sistema.",
+    } as const;
+  }
+
+  if (status === "cpf-invalido") {
+    return {
+      tone: "warning",
+      text: "CPF informado e invalido. Revise os digitos e tente novamente.",
+    } as const;
+  }
+
+  if (status === "falha-servidor") {
+    return {
+      tone: "warning",
+      text: "Nao foi possivel salvar neste momento. Tente novamente em instantes.",
     } as const;
   }
 

@@ -27,6 +27,24 @@ function formatCpf(input: string) {
     .replace(/\.(\d{3})(\d)/, ".$1-$2");
 }
 
+function validateCpf(digits: string) {
+  if (digits.length !== 11) return false;
+  if (/^(\d)\1+$/.test(digits)) return false;
+
+  const calc = (length: number, factor: number) => {
+    let sum = 0;
+    for (let i = 0; i < length; i++) {
+      sum += Number(digits[i]) * (factor - i);
+    }
+    const rest = sum % 11;
+    return rest < 2 ? 0 : 11 - rest;
+  };
+
+  const d1 = calc(9, 10);
+  const d2 = calc(10, 11);
+  return Number(digits[9]) === d1 && Number(digits[10]) === d2;
+}
+
 async function fetchViaCep(cep: string) {
   const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`, { cache: "no-store" });
   if (!res.ok) return null;
@@ -59,6 +77,8 @@ export function TemporaryMemberIntakeForm(props: {
   const [baptismYear, setBaptismYear] = useState("");
   const [conversionYear, setConversionYear] = useState("");
   const [cepStatus, setCepStatus] = useState<"idle" | "loading" | "error" | "ok">("idle");
+  const [submitStatus, setSubmitStatus] = useState<"idle" | "submitting">("idle");
+  const [cpfError, setCpfError] = useState<string | null>(null);
 
   function toggleType(value: MemberTypeValue) {
     setSelectedTypes((prev) => {
@@ -96,7 +116,31 @@ export function TemporaryMemberIntakeForm(props: {
   }
 
   return (
-    <form action={props.action} className="space-y-4">
+    <form
+      action={props.action}
+      className="space-y-4"
+      onSubmit={(e) => {
+        if (submitStatus === "submitting") {
+          e.preventDefault();
+          return;
+        }
+        const raw = new FormData(e.currentTarget);
+        const cpfDigits = String(raw.get("cpf") ?? "").replace(/\D/g, "");
+        const types = raw.getAll("types");
+        if (!validateCpf(cpfDigits)) {
+          e.preventDefault();
+          setCpfError("Informe um CPF valido (11 digitos numericos).");
+          e.currentTarget.querySelector<HTMLInputElement>('input[name="cpf"]')?.focus();
+          return;
+        }
+        if (!types.length) {
+          e.preventDefault();
+          return;
+        }
+        setCpfError(null);
+        setSubmitStatus("submitting");
+      }}
+    >
       <div className="space-y-2">
         <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Nome completo
@@ -111,9 +155,13 @@ export function TemporaryMemberIntakeForm(props: {
             name="cpf"
             placeholder="000.000.000-00"
             value={cpf}
-            onChange={(e) => setCpf(formatCpf(e.target.value))}
+            onChange={(e) => {
+              setCpf(formatCpf(e.target.value));
+              if (cpfError) setCpfError(null);
+            }}
             required
           />
+          {cpfError ? <div className="text-xs text-red-400">{cpfError}</div> : null}
         </div>
         <div className="space-y-2">
           <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">E-mail</div>
@@ -296,8 +344,8 @@ export function TemporaryMemberIntakeForm(props: {
         </div>
       </div>
 
-      <Button className="w-full" type="submit">
-        Cadastrar membro
+      <Button className="w-full" type="submit" disabled={submitStatus === "submitting"}>
+        {submitStatus === "submitting" ? "Enviando..." : "Cadastrar membro"}
       </Button>
     </form>
   );
