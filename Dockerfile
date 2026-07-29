@@ -27,9 +27,10 @@ COPY . .
 RUN npx prisma generate && npm run build
 
 ENV NODE_ENV=production
+ENV HOST=0.0.0.0
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "npx prisma migrate deploy && npx prisma db seed && npm run start"]
+CMD ["sh", "-c", "npx prisma migrate deploy && (npx prisma db seed || echo '[seed] WARN: seed did not complete successfully') && npm run start"]
