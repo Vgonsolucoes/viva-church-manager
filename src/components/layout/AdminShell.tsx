@@ -309,13 +309,15 @@ export function AdminShell(props: {
                 </a>
               </div>
               <div className="mt-2 flex items-center gap-3">
-                {props.user.image ? (
+                {typeof props.user.image === "string" && props.user.image.length > 0 ? (
                   <Image
                     src={props.user.image}
                     alt={props.user.name ?? "Usuário"}
                     width={36}
                     height={36}
                     className="size-9 rounded-2xl object-cover"
+                    unoptimized
+                    loader={({ src }) => src}
                   />
                 ) : (
                   <div className="flex size-9 items-center justify-center rounded-2xl bg-muted/30 text-xs font-semibold text-foreground">
@@ -381,13 +383,15 @@ export function AdminShell(props: {
                 {rangeLabel}
               </div>
               <div className="flex items-center gap-2 rounded-2xl border border-border bg-muted/20 px-2 py-1.5">
-                {props.user.image ? (
+                {typeof props.user.image === "string" && props.user.image.length > 0 ? (
                   <Image
                     src={props.user.image}
                     alt={props.user.name ?? "Usuário"}
                     width={28}
                     height={28}
                     className="size-7 rounded-full object-cover"
+                    unoptimized
+                    loader={({ src }) => src}
                   />
                 ) : (
                   <div className="flex size-7 items-center justify-center rounded-full bg-muted text-xs font-semibold text-foreground">

@@ -137,7 +137,7 @@ export function MembersFormClient(props: {
   return (
     <div>
       <div className="text-sm font-medium">{props.title}</div>
-      <form action={props.action} className="mt-4 space-y-3">
+      <form action={props.action} className="mt-4 space-y-3" encType="multipart/form-data">
         {props.mode === "edit" ? (
           <input type="hidden" name="memberId" value={props.defaultValues?.memberId ?? ""} />
         ) : null}

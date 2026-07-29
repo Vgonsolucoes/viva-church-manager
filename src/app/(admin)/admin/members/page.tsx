@@ -97,10 +97,23 @@ async function createMember(formData: FormData) {
   if (!parsed.success) return;
 
   const photoFile = formData.get("photoFile");
-  const uploadedPhotoUrl =
-    photoFile && typeof (photoFile as File).name === "string" && (photoFile as File).name
-      ? await saveMemberAvatarUpload(photoFile as unknown as File)
-      : null;
+  let uploadedPhotoUrl: string | null = null;
+  try {
+    const file = photoFile as unknown as File | null;
+    if (
+      file &&
+      typeof file === "object" &&
+      typeof (file as { name?: unknown }).name === "string" &&
+      (file as File).name.length > 0 &&
+      typeof (file as { size?: unknown }).size === "number" &&
+      (file as File).size > 0
+    ) {
+      uploadedPhotoUrl = await saveMemberAvatarUpload(file as File);
+    }
+  } catch (err) {
+    console.error("[members] Falha ao salvar foto de perfil:", err);
+    uploadedPhotoUrl = null;
+  }
 
   const selectedTypes = getSelectedTypes(parsed.data.types);
   const primaryType = getPrimaryType(selectedTypes);
@@ -152,8 +165,15 @@ async function createMember(formData: FormData) {
 
   if (member.email && member.photoUrl) {
     await prisma.user.updateMany({
-      where: { email: member.email },
+      where: {
+        OR: [{ email: member.email }, { memberId: member.id }],
+      },
       data: { imageUrl: member.photoUrl },
+    });
+  } else if (member.id) {
+    await prisma.user.updateMany({
+      where: { memberId: member.id, imageUrl: null },
+      data: { imageUrl: null },
     });
   }
 
@@ -213,10 +233,23 @@ async function updateMember(formData: FormData) {
   if (!parsed.success) return;
 
   const photoFile = formData.get("photoFile");
-  const uploadedPhotoUrl =
-    photoFile && typeof (photoFile as File).name === "string" && (photoFile as File).name
-      ? await saveMemberAvatarUpload(photoFile as unknown as File)
-      : null;
+  let uploadedPhotoUrl: string | null = null;
+  try {
+    const file = photoFile as unknown as File | null;
+    if (
+      file &&
+      typeof file === "object" &&
+      typeof (file as { name?: unknown }).name === "string" &&
+      (file as File).name.length > 0 &&
+      typeof (file as { size?: unknown }).size === "number" &&
+      (file as File).size > 0
+    ) {
+      uploadedPhotoUrl = await saveMemberAvatarUpload(file as File);
+    }
+  } catch (err) {
+    console.error("[members] Falha ao salvar foto de perfil:", err);
+    uploadedPhotoUrl = null;
+  }
 
   const selectedTypes = getSelectedTypes(parsed.data.types);
   const primaryType = getPrimaryType(selectedTypes);
@@ -311,9 +344,14 @@ async function updateMember(formData: FormData) {
       },
     });
 
-    if (updatedMember.photoUrl && updatedMember.email) {
+    if (updatedMember.photoUrl) {
       await tx.user.updateMany({
-        where: { email: updatedMember.email },
+        where: {
+          OR: [
+            updatedMember.email ? { email: updatedMember.email } : undefined,
+            { memberId: updatedMember.id },
+          ].filter(Boolean) as Array<{ email: string } | { memberId: string }>,
+        },
         data: { imageUrl: updatedMember.photoUrl },
       });
     }

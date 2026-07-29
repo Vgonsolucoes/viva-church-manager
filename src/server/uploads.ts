@@ -14,27 +14,34 @@ const allowedMimeToExt: Record<string, string> = {
 };
 
 async function saveUploadedFile(file: File, prefix: string, maxBytes: number) {
-  if (!file) return null;
-  if (typeof (file as { arrayBuffer?: unknown }).arrayBuffer !== "function") return null;
+  try {
+    if (!file) return null;
+    if (typeof (file as { arrayBuffer?: unknown }).arrayBuffer !== "function") return null;
 
-  const size = (file as { size?: unknown }).size;
-  const type = (file as { type?: unknown }).type;
-  if (typeof size !== "number" || size <= 0) return null;
-  if (size > maxBytes) return null;
-  if (typeof type !== "string") return null;
+    const size = (file as { size?: unknown }).size;
+    const type = (file as { type?: unknown }).type;
+    if (typeof size !== "number" || size <= 0) return null;
+    if (size > maxBytes) return null;
+    if (typeof type !== "string") return null;
 
-  const ext = allowedMimeToExt[type];
-  if (!ext) return null;
+    const ext = allowedMimeToExt[type];
+    if (!ext) return null;
 
-  const buffer = Buffer.from(await (file as File).arrayBuffer());
-  const uploadsDir = path.join(process.cwd(), "public", "uploads");
-  await mkdir(uploadsDir, { recursive: true });
+    const buffer = Buffer.from(await (file as File).arrayBuffer());
+    if (!buffer.length) return null;
 
-  const name = `${prefix}_${Date.now()}_${crypto.randomBytes(10).toString("hex")}.${ext}`;
-  const fullPath = path.join(uploadsDir, name);
-  await writeFile(fullPath, buffer);
+    const uploadsDir = path.join(process.cwd(), "public", "uploads");
+    await mkdir(uploadsDir, { recursive: true });
 
-  return `/uploads/${name}`;
+    const name = `${prefix}_${Date.now()}_${crypto.randomBytes(10).toString("hex")}.${ext}`;
+    const fullPath = path.join(uploadsDir, name);
+    await writeFile(fullPath, buffer);
+
+    return `/uploads/${name}`;
+  } catch (err) {
+    console.error("[uploads] Falha ao salvar arquivo:", err);
+    return null;
+  }
 }
 
 export async function savePublicImageUpload(file: File) {

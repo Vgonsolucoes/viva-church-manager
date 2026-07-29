@@ -20,7 +20,7 @@ export default async function AdminLayout(props: { children: React.ReactNode }) 
       })
     : 0;
 
-  let resolvedAvatar = session.user?.image ?? null;
+  let resolvedAvatar: string | undefined = session.user?.image ?? undefined;
   if (session.uid && !resolvedAvatar) {
     const linked = await prisma.user.findUnique({
       where: { id: session.uid },
@@ -29,7 +29,7 @@ export default async function AdminLayout(props: { children: React.ReactNode }) 
         member: { select: { photoUrl: true } },
       },
     });
-    resolvedAvatar = linked?.imageUrl ?? linked?.member?.photoUrl ?? null;
+    resolvedAvatar = linked?.imageUrl ?? linked?.member?.photoUrl ?? undefined;
   }
 
   return (
@@ -37,7 +37,7 @@ export default async function AdminLayout(props: { children: React.ReactNode }) 
       user={{
         name: session.user?.name,
         email: session.user?.email,
-        image: resolvedAvatar,
+        image: resolvedAvatar ?? undefined,
         roles,
         unreadNotifications,
       }}
