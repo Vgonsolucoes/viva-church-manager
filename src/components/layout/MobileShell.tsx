@@ -13,8 +13,24 @@ const items = [
   { href: "/app/profile", label: "Perfil", icon: <User className="size-5" /> },
 ];
 
-export function MobileShell(props: { children: React.ReactNode }) {
+export function MobileShell(props: {
+  children: React.ReactNode;
+  user?: {
+    name?: string | null;
+    image?: string | null;
+  };
+}) {
   const pathname = usePathname();
+
+  const user = props.user;
+  const initials = (() => {
+    const name = user?.name?.trim() ?? "";
+    if (!name) return "";
+    const parts = name.split(/\s+/g).filter(Boolean);
+    const first = parts[0]?.[0] ?? "";
+    const second = parts.length > 1 ? parts[1]?.[0] ?? "" : parts[0]?.[1] ?? "";
+    return (first + second).toUpperCase();
+  })();
 
   return (
     <div className="min-h-full w-full">
@@ -34,6 +50,25 @@ export function MobileShell(props: { children: React.ReactNode }) {
               <div className="truncate text-xs text-muted-foreground">Mobile</div>
             </div>
           </div>
+          {user?.image || initials ? (
+            <div className="flex items-center gap-2">
+              {user?.image ? (
+                <Image
+                  src={user.image}
+                  alt={user.name ?? "Usuário"}
+                  width={30}
+                  height={30}
+                  className="size-[30px] rounded-full object-cover border border-border/70"
+                  unoptimized
+                  loader={({ src }) => src}
+                />
+              ) : (
+                <div className="flex size-[30px] items-center justify-center rounded-full border border-border/70 bg-muted/20 text-[10px] font-semibold text-foreground">
+                  {initials}
+                </div>
+              )}
+            </div>
+          ) : null}
         </div>
         {props.children}
       </div>

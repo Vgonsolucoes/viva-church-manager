@@ -21,18 +21,24 @@ export const authOptions: NextAuthOptions = {
 
         const user = await prisma.user.findUnique({
           where: { email },
-          include: { roles: true },
+          include: {
+            roles: true,
+            member: { select: { photoUrl: true } },
+          },
         });
         if (!user || !user.passwordHash) return null;
 
         const ok = await bcrypt.compare(password, user.passwordHash);
         if (!ok) return null;
 
+        const resolvedImage =
+          user.imageUrl ?? user.member?.photoUrl ?? undefined;
+
         return {
           id: user.id,
           name: user.name ?? user.email,
           email: user.email,
-          image: user.imageUrl ?? undefined,
+          image: resolvedImage,
           roles: user.roles.map((r) => r.role) as RoleKey[],
         };
       },
@@ -43,12 +49,18 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.uid = user.id;
         token.roles = user.roles ?? [];
+        if (user.image) {
+          token.picture = user.image;
+        }
       }
       return token;
     },
     async session({ session, token }) {
       session.uid = token.uid;
       session.roles = (token.roles ?? []) as RoleKey[];
+      if (session.user) {
+        session.user.image = (token.picture ?? session.user.image) ?? null;
+      }
       return session;
     },
   },

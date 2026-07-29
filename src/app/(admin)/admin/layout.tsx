@@ -20,12 +20,24 @@ export default async function AdminLayout(props: { children: React.ReactNode }) 
       })
     : 0;
 
+  let resolvedAvatar = session.user?.image ?? null;
+  if (session.uid && !resolvedAvatar) {
+    const linked = await prisma.user.findUnique({
+      where: { id: session.uid },
+      select: {
+        imageUrl: true,
+        member: { select: { photoUrl: true } },
+      },
+    });
+    resolvedAvatar = linked?.imageUrl ?? linked?.member?.photoUrl ?? null;
+  }
+
   return (
     <AdminShell
       user={{
         name: session.user?.name,
         email: session.user?.email,
-        image: session.user?.image,
+        image: resolvedAvatar,
         roles,
         unreadNotifications,
       }}

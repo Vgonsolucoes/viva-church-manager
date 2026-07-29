@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -50,6 +51,7 @@ export function MembersFormClient(props: {
   defaultValues?: Partial<{
     memberId: string;
     fullName: string;
+    photoUrl: string | null;
     cpf: string | null;
     email: string | null;
     phone: string | null;
@@ -93,6 +95,9 @@ export function MembersFormClient(props: {
     props.defaultValues?.conversionYear ? String(props.defaultValues.conversionYear) : "",
   );
   const [cepStatus, setCepStatus] = useState<"idle" | "loading" | "error" | "ok">("idle");
+  const [photoPreview, setPhotoPreview] = useState<string | null>(
+    props.defaultValues?.photoUrl ?? null,
+  );
 
   function toggleType(value: MemberTypeValue) {
     setSelectedTypes((prev) => {
@@ -258,6 +263,63 @@ export function MembersFormClient(props: {
                 value={conversionYear}
                 onChange={(e) => setConversionYear(e.target.value)}
               />
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <div className="text-xs font-medium text-muted-foreground">Foto de perfil</div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-3xl border border-border/70 bg-muted/10">
+              {photoPreview ? (
+                <Image
+                  src={photoPreview}
+                  alt="Pré-visualização"
+                  width={80}
+                  height={80}
+                  className="size-full object-cover"
+                  unoptimized
+                  loader={({ src }) => src}
+                />
+              ) : (
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Sem foto
+                </div>
+              )}
+            </div>
+            <div className="min-w-0 flex-1 space-y-2">
+              <input
+                type="file"
+                name="photoFile"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) {
+                    setPhotoPreview(props.defaultValues?.photoUrl ?? null);
+                    return;
+                  }
+                  const reader = new FileReader();
+                  reader.onload = () => setPhotoPreview(String(reader.result));
+                  reader.readAsDataURL(file);
+                }}
+                className="block w-full rounded-2xl border border-border/80 bg-background px-3 py-2 text-sm file:mr-3 file:rounded-xl file:border-0 file:bg-muted/30 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-foreground hover:file:bg-muted/40"
+              />
+              <div className="rounded-2xl border border-border/70 bg-muted/10 p-3">
+                <div className="text-xs text-muted-foreground">
+                  Formatos aceitos: JPG, PNG ou WEBP. Até 2MB.
+                </div>
+              </div>
+              {photoPreview && props.defaultValues?.photoUrl !== photoPreview ? (
+                <Button
+                  variant="ghost"
+                  type="button"
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={() => setPhotoPreview(props.defaultValues?.photoUrl ?? null)}
+                >
+                  Manter foto atual
+                </Button>
+              ) : null}
             </div>
           </div>
         </div>

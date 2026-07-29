@@ -1,4 +1,5 @@
 import { revalidatePath } from "next/cache";
+import Image from "next/image";
 import { getServerSession } from "next-auth";
 import { z } from "zod";
 import type { MemberType } from "@/generated/prisma/client";
@@ -7,6 +8,7 @@ import { Badge } from "@/components/ui/Badge";
 import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
 import { logAudit } from "@/server/audit";
+import { saveMemberAvatarUpload } from "@/server/uploads";
 import { MembersFormClient } from "./MembersFormClient";
 
 export const dynamic = "force-dynamic";
@@ -94,6 +96,12 @@ async function createMember(formData: FormData) {
 
   if (!parsed.success) return;
 
+  const photoFile = formData.get("photoFile");
+  const uploadedPhotoUrl =
+    photoFile && typeof (photoFile as File).name === "string" && (photoFile as File).name
+      ? await saveMemberAvatarUpload(photoFile as unknown as File)
+      : null;
+
   const selectedTypes = getSelectedTypes(parsed.data.types);
   const primaryType = getPrimaryType(selectedTypes);
   const normalizedCpf = parsed.data.cpf ?? null;
@@ -120,6 +128,7 @@ async function createMember(formData: FormData) {
   const member = await prisma.member.create({
     data: {
       fullName: parsed.data.fullName,
+      photoUrl: uploadedPhotoUrl,
       cpf: normalizedCpf,
       email: parsed.data.email ? parsed.data.email.toLowerCase().trim() : null,
       phone: parsed.data.phone ? String(parsed.data.phone).trim() : null,
@@ -141,6 +150,13 @@ async function createMember(formData: FormData) {
     },
   });
 
+  if (member.email && member.photoUrl) {
+    await prisma.user.updateMany({
+      where: { email: member.email },
+      data: { imageUrl: member.photoUrl },
+    });
+  }
+
   await logAudit({
     actorUserId: session?.uid ?? null,
     action: "CREATE",
@@ -149,6 +165,7 @@ async function createMember(formData: FormData) {
     after: {
       id: member.id,
       fullName: member.fullName,
+      photoUrl: member.photoUrl,
       cpf: member.cpf,
       email: member.email,
       type: member.type,
@@ -195,6 +212,12 @@ async function updateMember(formData: FormData) {
 
   if (!parsed.success) return;
 
+  const photoFile = formData.get("photoFile");
+  const uploadedPhotoUrl =
+    photoFile && typeof (photoFile as File).name === "string" && (photoFile as File).name
+      ? await saveMemberAvatarUpload(photoFile as unknown as File)
+      : null;
+
   const selectedTypes = getSelectedTypes(parsed.data.types);
   const primaryType = getPrimaryType(selectedTypes);
   const normalizedCpf = parsed.data.cpf ?? null;
@@ -215,6 +238,7 @@ async function updateMember(formData: FormData) {
     select: {
       id: true,
       fullName: true,
+      photoUrl: true,
       cpf: true,
       email: true,
       phone: true,
@@ -244,10 +268,11 @@ async function updateMember(formData: FormData) {
 
   const updated = await prisma.$transaction(async (tx) => {
     await tx.memberMinistry.deleteMany({ where: { memberId: before.id } });
-    return tx.member.update({
+    const updatedMember = await tx.member.update({
       where: { id: before.id },
       data: {
         fullName: parsed.data.fullName,
+        photoUrl: uploadedPhotoUrl ?? before.photoUrl,
         cpf: normalizedCpf,
         email: parsed.data.email ? parsed.data.email.toLowerCase().trim() : null,
         phone: parsed.data.phone ? String(parsed.data.phone).trim() : null,
@@ -270,6 +295,7 @@ async function updateMember(formData: FormData) {
       select: {
         id: true,
         fullName: true,
+        photoUrl: true,
         cpf: true,
         email: true,
         phone: true,
@@ -284,6 +310,15 @@ async function updateMember(formData: FormData) {
         ministryId: true,
       },
     });
+
+    if (updatedMember.photoUrl && updatedMember.email) {
+      await tx.user.updateMany({
+        where: { email: updatedMember.email },
+        data: { imageUrl: updatedMember.photoUrl },
+      });
+    }
+
+    return updatedMember;
   });
 
   await logAudit({
@@ -291,7 +326,21 @@ async function updateMember(formData: FormData) {
     action: "UPDATE",
     entityType: "Member",
     entityId: updated.id,
-    before,
+    before: {
+      id: before.id,
+      fullName: before.fullName,
+      photoUrl: before.photoUrl,
+      cpf: before.cpf,
+      email: before.email,
+      type: before.type,
+      types: before.types,
+      zip: before.zip,
+      city: before.city,
+      state: before.state,
+      baptized: before.baptized,
+      baptismYear: before.baptismYear,
+      conversionYear: before.conversionYear,
+    },
     after: updated,
   });
 
@@ -308,6 +357,7 @@ export default async function MembersPage(props: { searchParams?: Promise<Record
     select: {
       id: true,
       fullName: true,
+      photoUrl: true,
       cpf: true,
       email: true,
       phone: true,
@@ -335,6 +385,7 @@ export default async function MembersPage(props: { searchParams?: Promise<Record
         select: {
           id: true,
           fullName: true,
+          photoUrl: true,
           cpf: true,
           email: true,
           phone: true,
@@ -374,17 +425,36 @@ export default async function MembersPage(props: { searchParams?: Promise<Record
             {members.length ? (
               members.map((m) => (
                 <div key={m.id} className="flex items-center justify-between gap-4 py-3">
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold">{m.fullName}</div>
-                    <div className="truncate text-xs text-muted-foreground">
-                      {m.cpf ? `CPF ${m.cpf} • ` : ""}
-                      {m.email ?? "—"} {m.phone ? `• ${m.phone}` : ""}
-                      {m.city || m.state ? ` • ${[m.city, m.state].filter(Boolean).join(" - ")}` : ""}
-                      {m.memberMinistries.length
-                        ? ` • ${m.memberMinistries.map((mm) => mm.ministry.name).join(", ")}`
-                        : m.ministry?.name
-                          ? ` • ${m.ministry.name}`
-                          : ""}
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border/70 bg-muted/10">
+                      {m.photoUrl ? (
+                        <Image
+                          src={m.photoUrl}
+                          alt={m.fullName}
+                          width={44}
+                          height={44}
+                          className="size-full object-cover"
+                          unoptimized
+                          loader={({ src }) => src}
+                        />
+                      ) : (
+                        <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          {m.fullName.slice(0, 2).toUpperCase()}
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-semibold">{m.fullName}</div>
+                      <div className="truncate text-xs text-muted-foreground">
+                        {m.cpf ? `CPF ${m.cpf} • ` : ""}
+                        {m.email ?? "—"} {m.phone ? `• ${m.phone}` : ""}
+                        {m.city || m.state ? ` • ${[m.city, m.state].filter(Boolean).join(" - ")}` : ""}
+                        {m.memberMinistries.length
+                          ? ` • ${m.memberMinistries.map((mm) => mm.ministry.name).join(", ")}`
+                          : m.ministry?.name
+                            ? ` • ${m.ministry.name}`
+                            : ""}
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
@@ -451,6 +521,7 @@ export default async function MembersPage(props: { searchParams?: Promise<Record
               defaultValues={{
                 memberId: editMember.id,
                 fullName: editMember.fullName,
+                photoUrl: editMember.photoUrl,
                 cpf: editMember.cpf,
                 email: editMember.email,
                 phone: editMember.phone,
