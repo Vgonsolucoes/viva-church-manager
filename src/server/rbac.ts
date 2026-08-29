@@ -50,7 +50,9 @@ export type PermissionKey =
   | "reports:view"
   | "settings:manage"
   | "pastoral:notes:read"
-  | "pastoral:notes:write";
+  | "pastoral:notes:write"
+  | "youtube:read"
+  | "youtube:write";
 
 const rolePermissions: Record<RoleKey, PermissionKey[]> = {
   SUPER_ADMIN: [
@@ -92,6 +94,8 @@ const rolePermissions: Record<RoleKey, PermissionKey[]> = {
     "settings:manage",
     "pastoral:notes:read",
     "pastoral:notes:write",
+    "youtube:read",
+    "youtube:write",
   ],
   PASTOR_PRESIDENTE: [
     "admin:access",
@@ -113,6 +117,8 @@ const rolePermissions: Record<RoleKey, PermissionKey[]> = {
     "reports:view",
     "pastoral:notes:read",
     "pastoral:notes:write",
+    "youtube:read",
+    "youtube:write",
   ],
   PASTOR: [
     "admin:access",
@@ -129,6 +135,7 @@ const rolePermissions: Record<RoleKey, PermissionKey[]> = {
     "reports:view",
     "pastoral:notes:read",
     "pastoral:notes:write",
+    "youtube:read",
   ],
   MINISTRY_LEADER: [
     "admin:access",
@@ -184,6 +191,8 @@ const rolePermissions: Record<RoleKey, PermissionKey[]> = {
     "followup:read",
     "followup:write",
     "reports:view",
+    "youtube:read",
+    "youtube:write",
   ],
   RECEPTION: [
     "admin:access",
@@ -193,6 +202,7 @@ const rolePermissions: Record<RoleKey, PermissionKey[]> = {
     "courses:read",
     "followup:read",
     "followup:write",
+    "youtube:read",
   ],
   KIDS_MINISTRY: [
     "admin:access",

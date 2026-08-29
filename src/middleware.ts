@@ -20,6 +20,7 @@ const adminRoutePermissions: Array<{ prefix: string; permission: Parameters<type
     { prefix: "/admin/budget", permission: "budget:read" },
     { prefix: "/admin/notifications", permission: "notifications:read" },
     { prefix: "/admin/reports", permission: "reports:view" },
+    { prefix: "/admin/youtube-videos", permission: "youtube:read" },
     { prefix: "/admin/settings", permission: "settings:manage" },
   ];
 

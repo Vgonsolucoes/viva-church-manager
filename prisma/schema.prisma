@@ -143,6 +143,12 @@ enum ChildCheckStatus {
   CHECKED_OUT
 }
 
+enum YoutubeSyncStatus {
+  PENDING
+  SYNCED
+  ERROR
+}
+
 enum NotificationChannel {
   IN_APP
   EMAIL
@@ -175,6 +181,7 @@ model User {
   discipleshipHistoryCreated  DiscipleshipHistory[] @relation("DiscipleshipHistoryCreatedBy")
   followUpJourneysCreated     FollowUpJourney[]     @relation("FollowUpJourneyCreatedBy")
   followUpHistoryCreated      FollowUpHistory[]     @relation("FollowUpHistoryCreatedBy")
+  youtubeVideosSynced YoutubeVideo[]
   notificationDeliveries NotificationDelivery[]
 }
 
@@ -820,6 +827,29 @@ model ParkingFlow {
 
   @@index([occurredAt])
   @@index([capacityAlert])
+}
+
+model YoutubeVideo {
+  id             String            @id @default(cuid())
+  youtubeId        String           @unique
+  title          String
+  description    String?
+  thumbnailUrl   String?
+  publishedAt    DateTime
+  duration       String?
+  viewCount      Int?              @default(0)
+  visibleOnSite  Boolean         @default(false)
+  syncStatus     YoutubeSyncStatus @default(SYNCED)
+  syncError      String?
+  syncedById     String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  syncedBy       User?           @relation(fields: [syncedById], references: [id], onDelete: SetNull)
+
+  @@index([visibleOnSite])
+  @@index([publishedAt])
+  @@index([youtubeId])
 }
 
 model AuditLog {
