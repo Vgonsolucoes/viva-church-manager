@@ -38,6 +38,7 @@ export async function POST() {
           thumbnailUrl: true,
           publishedAt: true,
           duration: true,
+          viewCount: true,
         },
       });
 
@@ -57,12 +58,17 @@ export async function POST() {
         });
         imported += 1;
       } else {
+        const newViewCount =
+          (v.viewCount !== undefined && v.viewCount !== null ? v.viewCount : null) ??
+          (existing.viewCount ?? 0);
+
         const changed =
           existing.title !== v.title ||
           (existing.description ?? "") !== (v.description ?? "") ||
           (existing.thumbnailUrl ?? "") !== (v.thumbnailUrl ?? "") ||
           existing.publishedAt.getTime() !== new Date(v.publishedAt).getTime() ||
-          (existing.duration ?? "") !== (v.duration ?? "");
+          (existing.duration ?? "") !== (v.duration ?? "") ||
+          (existing.viewCount ?? 0) !== newViewCount;
 
         if (changed) {
           await prisma.youtubeVideo.update({
@@ -73,7 +79,7 @@ export async function POST() {
               thumbnailUrl: v.thumbnailUrl ?? null,
               publishedAt: v.publishedAt,
               duration: v.duration ?? null,
-              viewCount: v.viewCount ?? existing.viewCount ?? 0,
+              viewCount: newViewCount,
               syncStatus: "SYNCED",
               syncedById: session?.uid ?? null,
             },
