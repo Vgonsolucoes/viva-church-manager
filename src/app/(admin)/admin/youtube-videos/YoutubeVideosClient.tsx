@@ -251,7 +251,7 @@ export function YoutubeVideosClient(props: {
                 </div>
                 <div className="shrink-0 sm:w-40">
                   <Button
-                    variant={v.visibleOnSite ? "default" : "outline"}
+                    variant={v.visibleOnSite ? "primary" : "outline"}
                     size="sm"
                     className="w-full"
                     disabled={!props.canWrite || toggling[v.id]}
