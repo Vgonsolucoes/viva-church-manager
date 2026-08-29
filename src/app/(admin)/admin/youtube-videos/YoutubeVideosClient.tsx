@@ -2,12 +2,13 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
-import { RefreshCw, Youtube, Eye, EyeOff, Search } from "lucide-react";
+import { RefreshCw, Eye, EyeOff, Search } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { cn } from "@/lib/cn";
+import { YoutubeLogo } from "@/components/brand/YoutubeLogo";
 import { getYoutubeWatchUrl } from "@/server/youtube";
 
 export type YoutubeVideoRow = {
@@ -209,7 +210,7 @@ export function YoutubeVideosClient(props: {
                     />
                   ) : (
                     <div className="flex aspect-video h-full w-full items-center justify-center text-muted-foreground">
-                      <Youtube className="size-8" />
+                      <YoutubeLogo className="size-8" />
                     </div>
                   )}
                 </div>
@@ -244,7 +245,7 @@ export function YoutubeVideosClient(props: {
                       rel="noreferrer"
                       className="ml-auto inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
                     >
-                      <Youtube className="size-3.5" /> Abrir no YouTube
+                      <YoutubeLogo className="size-3.5" /> Abrir no YouTube
                     </a>
                   </div>
                 </div>
@@ -271,7 +272,7 @@ export function YoutubeVideosClient(props: {
             ))
           ) : (
             <div className="flex flex-col items-center justify-center gap-2 rounded-3xl border border-dashed border-border/80 bg-muted/5 px-6 py-10 text-center">
-              <Youtube className="size-10 text-muted-foreground" />
+              <YoutubeLogo className="size-10 text-muted-foreground" />
               <div className="text-sm font-semibold">Nenhum video encontrado</div>
               <div className="text-xs text-muted-foreground">
                 Clique em <span className="font-semibold">Sincronizar canal</span> para importar os

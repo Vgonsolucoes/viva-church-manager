@@ -2,12 +2,13 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
-import { Play, X, Youtube, Search } from "lucide-react";
+import { Play, X, Search } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
+import { YoutubeLogo } from "@/components/brand/YoutubeLogo";
 import { getYoutubeEmbedUrl, getYoutubeWatchUrl } from "@/server/youtube";
 
 export type PublicYoutubeVideo = {
@@ -52,7 +53,7 @@ export function VideosPublicClient(props: {
           <div>
             <div className="flex items-center gap-3">
               <div className="flex size-11 items-center justify-center rounded-2xl border border-border/80 bg-[rgba(11,23,48,0.6)] backdrop-blur">
-                <Youtube className="size-5 text-rose-400" />
+                <YoutubeLogo className="size-5 text-rose-400" />
               </div>
               <div>
                 <div className="text-2xl font-semibold tracking-tight">
@@ -150,7 +151,7 @@ export function VideosPublicClient(props: {
                       />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-                        <Youtube className="size-10" />
+                        <YoutubeLogo className="size-10" />
                       </div>
                     )}
                     <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
@@ -194,7 +195,7 @@ export function VideosPublicClient(props: {
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center gap-3 rounded-3xl border border-dashed border-border/80 bg-muted/5 px-6 py-14 text-center">
-              <Youtube className="size-10 text-muted-foreground" />
+              <YoutubeLogo className="size-10 text-muted-foreground" />
               <div className="text-sm font-semibold">Nenhum video disponivel no momento</div>
               <div className="max-w-md text-xs text-muted-foreground">
                 Volte em instantes. Novas mensagens e cultos sao publicados regularmente em nosso

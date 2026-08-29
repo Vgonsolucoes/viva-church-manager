@@ -9,6 +9,7 @@ import {
   Bell,
   Calendar,
   ClipboardList,
+  Film,
   GraduationCap,
   HandHeart,
   LayoutDashboard,
@@ -22,7 +23,6 @@ import {
   Settings,
   Users,
   UsersRound,
-  Youtube,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { Button } from "@/components/ui/Button";
@@ -126,7 +126,7 @@ const navItems: NavItem[] = [
   {
     href: "/admin/youtube-videos",
     label: "Vídeos YouTube",
-    icon: <Youtube className="size-4" />,
+    icon: <Film className="size-4" />,
     permission: "youtube:read",
   },
   {
