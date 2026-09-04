@@ -154,6 +154,37 @@ enum NotificationChannel {
   EMAIL
 }
 
+enum PrayerRequestPrivacy {
+  PRIVATE
+  PASTORS
+  LEADERSHIP
+  PUBLIC
+}
+
+enum VolunteerAvailabilityReason {
+  DISPONIVEL
+  INDISPONIVEL
+  VIAGEM
+  FERIAS
+  TRABALHO
+  OUTRO
+}
+
+enum ScheduleDeclineReason {
+  TRABALHO
+  VIAGEM
+  FAMILIAR
+  SAUDE
+  OUTRO
+}
+
+enum ScheduleSubstitutionStatus {
+  REQUESTED
+  VOLUNTEER_B_ACCEPTED
+  APPROVED_BY_LEADER
+  REJECTED
+}
+
 model User {
   id           String     @id @default(cuid())
   email        String     @unique
@@ -183,6 +214,7 @@ model User {
   followUpHistoryCreated      FollowUpHistory[]     @relation("FollowUpHistoryCreatedBy")
   youtubeVideosSynced YoutubeVideo[]
   notificationDeliveries NotificationDelivery[]
+  scheduleSubstitutionApproved ScheduleSubstitutionRequest[]
 }
 
 model UserRole {
@@ -257,6 +289,7 @@ model Member {
   discipleshipHistoryAsPreviousDiscipler DiscipleshipHistory[] @relation("DiscipleshipHistoryPreviousDiscipler")
   discipleshipHistoryAsNewDiscipler      DiscipleshipHistory[] @relation("DiscipleshipHistoryNewDiscipler")
   pastoralNotes              PastoralNote[]
+  prayerRequests             PrayerRequest[]
   cellMeetingAttendance      CellMeetingAttendance[]
   eventResponsibilities      Event[] @relation("EventResponsible")
   donations                  Donation[]
@@ -327,6 +360,9 @@ model VolunteerProfile {
   member      Member     @relation(fields: [memberId], references: [id], onDelete: Cascade)
   ministry    Ministry?  @relation(fields: [ministryId], references: [id], onDelete: SetNull)
   assignments ScheduleAssignment[]
+  availabilityBlocks VolunteerAvailabilityBlock[]
+  substitutionRequestsAsFrom ScheduleSubstitutionRequest[] @relation("SubstitutionFrom")
+  substitutionRequestsAsTo ScheduleSubstitutionRequest[] @relation("SubstitutionTo")
 
   @@index([ministryId])
 }
@@ -410,6 +446,7 @@ model ScheduleAssignment {
 
   schedule  Schedule         @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
   volunteer VolunteerProfile @relation(fields: [volunteerId], references: [id], onDelete: Cascade)
+  substitutionRequests ScheduleSubstitutionRequest[] @relation("SubstitutionAssignment")
 
   @@index([scheduleId])
   @@index([volunteerId])
@@ -870,3 +907,62 @@ model AuditLog {
   @@index([createdAt])
   @@index([actorUserId])
 }
+
+model PrayerRequest {
+  id        String               @id @default(cuid())
+  title     String
+  message   String
+  category  String?
+  privacy   PrayerRequestPrivacy @default(PRIVATE)
+  memberId  String
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([memberId])
+  @@index([privacy])
+  @@index([createdAt])
+}
+
+model VolunteerAvailabilityBlock {
+  id          String                     @id @default(cuid())
+  volunteerId String
+  startDate   DateTime
+  endDate     DateTime?
+  reason      VolunteerAvailabilityReason @default(INDISPONIVEL)
+  note        String?
+  createdAt   DateTime                   @default(now())
+  updatedAt   DateTime                   @updatedAt
+
+  volunteer VolunteerProfile @relation(fields: [volunteerId], references: [id], onDelete: Cascade)
+
+  @@index([volunteerId])
+  @@index([startDate])
+  @@index([reason])
+}
+
+model ScheduleSubstitutionRequest {
+  id             String                       @id @default(cuid())
+  assignmentId   String
+  fromVolunteerId String
+  toVolunteerId   String
+  status         ScheduleSubstitutionStatus   @default(REQUESTED)
+  reason         ScheduleDeclineReason?
+  note           String?
+  approvedAt     DateTime?
+  approvedById   String?
+  createdAt      DateTime                     @default(now())
+  updatedAt      DateTime                     @updatedAt
+
+  assignment    ScheduleAssignment @relation("SubstitutionAssignment", fields: [assignmentId], references: [id], onDelete: Cascade)
+  fromVolunteer VolunteerProfile   @relation("SubstitutionFrom", fields: [fromVolunteerId], references: [id], onDelete: Cascade)
+  toVolunteer   VolunteerProfile   @relation("SubstitutionTo", fields: [toVolunteerId], references: [id], onDelete: Cascade)
+  approvedBy    User?              @relation(fields: [approvedById], references: [id], onDelete: SetNull)
+
+  @@index([assignmentId])
+  @@index([fromVolunteerId])
+  @@index([toVolunteerId])
+  @@index([status])
+}
+
