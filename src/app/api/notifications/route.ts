@@ -1,13 +1,12 @@
-import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
+import { readSessionOrBearer } from "@/server/auth-jwt";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  const session = await getServerSession(authOptions);
+export async function GET(req: Request) {
+  const session = await readSessionOrBearer(req);
   if (!session?.uid) return NextResponse.json({ ok: false }, { status: 401 });
 
   const deliveries = await prisma.notificationDelivery.findMany({
@@ -19,7 +18,7 @@ export async function GET() {
 
   return NextResponse.json({
     ok: true,
-    deliveries: deliveries.map((d) => ({
+    deliveries: deliveries.map((d: any) => ({
       id: d.id,
       deliveredAt: d.deliveredAt,
       readAt: d.readAt,
@@ -36,7 +35,7 @@ export async function GET() {
 const readSchema = z.object({ deliveryId: z.string().min(1) });
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
+  const session = await readSessionOrBearer(req);
   if (!session?.uid) return NextResponse.json({ ok: false }, { status: 401 });
 
   const body = await req.json().catch(() => null);
