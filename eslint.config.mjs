@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Expo mobile app (verifica separadamente com seu próprio tsconfig/eslint)
+    "apps/**",
   ]),
 ]);
 

@@ -54,7 +54,7 @@ export type PermissionKey =
   | "youtube:read"
   | "youtube:write";
 
-const rolePermissions: Record<RoleKey, PermissionKey[]> = {
+export const rolePermissions: Record<RoleKey, PermissionKey[]> = {
   SUPER_ADMIN: [
     "admin:access",
     "dashboard:view",

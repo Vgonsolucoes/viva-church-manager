@@ -13,3 +13,8 @@ dist
 build
 .vercel
 .DS_Store
+apps/
+.trae/
+AGENTS.md
+CLAUDE.md
+README.md

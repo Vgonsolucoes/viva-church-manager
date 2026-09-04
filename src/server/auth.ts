@@ -1,8 +1,7 @@
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import bcrypt from "bcryptjs";
-import { prisma } from "@/server/db";
 import type { RoleKey } from "@/server/rbac";
+import { verifyUserCredentials } from "@/server/auth-jwt";
 
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
@@ -15,31 +14,17 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Senha", type: "password" },
       },
       async authorize(credentials) {
-        const email = credentials?.email?.toLowerCase().trim();
-        const password = credentials?.password ?? "";
-        if (!email || !password) return null;
-
-        const user = await prisma.user.findUnique({
-          where: { email },
-          include: {
-            roles: true,
-            member: { select: { photoUrl: true } },
-          },
-        });
-        if (!user || !user.passwordHash) return null;
-
-        const ok = await bcrypt.compare(password, user.passwordHash);
-        if (!ok) return null;
-
-        const resolvedImage =
-          user.imageUrl ?? user.member?.photoUrl ?? undefined;
-
+        const user = await verifyUserCredentials(
+          credentials?.email ?? "",
+          credentials?.password ?? "",
+        );
+        if (!user) return null;
         return {
           id: user.id,
-          name: user.name ?? user.email,
+          name: user.name,
           email: user.email,
-          image: resolvedImage,
-          roles: user.roles.map((r) => r.role) as RoleKey[],
+          image: user.image ?? undefined,
+          roles: user.roles as RoleKey[],
         };
       },
     }),
@@ -48,7 +33,7 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.uid = user.id;
-        token.roles = user.roles ?? [];
+        token.roles = (user as unknown as { roles?: RoleKey[] }).roles ?? [];
         if (user.image) {
           token.picture = user.image;
         }

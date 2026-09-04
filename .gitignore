@@ -42,3 +42,12 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# Expo mobile apps
+apps/*/node_modules
+apps/*/.expo
+apps/*/dist
+apps/*/web-build
+apps/*/eas-build-output
+apps/*/credentials.json
+apps/mobile/expo-env.d.ts

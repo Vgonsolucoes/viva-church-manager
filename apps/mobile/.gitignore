@@ -1,0 +1,32 @@
+node_modules
+.expo
+dist
+web-build
+
+# Native
+*.jks
+*.p12
+*.key
+*.pem
+*.mobileprovision
+*.orig.*
+
+# EAS
+eas-build-output
+eas.json.keystore-*
+credentials.json
+
+# Expo
+.expo-shared
+expo-env.d.ts
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Editor
+.idea
+.vscode
+.DS_Store
+*.log

@@ -1,0 +1,49 @@
+{
+  "name": "viva-church-mobile",
+  "version": "0.1.0",
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo TODO",
+    "doctor": "npx expo-doctor",
+    "eas:preview:android": "eas build -p android --profile preview",
+    "eas:production:android": "eas build -p android --profile production",
+    "eas:production:ios": "eas build -p ios --profile production"
+  },
+  "dependencies": {
+    "@expo/vector-icons": "*",
+    "@hookform/resolvers": "*",
+    "@react-native-async-storage/async-storage": "*",
+    "@tanstack/react-query": "*",
+    "expo": "~52.0.0",
+    "expo-constants": "*",
+    "expo-haptics": "*",
+    "expo-linking": "*",
+    "expo-router": "~4.0.0",
+    "expo-secure-store": "*",
+    "expo-splash-screen": "*",
+    "expo-status-bar": "*",
+    "react": "*",
+    "react-hook-form": "*",
+    "react-native": "^0.78.0",
+    "react-native-gesture-handler": "*",
+    "react-native-safe-area-context": "*",
+    "react-native-screens": "*",
+    "zod": "*",
+    "zustand": "*"
+  },
+  "devDependencies": {
+    "@babel/core": "*",
+    "@types/react": "*",
+    "expo-doctor": "*",
+    "typescript": "~5.7.0"
+  },
+  "private": true,
+  "overrides": {
+    "zod": "$zod"
+  }
+}
