@@ -30,7 +30,7 @@ export type AppJwtSession = {
   picture?: string | null;
 };
 
-function requireNextAuthSecret(): Uint8Array {
+export function requireNextAuthSecret(): Uint8Array {
   const raw = process.env.NEXTAUTH_SECRET;
   if (!raw) {
     throw new Error("[auth-jwt] NEXTAUTH_SECRET não configurada.");
