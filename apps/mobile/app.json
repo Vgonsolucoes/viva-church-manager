@@ -16,7 +16,12 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "br.com.vivasede.app",
-      "buildNumber": "1"
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Use a câmera para escanear QR codes de carteirinha e check-in infantil.",
+        "NSCalendarsUsageDescription": "Adicione eventos e escalas ao seu calendário pessoal.",
+        "NSPhotoLibraryUsageDescription": "Selecione uma foto para atualizar sua foto de perfil."
+      }
     },
     "android": {
       "package": "br.com.vivasede.app",
@@ -25,7 +30,15 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0B1730"
       },
-      "permissions": ["INTERNET", "ACCESS_NETWORK_STATE"]
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "CAMERA",
+        "READ_CALENDAR",
+        "WRITE_CALENDAR",
+        "READ_MEDIA_IMAGES",
+        "READ_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
       "bundler": "metro",
