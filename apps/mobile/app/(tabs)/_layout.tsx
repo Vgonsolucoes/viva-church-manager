@@ -1,8 +1,27 @@
 import React from "react";
 import { Tabs } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Platform, StyleSheet, View, Text } from "react-native";
 import { theme } from "@/constants/theme";
+
+type TabIconName = keyof typeof MaterialCommunityIcons.glyphMap;
+
+function TabIcon({
+  name,
+  color,
+  label,
+}: {
+  name: TabIconName;
+  color: string;
+  label: string;
+}) {
+  return (
+    <View style={styles.tabWrapper}>
+      <MaterialCommunityIcons name={name} size={24} color={color} />
+      <Text style={[styles.tabLabel, { color }]}>{label}</Text>
+    </View>
+  );
+}
 
 export default function TabsLayout() {
   return (
@@ -13,6 +32,7 @@ export default function TabsLayout() {
         headerTitleStyle: { color: "#FFFFFF", fontWeight: "700", fontSize: 18 },
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: "#8A93A5",
+        tabBarShowLabel: false,
         tabBarStyle: {
           backgroundColor: "#FFFFFF",
           borderTopColor: theme.colors.border,
@@ -21,7 +41,6 @@ export default function TabsLayout() {
           paddingTop: 8,
           paddingBottom: Platform.OS === "ios" ? 28 : 10,
         },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
       }}
       backBehavior="history"
     >
@@ -30,9 +49,9 @@ export default function TabsLayout() {
         options={{
           title: "Início",
           tabBarLabel: "Início",
-          headerTitle: "Olá, Viva Sede",
-          tabBarIcon: ({ color, focused }) => (
-            <TabIcon name={focused ? "home" : "home-outline"} color={color} label="Início" />
+          headerTitle: "Início",
+          tabBarIcon: ({ color }) => (
+            <TabIcon name="home" color={color} label="Início" />
           ),
         }}
       />
@@ -41,8 +60,9 @@ export default function TabsLayout() {
         options={{
           title: "Agenda",
           tabBarLabel: "Agenda",
-          tabBarIcon: ({ color, focused }) => (
-            <TabIcon name={focused ? "calendar" : "calendar-outline"} color={color} label="Agenda" />
+          headerTitle: "Agenda",
+          tabBarIcon: ({ color }) => (
+            <TabIcon name="calendar-month" color={color} label="Agenda" />
           ),
         }}
       />
@@ -51,18 +71,20 @@ export default function TabsLayout() {
         options={{
           title: "Escalas",
           tabBarLabel: "Escalas",
-          tabBarIcon: ({ color, focused }) => (
-            <TabIcon name={focused ? "clipboard" : "clipboard-outline"} color={color} label="Escalas" />
+          headerTitle: "Escalas",
+          tabBarIcon: ({ color }) => (
+            <TabIcon name="clipboard-text-clock" color={color} label="Escalas" />
           ),
         }}
       />
       <Tabs.Screen
-        name="celulas"
+        name="igreja"
         options={{
-          title: "Células",
-          tabBarLabel: "Células",
-          tabBarIcon: ({ color, focused }) => (
-            <TabIcon name={focused ? "people" : "people-outline"} color={color} label="Células" />
+          title: "Igreja",
+          tabBarLabel: "Igreja",
+          headerTitle: "Igreja",
+          tabBarIcon: ({ color }) => (
+            <TabIcon name="church" color={color} label="Igreja" />
           ),
         }}
       />
@@ -71,21 +93,13 @@ export default function TabsLayout() {
         options={{
           title: "Perfil",
           tabBarLabel: "Perfil",
-          tabBarIcon: ({ color, focused }) => (
-            <TabIcon name={focused ? "person-circle" : "person-circle-outline"} color={color} label="Perfil" />
+          headerTitle: "Perfil",
+          tabBarIcon: ({ color }) => (
+            <TabIcon name="account-circle" color={color} label="Perfil" />
           ),
         }}
       />
     </Tabs>
-  );
-}
-
-function TabIcon({ name, color, label }: { name: any; color: string; label: string }) {
-  return (
-    <View style={styles.tabWrapper}>
-      <Ionicons name={name as any} size={24} color={color} />
-      <Text style={[styles.tabLabel, { color }]}>{label}</Text>
-    </View>
   );
 }
 

@@ -8,6 +8,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useSessionStore } from "@/stores/session";
 import { theme } from "@/constants/theme";
+import { useNetwork } from "@/hooks/useNetwork";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -61,11 +62,20 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function NetworkInit() {
+  const { refresh } = useNetwork();
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+  return null;
+}
+
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <QueryClientProvider client={queryClient}>
+          <NetworkInit />
           <AuthGuard>
             <StatusBar style="light" />
             <Stack
@@ -78,11 +88,28 @@ export default function RootLayout() {
             >
               <Stack.Screen name="login" options={{ headerShown: false }} />
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="igreja" options={{ headerShown: false }} />
               <Stack.Screen
-                name="perfil/biometria"
+                name="perfil/editar"
                 options={{
-                  title: "Biometria",
+                  title: "Editar perfil",
                   headerBackTitle: "Voltar",
+                }}
+              />
+              <Stack.Screen
+                name="qr/scan"
+                options={{
+                  title: "Escanear QR",
+                  headerBackTitle: "Voltar",
+                }}
+              />
+              <Stack.Screen
+                name="carteirinha"
+                options={{
+                  title: "Carteirinha",
+                  headerBackTitle: "Voltar",
+                  headerStyle: { backgroundColor: theme.colors.background },
+                  headerTintColor: "#FFFFFF",
                 }}
               />
             </Stack>

@@ -1,7 +1,8 @@
 import React, { useCallback } from "react";
-import { Link } from "expo-router";
+import { Link, useRouter } from "expo-router";
 import { ScrollView, StyleSheet, Text, View, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Screen } from "@/components/Screen";
 import { Avatar } from "@/components/Avatar";
 import { Card } from "@/components/Card";
@@ -11,6 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { formatDate } from "@/utils/date";
 
 export default function PerfilScreen() {
+  const router = useRouter();
   const { me, logout, loading, initialized, refreshMe } = useAuth();
   const roles = (me?.roles ?? []) as string[];
   const permissions = me?.permissions ?? [];
@@ -96,21 +98,65 @@ export default function PerfilScreen() {
         </Card>
 
         <Card elevated padding="none">
-          <Link href="/perfil/biometria" asChild>
-            <Pressable
-              style={styles.listItem}
-              android_ripple={{ color: theme.colors.primarySoft, borderless: false }}
-            >
-              <View style={styles.listIconWrap}>
-                <Ionicons name="finger-print" size={20} color={theme.colors.primary} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.listTitle}>Biometria</Text>
-                <Text style={styles.listDesc}>Desbloqueie o app com digital ou Face ID</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={theme.colors.muted} />
-            </Pressable>
-          </Link>
+          <Pressable
+            style={styles.listItem}
+            onPress={() => router.push("/perfil/editar")}
+            android_ripple={{ color: theme.colors.primarySoft, borderless: false }}
+          >
+            <View style={[styles.listIconWrap, { backgroundColor: "rgba(244,63,94,0.14)" }]}>
+              <Ionicons name="create-outline" size={20} color={theme.colors.accent} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.listTitle}>Editar perfil</Text>
+              <Text style={styles.listDesc}>Foto, contato, endereço</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={theme.colors.muted} />
+          </Pressable>
+          <View style={styles.divider} />
+          <Pressable
+            style={styles.listItem}
+            onPress={() => router.push("/carteirinha" as any)}
+            android_ripple={{ color: theme.colors.primarySoft, borderless: false }}
+          >
+            <View style={[styles.listIconWrap, { backgroundColor: "rgba(139,92,246,0.15)" }]}>
+              <MaterialCommunityIcons name="card-account-details" size={20} color="#8B5CF6" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.listTitle}>Carteirinha</Text>
+              <Text style={styles.listDesc}>Sua carteirinha de membro com QR Code</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={theme.colors.muted} />
+          </Pressable>
+          <View style={styles.divider} />
+          <Pressable
+            style={styles.listItem}
+            onPress={() => router.push("/qr/scan")}
+            android_ripple={{ color: theme.colors.primarySoft, borderless: false }}
+          >
+            <View style={[styles.listIconWrap, { backgroundColor: "rgba(23,201,100,0.14)" }]}>
+              <Ionicons name="qr-code-outline" size={20} color={theme.colors.success} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.listTitle}>Escanear QR</Text>
+              <Text style={styles.listDesc}>Validar cartão, check-in e ingressos</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={theme.colors.muted} />
+          </Pressable>
+          <View style={styles.divider} />
+          <Pressable
+            style={styles.listItem}
+            onPress={() => router.push("/igreja/eventos" as any)}
+            android_ripple={{ color: theme.colors.primarySoft, borderless: false }}
+          >
+            <View style={[styles.listIconWrap, { backgroundColor: theme.colors.primarySoft }]}>
+              <Ionicons name="business-outline" size={20} color={theme.colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.listTitle}>Igreja</Text>
+              <Text style={styles.listDesc}>Eventos, células, discipulado, oração...</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={theme.colors.muted} />
+          </Pressable>
           <View style={styles.divider} />
           <Pressable
             style={styles.listItem}
@@ -121,7 +167,7 @@ export default function PerfilScreen() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.listTitle}>Notificações</Text>
-              <Text style={styles.listDesc}>Em breve (pré-configurar preferências</Text>
+              <Text style={styles.listDesc}>Em breve (pré-configurar preferências)</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={theme.colors.muted} />
           </Pressable>
