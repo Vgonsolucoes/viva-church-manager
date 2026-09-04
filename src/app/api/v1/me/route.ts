@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/server/db";
 import {
   hasPermission,
-  rolePermissions,
+  allPermissionKeysArray,
   type PermissionKey,
   type RoleKey,
 } from "@/server/rbac";
@@ -21,6 +21,12 @@ const MemberShape = z.object({
   joinedAt: z.coerce.date().nullable(),
   ministryId: z.string().nullable(),
   participatesInCell: z.boolean(),
+  addressLine1: z.string().nullable(),
+  addressLine2: z.string().nullable(),
+  neighborhood: z.string().nullable(),
+  city: z.string().nullable(),
+  state: z.string().nullable(),
+  zip: z.string().nullable(),
 });
 
 const MeResponseSchema = z.object({
@@ -35,14 +41,6 @@ const MeResponseSchema = z.object({
   leadingCellIds: z.array(z.string()),
   syncedAt: z.coerce.date(),
 });
-
-function allPermissionKeys(): PermissionKey[] {
-  const gathered = new Set<PermissionKey>();
-  (Object.keys(rolePermissions) as RoleKey[]).forEach((role: RoleKey) => {
-    rolePermissions[role].forEach((p: PermissionKey) => gathered.add(p));
-  });
-  return Array.from(gathered);
-}
 
 export async function GET(req: Request) {
   const session = await readSessionOrBearer(req);
@@ -70,11 +68,11 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "USER_NOT_FOUND" }, { status: 404 });
   }
 
-  const roles = user.roles.map((r) => r.role) as RoleKey[];
-  const permKeys = allPermissionKeys();
+  const roles = user.roles.map((r: { role: string }) => r.role) as RoleKey[];
+  const permKeys = allPermissionKeysArray() as PermissionKey[];
   const permissions = permKeys.filter((p) => hasPermission(roles, p));
 
-  const ministries = (user.member?.memberMinistries ?? []).map((m) => ({
+  const ministries = (user.member?.memberMinistries ?? []).map((m: { ministry: { id: string; name: string } }) => ({
     id: m.ministry.id,
     name: m.ministry.name,
   }));
@@ -99,10 +97,16 @@ export async function GET(req: Request) {
           joinedAt: user.member.joinedAt ?? null,
           ministryId: user.member.ministryId ?? null,
           participatesInCell: user.member.participatesInCell,
+          addressLine1: user.member.addressLine1 ?? null,
+          addressLine2: user.member.addressLine2 ?? null,
+          neighborhood: user.member.neighborhood ?? null,
+          city: user.member.city ?? null,
+          state: user.member.state ?? null,
+          zip: user.member.zip ?? null,
         }
       : null,
     ministries,
-    leadingCellIds: (user.member?.cellLeading ?? []).map((c) => c.id),
+    leadingCellIds: (user.member?.cellLeading ?? []).map((c: { id: string }) => c.id),
     syncedAt: new Date(),
   });
 
