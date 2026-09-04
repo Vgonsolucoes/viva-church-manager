@@ -147,6 +147,21 @@ function buildUrl(path: string): string {
   return `${API_BASE_URL}${normalizedPath}`;
 }
 
+export async function buildHeaders(
+  extraHeaders?: Record<string, string>,
+  skipAuth = false,
+): Promise<Record<string, string>> {
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    ...(extraHeaders ?? {}),
+  };
+  if (!skipAuth) {
+    const token = await getSessionToken();
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
 export const api = {
   get<T = unknown>(path: string, options?: Omit<RequestOptions, "method" | "body">) {
     return requestInternal<T>(path, { ...options, method: "GET" });
