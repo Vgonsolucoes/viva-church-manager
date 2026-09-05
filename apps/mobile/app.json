@@ -11,7 +11,7 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0B1730"
+      "backgroundColor": "#06101D"
     },
     "ios": {
       "supportsTablet": true,
@@ -20,7 +20,11 @@
       "infoPlist": {
         "NSCameraUsageDescription": "Use a câmera para escanear QR codes de carteirinha e check-in infantil.",
         "NSCalendarsUsageDescription": "Adicione eventos e escalas ao seu calendário pessoal.",
-        "NSPhotoLibraryUsageDescription": "Selecione uma foto para atualizar sua foto de perfil."
+        "NSPhotoLibraryUsageDescription": "Selecione uma foto para atualizar sua foto de perfil.",
+        "NSUserNotificationUsageDescription": "Receba notificações push de escalas, eventos, células e avisos da igreja.",
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
       }
     },
     "android": {
@@ -28,7 +32,7 @@
       "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0B1730"
+        "backgroundColor": "#06101D"
       },
       "permissions": [
         "INTERNET",
@@ -37,7 +41,11 @@
         "READ_CALENDAR",
         "WRITE_CALENDAR",
         "READ_MEDIA_IMAGES",
-        "READ_EXTERNAL_STORAGE"
+        "READ_EXTERNAL_STORAGE",
+        "POST_NOTIFICATIONS",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
+        "WAKE_LOCK"
       ]
     },
     "web": {
@@ -47,7 +55,14 @@
     },
     "plugins": [
       "expo-router",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/adaptive-icon.png",
+          "color": "#06101D"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

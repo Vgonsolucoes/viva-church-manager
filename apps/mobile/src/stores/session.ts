@@ -5,6 +5,7 @@ import { Platform } from "react-native";
 import { isJwtExpired } from "@/utils/jwt";
 import { postLogin } from "@/services/api/auth";
 import { getMe } from "@/services/api/me";
+import { unregisterPushDevice } from "@/services/api/pushDevices";
 import type { LoginInput, Me, LoginResponse } from "@/types";
 
 const SECURE_TOKEN_KEY = "vc:access_token";
@@ -17,10 +18,12 @@ type SessionState = {
   loading: boolean;
   error: string | null;
   initialized: boolean;
+  expoPushToken: string | null;
   hydrate: () => Promise<void>;
   login: (input: LoginInput) => Promise<Me>;
   refreshMe: (force?: boolean) => Promise<Me | null>;
   logout: () => Promise<void>;
+  setExpoPushToken: (token: string | null) => void;
   clearError: () => void;
 };
 
@@ -121,6 +124,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   loading: false,
   error: null,
   initialized: false,
+  expoPushToken: null,
 
   async hydrate() {
     if (get().initialized) return;
@@ -185,17 +189,30 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   async logout() {
     set({ loading: true });
     try {
+      const currentToken = get().expoPushToken;
+      if (currentToken) {
+        try {
+          await unregisterPushDevice(currentToken);
+        } catch {
+          // ignore network errors during logout
+        }
+      }
       await clearSessionPersistence();
       set({
         accessToken: null,
         accessTokenExpiresAt: null,
         me: null,
+        expoPushToken: null,
         loading: false,
         error: null,
       });
     } catch (e) {
       set({ loading: false, error: e instanceof Error ? e.message : "logout_failed" });
     }
+  },
+
+  setExpoPushToken(token: string | null) {
+    set({ expoPushToken: token });
   },
 
   clearError() {

@@ -163,6 +163,12 @@ export async function buildHeaders(
 }
 
 export const api = {
+  request<T = unknown>(
+    path: string,
+    options: RequestOptions & { method: RequestOptions["method"] },
+  ) {
+    return requestInternal<T>(path, options);
+  },
   get<T = unknown>(path: string, options?: Omit<RequestOptions, "method" | "body">) {
     return requestInternal<T>(path, { ...options, method: "GET" });
   },

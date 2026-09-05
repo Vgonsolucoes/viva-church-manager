@@ -1,8 +1,10 @@
 import React, { useEffect, useState, useRef } from "react";
-import { View, StyleSheet, Text, Animated } from "react-native";
+import { View, StyleSheet, Text, Animated, Platform } from "react-native";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
+import * as Notifications from "expo-notifications";
+import * as Application from "expo-application";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -17,6 +19,16 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useSessionStore } from "@/stores/session";
 import { theme } from "@/theme";
 import { useNetwork } from "@/hooks/useNetwork";
+import { registerPushDevice } from "@/services/api/pushDevices";
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+    shouldShowList: true,
+  }),
+});
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -125,7 +137,16 @@ function AuthGuard({
       </View>
     );
   }
-  return <>{children}</>;
+  return (
+    <>
+      <PushIntegrationRuntime fontsReady={fontsReady} />
+      {children}
+    </>
+  );
+}
+
+function PushIntegrationRuntime({ fontsReady }: { fontsReady: boolean }) {
+  return <PushIntegration fontsReady={fontsReady} />;
 }
 
 function NetworkInit() {
@@ -134,6 +155,111 @@ function NetworkInit() {
     refresh();
   }, [refresh]);
   return null;
+}
+
+function PushIntegration({ fontsReady }: { fontsReady: boolean }) {
+  const router = useRouter();
+  const accessToken = useSessionStore((s) => s.accessToken);
+  const setExpoPushToken = useSessionStore((s) => s.setExpoPushToken);
+  const me = useSessionStore((s) => s.me);
+  const initialized = useSessionStore((s) => s.initialized);
+  const lastRegisteredRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    let subscription1: Notifications.Subscription | undefined;
+    let subscription2: Notifications.Subscription | undefined;
+
+    (async () => {
+      if (!fontsReady) return;
+      if (Platform.OS === "web") return;
+
+      try {
+        const permsExisting = await Notifications.getPermissionsAsync() as any;
+        let finalStatus = permsExisting?.status ?? permsExisting?.ios?.status ?? "undetermined";
+        if (finalStatus !== "granted") {
+          const permsReq = await Notifications.requestPermissionsAsync() as any;
+          finalStatus = permsReq?.status ?? permsReq?.ios?.status ?? "denied";
+        }
+        if (finalStatus !== "granted") {
+          return;
+        }
+        const projectId = undefined;
+        const tokenRes = await Notifications.getExpoPushTokenAsync({
+          ...(projectId ? { projectId } : {}),
+        });
+        if (!mounted) return;
+        const token = tokenRes.data;
+        setExpoPushToken(token);
+      } catch {
+        // ignore permission failures
+      }
+    })();
+
+    subscription1 = Notifications.addNotificationReceivedListener(() => {
+      // foreground reception
+    });
+    subscription2 = Notifications.addNotificationResponseReceivedListener((response) => {
+      try {
+        const deepLink =
+          (response?.notification?.request?.content?.data as
+            | { deepLink?: string }
+            | undefined)?.deepLink ?? undefined;
+        if (deepLink && typeof deepLink === "string") {
+          try {
+            router.push(deepLink as any);
+          } catch {
+            // ignore navigation failure
+          }
+        }
+      } catch {
+        // ignore malformed payloads
+      }
+    });
+
+    return () => {
+      mounted = false;
+      subscription1?.remove?.();
+      subscription2?.remove?.();
+    };
+  }, [fontsReady, router, setExpoPushToken]);
+
+  useEffect(() => {
+    if (!initialized || !accessToken) return;
+    const expoPushToken = useSessionStore.getState().expoPushToken;
+    if (!expoPushToken) return;
+    if (lastRegisteredRef.current === `${me?.id ?? "anon"}:${expoPushToken}`) return;
+    (async () => {
+      try {
+        const deviceName: string | null = Platform.select({
+          default: null,
+        });
+        await registerPushDevice({
+          expoPushToken,
+          platform: Platform.OS,
+          deviceName,
+          appVersion: Application.nativeApplicationVersion ?? null,
+        });
+        lastRegisteredRef.current = `${me?.id ?? "anon"}:${expoPushToken}`;
+      } catch {
+        // ignore register failure
+      }
+    })();
+  }, [initialized, accessToken, me?.id]);
+
+  return null;
+}
+
+async function safeGetDeviceName(): Promise<string | null> {
+  try {
+    if (typeof (Application as any).getDeviceNameAsync === "function") {
+      const v = await (Application as any).getDeviceNameAsync();
+      return typeof v === "string" ? v : null;
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 export default function RootLayout() {
