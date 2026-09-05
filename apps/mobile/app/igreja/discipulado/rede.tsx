@@ -1,39 +1,153 @@
-import React, { useCallback, useMemo, useState } from "react";
-import { FlatList, StyleSheet, Text, View, Pressable } from "react-native";
+import React, { useCallback, useMemo } from "react";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
-import { Ionicons } from "@expo/vector-icons";
-import { Screen } from "@/components/Screen";
+import { Users } from "lucide-react-native";
+import { ScreenContainer } from "@/components/ScreenContainer";
 import { Avatar } from "@/components/Avatar";
 import { EmptyState } from "@/components/EmptyState";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { theme } from "@/constants/theme";
+import { AppCard } from "@/components/AppCard";
+import { theme } from "@/theme";
 import { listMyDiscipleshipNetwork } from "@/services/api/discipleship";
 import type { DiscipleshipNetworkNode } from "@/types";
 
-type FlattenedNode = {
-  key: string;
-  node: DiscipleshipNetworkNode;
-  depth: number;
-  hasChildren: boolean;
-  parentKey?: string;
-};
+const NODE_NAME_WIDTH = 104;
+const NODE_H_PADDING = 8;
+const NODE_TOTAL_WIDTH = NODE_NAME_WIDTH + NODE_H_PADDING * 2;
+const SIBLING_GAP = 24;
+const CONNECTOR_V = 40;
+const CONNECTOR_THICK = 2;
 
-function flattenTree(
-  node: DiscipleshipNetworkNode,
-  depth: number,
-  collapsed: Set<string>,
-  parentKey?: string,
-  out: FlattenedNode[] = [],
-): FlattenedNode[] {
-  const key = node.memberId;
-  const hasChildren = Array.isArray(node.disciples) && node.disciples.length > 0;
-  out.push({ key, node, depth, hasChildren, parentKey });
-  if (hasChildren && !collapsed.has(key)) {
-    for (const child of node.disciples) {
-      flattenTree(child, depth + 1, collapsed, key, out);
-    }
+function countLeaves(node: DiscipleshipNetworkNode): number {
+  const children = node.disciples ?? [];
+  if (children.length === 0) return 1;
+  return children.reduce((sum, c) => sum + countLeaves(c), 0);
+}
+
+function subtreeWidth(node: DiscipleshipNetworkNode): number {
+  const leaves = countLeaves(node);
+  if (leaves <= 1) return NODE_TOTAL_WIDTH;
+  return leaves * NODE_TOTAL_WIDTH + (leaves - 1) * SIBLING_GAP;
+}
+
+function countTotal(node: DiscipleshipNetworkNode): number {
+  const children = node.disciples ?? [];
+  return 1 + children.reduce((sum, c) => sum + countTotal(c), 0);
+}
+
+function horizontalLineOffset(node: DiscipleshipNetworkNode): { left: number; width: number } {
+  const children = node.disciples ?? [];
+  if (children.length === 0) return { left: 0, width: 0 };
+  const firstChild = children[0];
+  const lastChild = children[children.length - 1];
+  const firstHalf = subtreeWidth(firstChild) / 2;
+  const lastSubtree = subtreeWidth(lastChild);
+  const lastHalf = lastSubtree / 2;
+  let running = 0;
+  for (let i = 0; i < children.length - 1; i++) {
+    running += subtreeWidth(children[i]) + SIBLING_GAP;
   }
-  return out;
+  const totalSpan = running + lastSubtree;
+  const left = firstHalf;
+  const width = totalSpan - firstHalf - (lastSubtree - lastHalf);
+  return { left, width };
+}
+
+interface TreeNodeProps {
+  node: DiscipleshipNetworkNode;
+  isRoot?: boolean;
+}
+
+function TreeNode({ node, isRoot = false }: TreeNodeProps) {
+  const children = node.disciples ?? [];
+  const childrenCount = children.length;
+  const myWidth = subtreeWidth(node);
+  const hLine = horizontalLineOffset(node);
+  const selfRing = isRoot ? theme.colors.primary500 : undefined;
+  const selfRingWidth = isRoot ? 3 : 2.5;
+
+  return (
+    <View style={[styles.nodeCol, { width: myWidth }]}>
+      <View style={styles.avatarWrap}>
+        <Avatar
+          src={node.photoUrl}
+          name={node.name}
+          size="lg"
+          ringColor={selfRing}
+          ringWidth={selfRingWidth}
+        />
+        <Text style={styles.nodeName} numberOfLines={1}>
+          {node.name}
+        </Text>
+        {node.stage ? (
+          <View style={[styles.stageChip, isRoot && styles.stageChipRoot]}>
+            <Text style={[styles.stageText, isRoot && styles.stageTextRoot]} numberOfLines={1}>
+              {node.stage}
+            </Text>
+          </View>
+        ) : null}
+      </View>
+
+      {childrenCount > 0 ? (
+        <>
+          <View
+            style={[
+              styles.connectorVertical,
+              { height: CONNECTOR_V },
+            ]}
+          />
+
+          <View style={[styles.hLineContainer, { width: myWidth, height: CONNECTOR_THICK }]}>
+            {childrenCount === 1 ? null : (
+              <View
+                style={[
+                  styles.connectorHorizontal,
+                  {
+                    left: hLine.left,
+                    width: hLine.width,
+                  },
+                ]}
+              />
+            )}
+          </View>
+
+          <View style={{ height: CONNECTOR_V, width: myWidth }}>
+            {children.map((child, idx) => {
+              const childWidth = subtreeWidth(child);
+              let offsetLeft = 0;
+              for (let i = 0; i < idx; i++) {
+                offsetLeft += subtreeWidth(children[i]) + SIBLING_GAP;
+              }
+              const centerOfChild = offsetLeft + childWidth / 2;
+              return (
+                <View
+                  key={`v-${child.memberId}`}
+                  style={[
+                    styles.connectorVertical,
+                    {
+                      position: "absolute",
+                      left: centerOfChild - CONNECTOR_THICK / 2,
+                      top: 0,
+                      height: CONNECTOR_V,
+                    },
+                  ]}
+                />
+              );
+            })}
+          </View>
+
+          <View style={styles.childrenRow}>
+            {children.map((child, idx) => (
+              <React.Fragment key={child.memberId}>
+                {idx > 0 ? <View style={{ width: SIBLING_GAP }} /> : null}
+                <TreeNode node={child} />
+              </React.Fragment>
+            ))}
+          </View>
+        </>
+      ) : null}
+    </View>
+  );
 }
 
 export default function DiscipuladoRedeScreen() {
@@ -42,158 +156,172 @@ export default function DiscipuladoRedeScreen() {
     queryFn: () => listMyDiscipleshipNetwork(),
     staleTime: 60_000,
   });
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   const onRefresh = useCallback(async () => {
     await refetch();
   }, [refetch]);
 
-  const toggle = useCallback((id: string) => {
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
-
-  const flat = useMemo<FlattenedNode[]>(() => {
-    if (!data || !Array.isArray(data) || data.length === 0) return [];
-    const result: FlattenedNode[] = [];
-    for (const root of data) {
-      flattenTree(root, 0, collapsed, undefined, result);
+  const { root, total } = useMemo(() => {
+    if (!data || !Array.isArray(data) || data.length === 0) {
+      return { root: null as DiscipleshipNetworkNode | null, total: 0 };
     }
-    return result;
-  }, [data, collapsed]);
+    const r = data[0];
+    return { root: r, total: countTotal(r) };
+  }, [data]);
 
   return (
-    <Screen
-      backgroundBrand
-      title="Rede de discipulado"
+    <ScreenContainer
+      edges={["top", "left", "right", "bottom"]}
       refreshing={isFetching && !isLoading}
       onRefresh={onRefresh}
-      loading={isLoading}
+      scrollable={false}
+      padded={false}
+      style={{ backgroundColor: theme.colors.background }}
     >
+      <View style={styles.headerInner}>
+        <Text style={styles.screenTitle}>Minha Rede</Text>
+        <Text style={styles.screenSubtitle}>Árvore de discipulado</Text>
+      </View>
+
+      <View style={{ paddingHorizontal: theme.spacing.lg, marginBottom: theme.spacing.md }}>
+        <AppCard padding={theme.spacing.lg}>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <View style={[styles.totalIcon, { backgroundColor: "rgba(23,107,255,0.14)" }]}>
+              <Users size={20} color={theme.colors.primary400} />
+            </View>
+            <View style={{ marginLeft: theme.spacing.md, flex: 1 }}>
+              <Text style={styles.totalLabel}>Total da sua rede</Text>
+              <Text style={styles.totalValue}>{total} pessoas</Text>
+            </View>
+          </View>
+        </AppCard>
+      </View>
+
       {isLoading ? (
-        <View style={{ alignItems: "center", paddingVertical: 40 }}>
+        <View style={{ alignItems: "center", paddingVertical: theme.spacing.xxxl }}>
           <LoadingSpinner />
         </View>
-      ) : !data ? (
-        <EmptyState
-          icon="git-network-outline"
-          title="Sem rede carregada"
-          description="A rede de discipulado será exibida assim que você for conectado como discípulo ou discipulador."
-          actionLabel="Atualizar"
-          onAction={onRefresh}
-        />
-      ) : (
-        <FlatList
-          data={flat}
-          keyExtractor={(f) => f.key}
-          contentContainerStyle={{ paddingBottom: 40, gap: 6 }}
-          showsVerticalScrollIndicator={false}
-          renderItem={({ item }) => (
-            <NetworkRow item={item} collapsed={collapsed.has(item.key)} onToggle={toggle} />
-          )}
-        />
-      )}
-    </Screen>
-  );
-}
-
-function NetworkRow({
-  item,
-  collapsed,
-  onToggle,
-}: {
-  item: FlattenedNode;
-  collapsed: boolean;
-  onToggle: (id: string) => void;
-}) {
-  const depth = Math.min(item.depth, 4);
-  const stageColorByDepth = [
-    theme.colors.primary,
-    theme.colors.success,
-    theme.colors.warning,
-    theme.colors.accent,
-    theme.colors.secondary,
-  ];
-  const color = stageColorByDepth[depth] ?? theme.colors.muted;
-  return (
-    <Pressable
-      style={[styles.row, { marginLeft: depth * 18 }]}
-      onPress={() => item.hasChildren && onToggle(item.key)}
-      android_ripple={{ color: theme.colors.primarySoft, borderless: true }}
-      disabled={!item.hasChildren}
-    >
-      <View style={[styles.leaderLine, { backgroundColor: color }]} />
-      <Avatar
-        src={item.node.photoUrl}
-        name={item.node.name}
-        size={40}
-      />
-      <View style={{ marginLeft: 10, flex: 1 }}>
-        <Text style={styles.name} numberOfLines={1}>
-          {item.node.name}
-        </Text>
-        {item.node.stage ? (
-          <View style={[styles.stageChip, { backgroundColor: `${color}22` }]}>
-            <Text style={[styles.stageText, { color }]}>{item.node.stage}</Text>
-          </View>
-        ) : null}
-      </View>
-      {item.hasChildren ? (
-        <View style={[styles.chevronBtn, { backgroundColor: `${color}18` }]}>
-          <Ionicons
-            name={collapsed ? "chevron-forward" : "chevron-down"}
-            size={16}
-            color={color}
+      ) : !root ? (
+        <View style={{ paddingHorizontal: theme.spacing.lg }}>
+          <EmptyState
+            tint="cells"
+            title="Rede vazia"
+            description="Sua rede de discipulado aparecerá assim que você for conectado como discípulo ou discipulador."
+            actionLabel="Atualizar"
+            onAction={onRefresh}
           />
         </View>
-      ) : null}
-    </Pressable>
+      ) : (
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: 48, alignItems: "center" }}
+          showsVerticalScrollIndicator={false}
+          showsHorizontalScrollIndicator={false}
+          horizontal
+        >
+          <ScrollView
+            contentContainerStyle={{ alignItems: "center", justifyContent: "center" }}
+            showsVerticalScrollIndicator={false}
+            showsHorizontalScrollIndicator={false}
+            centerContent
+          >
+            <TreeNode node={root} isRoot />
+          </ScrollView>
+        </ScrollView>
+      )}
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  row: {
-    flexDirection: "row",
+  headerInner: {
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.md,
+    paddingBottom: theme.spacing.sm,
+  },
+  screenTitle: {
+    ...theme.typography.titleLg,
+    color: theme.colors.foreground,
+    fontFamily: theme.fontFamilies.bold,
+  },
+  screenSubtitle: {
+    ...theme.typography.body,
+    color: theme.colors.foregroundMuted,
+    marginTop: theme.spacing.xs,
+  },
+  totalIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.backgroundCard,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    justifyContent: "center",
   },
-  leaderLine: {
-    width: 4,
-    alignSelf: "stretch",
-    borderRadius: 2,
-    marginRight: 10,
+  totalLabel: {
+    ...theme.typography.subtle,
+    color: theme.colors.foregroundMuted,
+    fontFamily: theme.fontFamilies.regular,
   },
-  name: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: theme.colors.foregroundDark,
+  totalValue: {
+    ...theme.typography.heading,
+    color: theme.colors.foreground,
+    fontFamily: theme.fontFamilies.bold,
+    marginTop: 2,
+  },
+  nodeCol: {
+    alignItems: "center",
+  },
+  avatarWrap: {
+    alignItems: "center",
+    width: NODE_TOTAL_WIDTH,
+    paddingHorizontal: NODE_H_PADDING,
+  },
+  nodeName: {
+    ...theme.typography.captionBold,
+    color: theme.colors.foreground,
+    fontFamily: theme.fontFamilies.semibold,
+    marginTop: 6,
+    textAlign: "center",
+    fontSize: 11,
   },
   stageChip: {
-    alignSelf: "flex-start",
+    alignSelf: "center",
     marginTop: 4,
     paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingVertical: 2,
     borderRadius: theme.radius.pill,
+    backgroundColor: theme.colors.white16,
+  },
+  stageChipRoot: {
+    backgroundColor: "rgba(23,107,255,0.18)",
   },
   stageText: {
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 0.2,
+    ...theme.typography.caption,
+    color: theme.colors.foregroundMuted,
+    fontFamily: theme.fontFamilies.semibold,
+    fontSize: 10,
   },
-  chevronBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+  stageTextRoot: {
+    color: theme.colors.primary300,
+  },
+  connectorVertical: {
+    width: CONNECTOR_THICK,
+    backgroundColor: theme.colors.primary400,
+    alignSelf: "center",
+  },
+  connectorHorizontal: {
+    position: "absolute",
+    top: 0,
+    height: CONNECTOR_THICK,
+    backgroundColor: theme.colors.primary400,
+  },
+  hLineContainer: {
     alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  childrenRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
     justifyContent: "center",
   },
 });

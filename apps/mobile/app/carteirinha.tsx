@@ -1,16 +1,16 @@
 import React, { useCallback } from "react";
-import { Image, Pressable, StyleSheet, Text, View, Alert } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View, Platform } from "react-native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { LinearGradient } from "expo-linear-gradient";
 import QRCode from "react-native-qrcode-svg";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Screen } from "@/components/Screen";
-import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { Button } from "@/components/Button";
-import { useAuth } from "@/hooks/useAuth";
-import { theme } from "@/constants/theme";
-import { formatDate } from "@/utils/date";
-import { getMemberCard, refreshMemberCard } from "@/services/api/qr";
+import { RefreshCw, Users } from "lucide-react-native";
+import { ScreenContainer } from "@/components/ScreenContainer";
 import { Avatar } from "@/components/Avatar";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { SecondaryButton } from "@/components/SecondaryButton";
+import { theme } from "@/theme";
+import { useAuth } from "@/hooks/useAuth";
+import { getMemberCard, refreshMemberCard } from "@/services/api/qr";
 
 export default function CarteirinhaScreen() {
   const { me, initialized } = useAuth();
@@ -45,351 +45,291 @@ export default function CarteirinhaScreen() {
   }, [refetch]);
 
   const loading = isLoading || !initialized;
+  const joinedDate = me?.member?.joinedAt;
+  const joinedYear = joinedDate ? new Date(joinedDate).getFullYear() : null;
 
   return (
-    <Screen
-      backgroundBrand
-      padded={false}
-      loading={loading}
-      loadingLabel="Carregando carteirinha..."
+    <ScreenContainer
+      edges={["top", "left", "right", "bottom"]}
       refreshing={isFetching && !loading}
       onRefresh={onRefresh}
+      padded={true}
+      contentStyle={{ alignItems: "center", paddingBottom: theme.spacing.xxxxl }}
     >
-      <View style={styles.container}>
-        {error && !loading ? (
-          <View style={styles.errorWrap}>
-            <MaterialCommunityIcons name="alert-circle" size={18} color={theme.colors.destructive} />
-            <Text style={styles.errorText}>
-              {(error as Error).message || "Erro ao carregar carteirinha. Arraste para atualizar."}
-            </Text>
-          </View>
-        ) : null}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Minha Carteirinha</Text>
+        <Text style={styles.headerSubtitle}>Cartão de membro premium</Text>
+      </View>
 
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <View style={styles.brandRow}>
-              <View style={styles.brandLogoWrap}>
-                <MaterialCommunityIcons name="church" size={22} color="#FFFFFF" />
+      {error && !loading ? (
+        <View style={styles.errorWrap}>
+          <Text style={styles.errorText}>
+            {(error as Error).message || "Erro ao carregar carteirinha."}
+          </Text>
+        </View>
+      ) : null}
+
+      <View style={[styles.cardShadowWrap, Platform.OS === "android" && { elevation: 10 }]}>
+        <LinearGradient
+          colors={[theme.colors.gradientFrom, theme.colors.gradientTo]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.cardGradient}
+        >
+          <View style={styles.cardInner}>
+            <View style={styles.cardTopRow}>
+              <View style={styles.logoWrap}>
+                <Text style={styles.logoText}>V</Text>
               </View>
-              <View>
+              <View style={styles.brandSide}>
                 <Text style={styles.brandName}>VIVA CHURCH</Text>
-                <Text style={styles.brandSub}>Carteirinha de Membro</Text>
+                <Text style={styles.brandSub}>Membro Premium</Text>
               </View>
             </View>
-          </View>
 
-          <View style={styles.cardBody}>
-            <View style={styles.photoRow}>
+            <View style={styles.avatarCenterWrap}>
               <Avatar
                 src={card?.photoUrl ?? me?.member?.photoUrl ?? me?.image}
                 name={card?.fullName ?? me?.member?.fullName ?? me?.name}
-                size={84}
-                style={styles.photo}
+                size="xl"
+                ringColor="rgba(255,255,255,0.35)"
+                ringWidth={3}
+                style={styles.centerAvatar}
               />
-              <View style={styles.infoCol}>
-                <Text style={styles.name} numberOfLines={2}>
-                  {card?.fullName ?? me?.member?.fullName ?? me?.name ?? "—"}
-                </Text>
-                <View style={styles.rowBadge}>
-                  <Text style={styles.rowLabel}>Nº Membro</Text>
-                  <Text style={styles.memberNumber}>
-                    {card?.memberNumber ? `#${card.memberNumber}` : "—"}
-                  </Text>
-                </View>
-              </View>
             </View>
 
-            <View style={styles.qrWrap}>
-              <View style={styles.qrInner}>
-                {card?.qrToken ? (
-                  <QRCode
-                    value={card.qrToken}
-                    size={200}
-                    color={theme.colors.foregroundDark}
-                    backgroundColor="#FFFFFF"
-                  />
-                ) : loading ? (
-                  <View style={styles.qrLoading}>
-                    <LoadingSpinner size="large" />
+            <View style={styles.memberInfoWrap}>
+              <Text style={styles.memberName} numberOfLines={2}>
+                {card?.fullName ?? me?.member?.fullName ?? me?.name ?? "—"}
+              </Text>
+              <Text style={styles.memberSince}>
+                {joinedYear ? `Membro desde ${joinedYear}` : "Membro desde —"}
+              </Text>
+            </View>
+
+            <View style={styles.bottomRow}>
+              <View style={styles.qrContainer}>
+                {loading && !card ? (
+                  <View style={[styles.qrBg, styles.qrLoadingInner]}>
+                    <LoadingSpinner size="small" />
+                  </View>
+                ) : card?.qrToken ? (
+                  <View style={styles.qrBg}>
+                    <QRCode
+                      value={card.qrToken}
+                      size={104}
+                      color={theme.colors.background}
+                      backgroundColor="#FFFFFF"
+                    />
                   </View>
                 ) : (
-                  <View style={styles.qrEmpty}>
-                    <MaterialCommunityIcons name="qrcode" size={64} color={theme.colors.muted} />
-                    <Text style={styles.qrEmptyText}>Sem código</Text>
+                  <View style={[styles.qrBg, styles.qrEmpty]}>
+                    <Users size={32} color={theme.colors.foregroundMuted} />
                   </View>
                 )}
               </View>
-            </View>
 
-            <View style={styles.validityRow}>
-              <View style={styles.validityCol}>
-                <Text style={styles.validityLabel}>Validade</Text>
-                <Text style={styles.validityValue}>
-                  {card?.expiresAt ? formatDate(card.expiresAt) : "—"}
-                </Text>
-              </View>
-              <View style={styles.validityColEnd}>
-                <View style={[styles.statusDot, card && new Date(card.expiresAt) > new Date() ? styles.statusOk : styles.statusWarn]} />
-                <Text style={[styles.statusText, card && new Date(card.expiresAt) > new Date() ? styles.statusOkText : styles.statusWarnText]}>
-                  {card
-                    ? new Date(card.expiresAt) > new Date()
-                      ? "Válida"
-                      : "Expirada"
-                    : "—"}
+              <View style={styles.numberColumn}>
+                <Text style={styles.numberLabel}>Nº do membro</Text>
+                <Text style={styles.numberValue}>
+                  {card?.memberNumber ? `#${card.memberNumber}` : "#—"}
                 </Text>
               </View>
             </View>
           </View>
-
-          <View style={styles.cardFooter}>
-            <MaterialCommunityIcons name="lock-check" size={14} color="rgba(255,255,255,0.6)" />
-            <Text style={styles.footerText}>
-              Apresente na entrada ou use o QR Code para check-in.
-            </Text>
-          </View>
-        </View>
-
-        <Button
-          variant="primary"
-          size="lg"
-          fullWidth
-          style={styles.refreshBtn}
-          loading={refreshMutation.isPending}
-          leftIcon={
-            <MaterialCommunityIcons
-              name="refresh"
-              size={18}
-              color="#FFFFFF"
-            />
-          }
-          onPress={() => refreshMutation.mutate()}
-        >
-          Atualizar Carteirinha
-        </Button>
-
-        <Pressable
-          style={styles.tipWrap}
-          onPress={onRefresh}
-          android_ripple={{ color: theme.colors.primarySoft, borderless: true }}
-        >
-          <MaterialCommunityIcons name="information-outline" size={16} color={theme.colors.muted} />
-          <Text style={styles.tipText}>
-            Arraste para baixo para recarregar os dados.
-          </Text>
-        </Pressable>
+        </LinearGradient>
       </View>
-    </Screen>
+
+      <View style={{ width: "100%", marginTop: theme.spacing.lg }}>
+        <SecondaryButton
+          title={refreshMutation.isPending ? "Atualizando..." : "Atualizar Carteirinha"}
+          onPress={() => refreshMutation.mutate()}
+        />
+      </View>
+
+      <Pressable style={styles.tipWrap} onPress={onRefresh} hitSlop={8}>
+        <Text style={styles.tipText}>
+          Arraste para baixo para recarregar os dados
+        </Text>
+      </Pressable>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 16,
-    gap: 16,
+  header: {
+    alignSelf: "flex-start",
+    marginBottom: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.xs,
+    paddingTop: theme.spacing.sm,
+  },
+  headerTitle: {
+    ...theme.typography.titleLg,
+    color: theme.colors.foreground,
+    fontFamily: theme.fontFamilies.bold,
+  },
+  headerSubtitle: {
+    ...theme.typography.body,
+    color: theme.colors.foregroundMuted,
+    marginTop: theme.spacing.xs,
   },
   errorWrap: {
-    padding: 12,
-    backgroundColor: theme.colors.destructiveSoft,
+    width: "100%",
+    padding: theme.spacing.md,
+    backgroundColor: "rgba(240,68,56,0.12)",
     borderWidth: 1,
     borderColor: "rgba(240,68,56,0.25)",
     borderRadius: theme.radius.md,
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
+    marginBottom: theme.spacing.md,
   },
   errorText: {
-    flex: 1,
-    color: theme.colors.destructive,
-    fontSize: theme.font.sm,
-    fontWeight: "600",
+    ...theme.typography.bodySm,
+    color: theme.colors.danger400,
+    fontFamily: theme.fontFamilies.semibold,
   },
-  card: {
+  cardShadowWrap: {
     width: "100%",
     borderRadius: 24,
-    backgroundColor: "linear-gradient" as unknown as undefined,
-    overflow: "hidden",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#473DFF",
+        shadowOpacity: 0.34,
+        shadowRadius: 24,
+        shadowOffset: { width: 0, height: 12 },
+      },
+    }),
+  },
+  cardGradient: {
+    width: "100%",
+    height: 520,
+    borderRadius: 24,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
+    borderColor: "rgba(255,255,255,0.14)",
+    overflow: "hidden",
   },
-  cardHeader: {
-    paddingHorizontal: 20,
-    paddingTop: 18,
-    paddingBottom: 14,
-    backgroundColor: theme.colors.background,
+  cardInner: {
+    flex: 1,
+    paddingHorizontal: theme.spacing.xl,
+    paddingTop: theme.spacing.xl,
+    paddingBottom: theme.spacing.xl,
   },
-  brandRow: {
+  cardTopRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
   },
-  brandLogoWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: theme.colors.primary,
+  logoWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: theme.colors.white16,
     alignItems: "center",
     justifyContent: "center",
   },
+  logoText: {
+    color: "#FFFFFF",
+    fontSize: 22,
+    fontFamily: theme.fontFamilies.bold,
+    lineHeight: 26,
+    letterSpacing: 0.5,
+  },
+  brandSide: {
+    marginLeft: theme.spacing.md,
+    flex: 1,
+  },
   brandName: {
     color: "#FFFFFF",
-    fontWeight: "800",
-    fontSize: 18,
+    fontFamily: theme.fontFamilies.bold,
+    fontSize: 15,
     letterSpacing: 1.2,
   },
   brandSub: {
     color: "rgba(255,255,255,0.62)",
+    fontFamily: theme.fontFamilies.medium,
     fontSize: 12,
     marginTop: 2,
-    fontWeight: "500",
   },
-  cardBody: {
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: 20,
-    paddingVertical: 18,
-    gap: 16,
-  },
-  photoRow: {
-    flexDirection: "row",
+  avatarCenterWrap: {
     alignItems: "center",
-    gap: 14,
+    marginTop: theme.spacing.md,
+    marginBottom: theme.spacing.md,
   },
-  photo: {
-    borderWidth: 3,
-    borderColor: theme.colors.primarySoft,
+  centerAvatar: {
+    zIndex: 2,
   },
-  infoCol: {
-    flex: 1,
-    gap: 8,
-  },
-  name: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: theme.colors.foregroundDark,
-  },
-  rowBadge: {
-    flexDirection: "row",
+  memberInfoWrap: {
     alignItems: "center",
-    gap: 8,
+    marginBottom: theme.spacing.lg,
   },
-  rowLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: theme.colors.muted,
+  memberName: {
+    color: "#FFFFFF",
+    fontFamily: theme.fontFamilies.bold,
+    fontSize: 20,
+    lineHeight: 26,
+    textAlign: "center",
+    marginBottom: 4,
   },
-  memberNumber: {
+  memberSince: {
+    color: "rgba(255,255,255,0.68)",
+    fontFamily: theme.fontFamilies.regular,
     fontSize: 13,
-    fontWeight: "800",
-    color: theme.colors.primary,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 999,
-    backgroundColor: theme.colors.primarySoft,
+    textAlign: "center",
   },
-  qrWrap: {
+  bottomRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: "auto",
+    paddingHorizontal: theme.spacing.sm,
+  },
+  qrContainer: {
     alignItems: "center",
     justifyContent: "center",
   },
-  qrInner: {
-    width: 230,
-    height: 230,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    alignItems: "center",
-    justifyContent: "center",
+  qrBg: {
+    width: 120,
+    height: 120,
     backgroundColor: "#FFFFFF",
-    padding: 14,
-  },
-  qrLoading: {
+    borderRadius: 8,
+    padding: 8,
     alignItems: "center",
     justifyContent: "center",
-    width: 200,
-    height: 200,
+  },
+  qrLoadingInner: {
+    alignItems: "center",
+    justifyContent: "center",
   },
   qrEmpty: {
     alignItems: "center",
     justifyContent: "center",
-    width: 200,
-    height: 200,
-    gap: 8,
+    opacity: 0.7,
   },
-  qrEmptyText: {
-    color: theme.colors.muted,
-    fontSize: 13,
-    fontWeight: "600",
+  numberColumn: {
+    alignItems: "flex-end",
+    justifyContent: "center",
   },
-  validityRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 12,
-    paddingHorizontal: 4,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-    marginTop: 4,
-  },
-  validityCol: {
-    gap: 2,
-  },
-  validityColEnd: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  validityLabel: {
+  numberLabel: {
+    color: "rgba(255,255,255,0.62)",
+    fontFamily: theme.fontFamilies.regular,
     fontSize: 11,
-    color: theme.colors.muted,
-    fontWeight: "600",
+    marginBottom: 4,
+    letterSpacing: 0.4,
   },
-  validityValue: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: theme.colors.foregroundDark,
-  },
-  statusDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  statusOk: { backgroundColor: theme.colors.success },
-  statusWarn: { backgroundColor: theme.colors.warning },
-  statusText: {
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  statusOkText: { color: theme.colors.success },
-  statusWarnText: { color: theme.colors.warning },
-  cardFooter: {
-    backgroundColor: theme.colors.background,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-  },
-  footerText: {
-    flex: 1,
-    color: "rgba(255,255,255,0.7)",
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  refreshBtn: {
-    marginTop: 4,
+  numberValue: {
+    color: "#FFFFFF",
+    fontFamily: theme.fontFamilies.bold,
+    fontSize: 20,
+    letterSpacing: 1,
   },
   tipWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    alignSelf: "center",
-    paddingHorizontal: 12,
+    marginTop: theme.spacing.md,
     paddingVertical: 8,
-    borderRadius: 999,
+    paddingHorizontal: 16,
+    alignSelf: "center",
   },
   tipText: {
-    fontSize: 12,
-    color: theme.colors.muted,
-    fontWeight: "500",
+    ...theme.typography.caption,
+    color: theme.colors.foregroundMuted,
+    fontFamily: theme.fontFamilies.regular,
+    textAlign: "center",
   },
 });
-
-void Image;

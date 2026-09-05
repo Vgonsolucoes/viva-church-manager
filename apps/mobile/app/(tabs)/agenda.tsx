@@ -2,6 +2,7 @@ import React, { useCallback, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View, Alert } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MapPin } from "lucide-react-native";
 import { Screen } from "@/components/Screen";
 import { Card } from "@/components/Card";
 import { EmptyState } from "@/components/EmptyState";
@@ -12,6 +13,12 @@ import { addToCalendar } from "@/utils/calendar";
 import { listMyAgenda } from "@/services/api/agenda";
 import { useAuth } from "@/hooks/useAuth";
 import type { AgendaCategory, AgendaItem } from "@/types";
+import { AppHeader } from "@/components/AppHeader";
+import { ScreenContainer } from "@/components/ScreenContainer";
+import { AppCard } from "@/components/AppCard";
+import { Badge } from "@/components/Badge";
+import { LoadingSkeleton, SkeletonCardLines } from "@/components/LoadingSkeleton";
+import { ErrorState } from "@/components/ErrorState";
 
 type Range = "today" | "week" | "month";
 
@@ -22,26 +29,27 @@ function categoryMeta(cat: AgendaCategory): {
   icon: IconName;
   color: string;
   bg: string;
+  variant: any;
 } {
   switch (cat) {
     case "CULTO":
-      return { label: "Culto", icon: "church", color: theme.colors.primary, bg: theme.colors.primarySoft };
+      return { label: "Culto", icon: "church", color: theme.colors.primary, bg: theme.colors.primarySoft, variant: "primary" };
     case "EVENTO":
-      return { label: "Evento", icon: "calendar-star", color: theme.colors.accent, bg: theme.colors.accentSoft };
+      return { label: "Evento", icon: "calendar-star", color: theme.colors.accent, bg: theme.colors.accentSoft, variant: "pink" };
     case "CELULA":
-      return { label: "Célula", icon: "account-group", color: theme.colors.success, bg: "rgba(23,201,100,0.15)" };
+      return { label: "Célula", icon: "account-group", color: theme.colors.success, bg: "rgba(23,201,100,0.15)", variant: "success" };
     case "REUNIAO":
-      return { label: "Reunião", icon: "account-multiple-check", color: theme.colors.secondary, bg: "rgba(57,75,107,0.15)" };
+      return { label: "Reunião", icon: "account-multiple-check", color: theme.colors.secondary, bg: "rgba(57,75,107,0.15)", variant: "cyan" };
     case "DISCIPULADO":
-      return { label: "Discipulado", icon: "book-open-page-variant", color: theme.colors.warning, bg: "rgba(244,161,0,0.15)" };
+      return { label: "Discipulado", icon: "book-open-page-variant", color: theme.colors.warning, bg: "rgba(244,161,0,0.15)", variant: "warning" };
     case "ENSAIO":
-      return { label: "Ensaio", icon: "music-circle", color: "#8B5CF6", bg: "rgba(139,92,246,0.15)" };
+      return { label: "Ensaio", icon: "music-circle", color: "#8B5CF6", bg: "rgba(139,92,246,0.15)", variant: "purple" };
     case "ESCALA":
-      return { label: "Escala", icon: "clipboard-text-clock", color: "#0EA5E9", bg: "rgba(14,165,233,0.15)" };
+      return { label: "Escala", icon: "clipboard-text-clock", color: "#0EA5E9", bg: "rgba(14,165,233,0.15)", variant: "cyan" };
     case "CONFERENCIA":
-      return { label: "Conferência", icon: "microphone-variant", color: "#EC4899", bg: "rgba(236,72,153,0.15)" };
+      return { label: "Conferência", icon: "microphone-variant", color: "#EC4899", bg: "rgba(236,72,153,0.15)", variant: "pink" };
     default:
-      return { label: "Agenda", icon: "calendar", color: theme.colors.primary, bg: theme.colors.primarySoft };
+      return { label: "Agenda", icon: "calendar", color: theme.colors.primary, bg: theme.colors.primarySoft, variant: "primary" };
   }
 }
 
@@ -92,30 +100,42 @@ export default function AgendaScreen() {
     }
   };
 
+  const handleSearch = () => {};
+  const handleFilter = () => {};
+
   return (
-    <Screen
-      backgroundBrand
-      padded={false}
-      loading={isLoading}
-      loadingLabel="Carregando agenda..."
-      refreshing={isFetching && !isLoading}
-      onRefresh={onRefresh}
-    >
-      <View style={styles.header}>
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      <AppHeader
+        title="Agenda"
+        rightIcons={[
+          { key: "search", onPress: handleSearch },
+          { key: "filter", onPress: handleFilter },
+        ]}
+      />
+
+      <View style={styles.tabsWrap}>
         <SegmentedControl value={range} onChange={setRange} />
       </View>
 
-      {error && !isLoading ? (
-        <View style={styles.errorWrap}>
-          <MaterialCommunityIcons name="alert-circle" size={18} color={theme.colors.destructive} />
-          <Text style={styles.errorText}>
-            {(error as Error).message || "Erro ao carregar agenda. Arraste para atualizar."}
-          </Text>
-        </View>
-      ) : null}
+      <ScreenContainer
+        scrollable={true}
+        padded={true}
+        edges={["left", "right", "bottom"]}
+        noTopPadding={true}
+        refreshing={isFetching && !isLoading}
+        onRefresh={onRefresh}
+      >
+        {error && !isLoading ? (
+          <ErrorState
+            title="Erro ao carregar agenda"
+            message={(error as Error).message || "Arraste para atualizar."}
+            onRetry={onRefresh}
+          />
+        ) : null}
 
-      <View style={styles.list}>
-        {!isLoading && items.length === 0 ? (
+        {isLoading ? (
+          <TimelineSkeleton />
+        ) : items.length === 0 ? (
           <EmptyState
             icon="calendar-outline"
             title="Nada na agenda"
@@ -128,72 +148,15 @@ export default function AgendaScreen() {
             }
             actionLabel="Atualizar"
             onAction={onRefresh}
+            tint="agenda"
           />
-        ) : null}
+        ) : (
+          <TimelineList items={items} onAddToCalendar={handleAddToCalendar} />
+        )}
 
-        {isLoading && items.length === 0 ? (
-          <View style={{ alignItems: "center", paddingVertical: 30 }}>
-            <LoadingSpinner size="large" />
-          </View>
-        ) : null}
-
-        {items.map((item) => {
-          const meta = categoryMeta(item.category);
-          return (
-            <Card key={item.id} style={styles.rowCard} padding="md" elevated>
-              <View style={styles.rowHeader}>
-                <View style={[styles.rowIconWrap, { backgroundColor: meta.bg }]}>
-                  <MaterialCommunityIcons name={meta.icon} size={22} color={meta.color} />
-                </View>
-                <View style={{ flex: 1, marginLeft: 12 }}>
-                  <View style={styles.rowTitleRow}>
-                    <Text style={styles.rowTitle} numberOfLines={2}>
-                      {item.title}
-                    </Text>
-                    <View
-                      style={[styles.badge, { backgroundColor: meta.bg }]}
-                    >
-                      <Text style={[styles.badgeText, { color: meta.color }]}>
-                        {meta.label}
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={styles.metaRow}>
-                    <MaterialCommunityIcons name="clock-outline" size={14} color={theme.colors.primary} />
-                    <Text style={styles.rowDate}>{friendlyEventDate(item.startsAt)}</Text>
-                  </View>
-                  {item.location ? (
-                    <View style={styles.metaRow}>
-                      <MaterialCommunityIcons name="map-marker-outline" size={14} color={theme.colors.muted} />
-                      <Text style={styles.rowLocation} numberOfLines={1}>
-                        {item.location}
-                      </Text>
-                    </View>
-                  ) : null}
-                  {item.description ? (
-                    <Text style={styles.rowDesc} numberOfLines={2}>
-                      {item.description}
-                    </Text>
-                  ) : null}
-                  <View style={styles.actionsRow}>
-                    <Pressable
-                      style={styles.actionBtn}
-                      onPress={() => handleAddToCalendar(item)}
-                      android_ripple={{ color: theme.colors.primarySoft, borderless: true }}
-                    >
-                      <MaterialCommunityIcons name="calendar-plus" size={16} color={theme.colors.primary} />
-                      <Text style={styles.actionText}>Adicionar à agenda</Text>
-                    </Pressable>
-                  </View>
-                </View>
-              </View>
-            </Card>
-          );
-        })}
-      </View>
-
-      <View style={{ height: 20 }} />
-    </Screen>
+        <View style={{ height: 24 }} />
+      </ScreenContainer>
+    </View>
   );
 }
 
@@ -213,8 +176,11 @@ function SegmentedControl({
             <Pressable
               key={t.key}
               onPress={() => onChange(t.key)}
-              android_ripple={{ color: "rgba(255,255,255,0.12)", borderless: true }}
-              style={[styles.segBtn, active && styles.segBtnActive]}
+              style={({ pressed }) => [
+                styles.segBtn,
+                active && styles.segBtnActive,
+                pressed && { opacity: 0.8 },
+              ]}
             >
               <Text style={[styles.segText, active && styles.segTextActive]}>
                 {t.label}
@@ -227,134 +193,245 @@ function SegmentedControl({
   );
 }
 
+function TimelineSkeleton() {
+  return (
+    <View style={{ gap: 14 }}>
+      {Array.from({ length: 4 }).map((_, i) => (
+        <View key={i} style={{ flexDirection: "row", gap: 12 }}>
+          <View style={{ width: 70, alignItems: "flex-end", paddingTop: 6 }}>
+            <LoadingSkeleton variant="line" width={52} height={16} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <LoadingSkeleton variant="card" height={100} />
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function TimelineList({
+  items,
+  onAddToCalendar,
+}: {
+  items: AgendaItem[];
+  onAddToCalendar: (item: AgendaItem) => void;
+}) {
+  const grouped = useMemo(() => {
+    const map = new Map<string, AgendaItem[]>();
+    items.forEach((it) => {
+      const key = formatDate(it.startsAt);
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(it);
+    });
+    return Array.from(map.entries());
+  }, [items]);
+
+  return (
+    <View style={{ gap: 18 }}>
+      {grouped.map(([dayKey, dayItems]) => (
+        <View key={dayKey}>
+          <Text style={styles.dayHeader}>{dayKey}</Text>
+          <View style={{ marginTop: 10, gap: 14 }}>
+            {dayItems.map((item) => (
+              <TimelineRow key={item.id} item={item} onAddToCalendar={onAddToCalendar} />
+            ))}
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function TimelineRow({
+  item,
+  onAddToCalendar,
+}: {
+  item: AgendaItem;
+  onAddToCalendar: (item: AgendaItem) => void;
+}) {
+  const meta = categoryMeta(item.category);
+  const time = formatTime(item.startsAt);
+
+  return (
+    <View style={{ flexDirection: "row" }}>
+      <View style={styles.timeCol}>
+        <Text style={styles.timeLabel}>{time}</Text>
+      </View>
+
+      <View style={{ flex: 1, flexDirection: "row" }}>
+        <View style={styles.separatorCol}>
+          <View style={styles.separatorDot} />
+          <View style={styles.separatorLine} />
+        </View>
+
+        <View style={{ flex: 1, paddingLeft: 12 }}>
+          <AppCard variant="default" padding={undefined}>
+            <View style={{ gap: 8 }}>
+              <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+                <View style={{ flex: 1 }}>
+                  <Text numberOfLines={2} style={styles.itemTitle}>
+                    {item.title}
+                  </Text>
+                  <View style={{ marginTop: 6 }}>
+                    <Badge label={meta.label} variant={meta.variant as any} />
+                  </View>
+                </View>
+                <View
+                  style={[
+                    styles.itemIconBox,
+                    { backgroundColor: "rgba(255,255,255,0.06)" },
+                  ]}
+                >
+                  <MaterialCommunityIcons name={meta.icon} size={20} color={meta.color} />
+                </View>
+              </View>
+
+              {item.location ? (
+                <View style={styles.itemMetaRow}>
+                  <MapPin size={14} color={theme.colors.foregroundMuted} />
+                  <Text style={styles.itemMetaText} numberOfLines={1}>
+                    {item.location}
+                  </Text>
+                </View>
+              ) : null}
+
+              {item.description ? (
+                <Text style={styles.itemDesc} numberOfLines={2}>
+                  {item.description}
+                </Text>
+              ) : null}
+
+              <Pressable
+                style={styles.itemActionBtn}
+                onPress={() => onAddToCalendar(item)}
+              >
+                <MaterialCommunityIcons name="calendar-plus" size={14} color={theme.colors.primary400} />
+                <Text style={styles.itemActionText}>Adicionar à agenda</Text>
+              </Pressable>
+            </View>
+          </AppCard>
+        </View>
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  header: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 12,
+  tabsWrap: {
+    paddingHorizontal: theme.spacing.lg,
+    paddingBottom: theme.spacing.md,
+    backgroundColor: theme.colors.background,
   },
   segRoot: {
     width: "100%",
   },
   segBtn: {
     paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    paddingHorizontal: 20,
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.colors.white08,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
+    borderColor: theme.colors.white16,
   },
   segBtnActive: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.primary500,
+    borderColor: theme.colors.primary500,
   },
   segText: {
-    color: "rgba(255,255,255,0.72)",
-    fontWeight: "700",
-    fontSize: theme.font.sm,
+    color: theme.colors.foregroundMuted,
+    fontFamily: theme.fontFamilies.bold,
+    fontSize: 13,
   },
   segTextActive: {
     color: "#FFFFFF",
   },
-  errorWrap: {
-    marginHorizontal: 16,
-    padding: 12,
-    backgroundColor: theme.colors.destructiveSoft,
-    borderWidth: 1,
-    borderColor: "rgba(240,68,56,0.25)",
-    borderRadius: theme.radius.md,
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-  },
-  errorText: {
-    flex: 1,
-    color: theme.colors.destructive,
-    fontSize: theme.font.sm,
-    fontWeight: "600",
-  },
-  list: {
-    gap: 12,
-    paddingHorizontal: 16,
+  dayHeader: {
+    color: theme.colors.foreground,
+    fontFamily: theme.fontFamilies.bold,
+    fontSize: 16,
     marginTop: 4,
   },
-  rowCard: {
-    width: "100%",
+  timeCol: {
+    width: 70,
+    alignItems: "flex-end",
+    paddingRight: 4,
+    paddingTop: 6,
   },
-  rowHeader: {
-    flexDirection: "row",
-    alignItems: "flex-start",
+  timeLabel: {
+    color: theme.colors.primary400,
+    fontFamily: theme.fontFamilies.bold,
+    fontSize: 14,
+    textAlign: "right",
   },
-  rowIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  separatorCol: {
+    width: 18,
+    alignItems: "center",
+  },
+  separatorDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: theme.colors.primary400,
+    marginTop: 12,
+  },
+  separatorLine: {
+    flex: 1,
+    width: 1.5,
+    backgroundColor: theme.colors.white08,
+    marginTop: 6,
+    minHeight: 80,
+  },
+  itemTitle: {
+    color: "#FFFFFF",
+    fontFamily: theme.fontFamilies.bold,
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  itemIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: "center",
     justifyContent: "center",
   },
-  rowTitleRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: 8,
-  },
-  rowTitle: {
-    flex: 1,
-    fontSize: theme.font.md,
-    fontWeight: "800",
-    color: theme.colors.foregroundDark,
-  },
-  badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 999,
-  },
-  badgeText: {
-    fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 0.3,
-  },
-  metaRow: {
+  itemMetaRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    marginTop: 6,
   },
-  rowDate: {
-    fontSize: theme.font.sm,
-    fontWeight: "600",
-    color: theme.colors.primary,
-  },
-  rowLocation: {
+  itemMetaText: {
     flex: 1,
-    fontSize: theme.font.xs,
-    color: theme.colors.muted,
+    color: theme.colors.foregroundMuted,
+    fontFamily: theme.fontFamilies.regular,
+    fontSize: 12,
   },
-  rowDesc: {
-    marginTop: 8,
-    fontSize: theme.font.sm,
-    color: theme.colors.muted,
+  itemDesc: {
+    color: theme.colors.foregroundMuted,
+    fontFamily: theme.fontFamilies.regular,
+    fontSize: 12,
     lineHeight: 18,
   },
-  actionsRow: {
-    marginTop: 10,
-    flexDirection: "row",
-  },
-  actionBtn: {
+  itemActionBtn: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: theme.colors.primarySoft,
+    alignSelf: "flex-start",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: theme.radius.pill,
+    backgroundColor: "rgba(23,107,255,0.10)",
+    marginTop: 2,
   },
-  actionText: {
-    fontSize: theme.font.xs,
-    fontWeight: "700",
-    color: theme.colors.primary,
+  itemActionText: {
+    color: theme.colors.primary400,
+    fontFamily: theme.fontFamilies.semibold,
+    fontSize: 11,
   },
 });
 
 void formatDate;
 void formatTime;
+void Screen;
+void Card;
+void LoadingSpinner;

@@ -1,65 +1,65 @@
 import React from "react";
 import { Stack } from "expo-router";
-import { theme } from "@/constants/theme";
+import { theme } from "@/theme";
 
 export default function IgrejaLayout() {
   return (
     <Stack
       screenOptions={{
         headerStyle: { backgroundColor: theme.colors.background },
-        headerTintColor: "#FFFFFF",
-        headerTitleStyle: { color: "#FFFFFF", fontWeight: "700" },
+        headerTintColor: theme.colors.foreground,
+        headerTitleStyle: {
+          color: theme.colors.foreground,
+          fontFamily: "Inter_700Bold",
+          fontSize: 18,
+        },
+        headerBackTitleStyle: {
+          fontFamily: "Inter_500Medium",
+        },
         headerBackTitle: "Voltar",
+        headerShadowVisible: false,
         contentStyle: { backgroundColor: theme.colors.background },
       }}
     >
       <Stack.Screen
         name="eventos"
-        options={{
-          title: "Eventos",
-        }}
+        options={{ title: "Eventos" }}
       />
       <Stack.Screen
         name="eventos/[id]"
-        options={{
-          title: "Detalhe do evento",
-        }}
+        options={{ title: "Detalhe do evento" }}
       />
       <Stack.Screen
-        name="celulas"
-        options={{
-          title: "Células",
-        }}
+        name="celulas/index"
+        options={{ title: "Minha Célula" }}
       />
       <Stack.Screen
-        name="discipulado"
-        options={{
-          title: "Discipulado",
-        }}
+        name="discipulado/index"
+        options={{ title: "Discipulado" }}
       />
       <Stack.Screen
         name="discipulado/rede"
-        options={{
-          title: "Rede de discipulado",
-        }}
+        options={{ title: "Minha Rede" }}
       />
       <Stack.Screen
         name="ministerios"
-        options={{
-          title: "Ministérios",
-        }}
+        options={{ title: "Ministérios" }}
       />
       <Stack.Screen
         name="projetos"
-        options={{
-          title: "Projetos e ofertas",
-        }}
+        options={{ title: "Projetos e ofertas" }}
       />
       <Stack.Screen
         name="oracao"
-        options={{
-          title: "Pedido de oração",
-        }}
+        options={{ title: "Pedido de oração" }}
+      />
+      <Stack.Screen
+        name="infantil"
+        options={{ title: "Meus filhos" }}
+      />
+      <Stack.Screen
+        name="notifications"
+        options={{ title: "Notificações" }}
       />
     </Stack>
   );

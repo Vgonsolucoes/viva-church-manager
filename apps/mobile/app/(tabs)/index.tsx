@@ -1,7 +1,9 @@
 import React, { useCallback, useMemo } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View, FlatList, Dimensions } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { Clock, MapPin } from "lucide-react-native";
 import { Screen } from "@/components/Screen";
 import { Avatar } from "@/components/Avatar";
 import { Card } from "@/components/Card";
@@ -13,8 +15,19 @@ import { friendlyEventDate, weekdayLabel, formatTime } from "@/utils/date";
 import { listMyAgenda } from "@/services/api/agenda";
 import { listMySchedules } from "@/services/api/schedules";
 import { getMyCell } from "@/services/api/cellsMy";
-import type { AgendaCategory, CellDetail } from "@/types";
+import { listEvents } from "@/services/api/events";
+import type { AgendaCategory, CellDetail, EventPublic } from "@/types";
 import { Link } from "expo-router";
+import { ScreenContainer } from "@/components/ScreenContainer";
+import { AppCard } from "@/components/AppCard";
+import { PrimaryButton } from "@/components/PrimaryButton";
+import { SecondaryButton } from "@/components/SecondaryButton";
+import { SectionHeader } from "@/components/SectionHeader";
+import { Badge } from "@/components/Badge";
+import { StatusBadge } from "@/components/StatusBadge";
+import { LoadingSkeleton, SkeletonCardLines } from "@/components/LoadingSkeleton";
+import { EventCard, EventCardData } from "@/components/EventCard";
+import { ErrorState } from "@/components/ErrorState";
 
 function greeting() {
   const h = new Date().getHours();
@@ -47,6 +60,27 @@ function categoryMeta(cat: AgendaCategory): { label: string; icon: IconName; col
     default:
       return { label: "Agenda", icon: "calendar", color: theme.colors.primary, bg: theme.colors.primarySoft };
   }
+}
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+
+function eventToCardData(e: EventPublic, idx: number): EventCardData {
+  const d = new Date(e.startsAt);
+  const monthShort = d.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "").toUpperCase();
+  const dateStartLabel = String(d.getDate()).padStart(2, "0");
+  const dateEndLabel = e.endsAt ? String(new Date(e.endsAt).getDate()).padStart(2, "0") : undefined;
+  return {
+    id: e.id,
+    title: e.name,
+    dateLabel: friendlyEventDate(e.startsAt),
+    dateStartLabel,
+    dateEndLabel,
+    monthShort,
+    location: e.location ?? undefined,
+    imageUrl: e.bannerImageUrl ?? undefined,
+    category: (e.type ?? "EVENTO") as any,
+    registrationOpen: true,
+  };
 }
 
 export default function HomeScreen() {
@@ -91,8 +125,20 @@ export default function HomeScreen() {
     staleTime: 5 * 60_000,
   });
 
-  const isLoadingAny = agendaLoading || schedulesLoading || cellLoading;
-  const isFetchingAny = agendaFetching || schedulesFetching || cellFetching;
+  const {
+    data: eventsList,
+    isLoading: eventsLoading,
+    isFetching: eventsFetching,
+    refetch: refetchEvents,
+  } = useQuery({
+    queryKey: ["events-home"],
+    queryFn: () => listEvents(),
+    enabled: initialized && !!me,
+    staleTime: 5 * 60_000,
+  });
+
+  const isLoadingAny = agendaLoading || schedulesLoading || cellLoading || eventsLoading;
+  const isFetchingAny = agendaFetching || schedulesFetching || cellFetching || eventsFetching;
 
   const firstError =
     (agendaError as Error | null) ||
@@ -105,20 +151,14 @@ export default function HomeScreen() {
       refetchAgenda(),
       refetchSchedules(),
       refetchCell(),
+      refetchEvents(),
     ]);
-  }, [refreshMe, refetchAgenda, refetchSchedules, refetchCell]);
+  }, [refreshMe, refetchAgenda, refetchSchedules, refetchCell, refetchEvents]);
 
   const nextCulto = useMemo(() => {
     const now = Date.now();
     return (agenda ?? [])
       .filter((a) => a.category === "CULTO" && new Date(a.startsAt).getTime() + 3_600_000 >= now)
-      .sort((a, b) => +new Date(a.startsAt) - +new Date(b.startsAt))[0];
-  }, [agenda]);
-
-  const nextEvent = useMemo(() => {
-    const now = Date.now();
-    return (agenda ?? [])
-      .filter((a) => a.category !== "CULTO" && new Date(a.startsAt).getTime() + 3_600_000 >= now)
       .sort((a, b) => +new Date(a.startsAt) - +new Date(b.startsAt))[0];
   }, [agenda]);
 
@@ -136,414 +176,348 @@ export default function HomeScreen() {
       })[0];
   }, [schedules]);
 
-  const loading = !initialized || isLoadingAny;
+  const upcomingEvents = useMemo(() => {
+    const arr = eventsList ?? [];
+    return arr
+      .filter((e) => new Date(e.startsAt).getTime() + 3_600_000 >= Date.now())
+      .sort((a, b) => +new Date(a.startsAt) - +new Date(b.startsAt))
+      .map(eventToCardData);
+  }, [eventsList]);
+
+  const isLoading = !initialized || isLoadingAny;
+
+  const headerLeft = (
+    <View style={styles.headerLeftInner}>
+      <Text style={styles.greetingText}>{greeting()},</Text>
+      <Text style={styles.usernameText} numberOfLines={1}>
+        {me?.name ?? "Carregando..."}{" "}
+        <Text style={{ fontSize: 18 }}>👋</Text>
+      </Text>
+    </View>
+  );
+
+  const headerRight = (
+    <Avatar src={me?.image} name={me?.name} size="sm" style={{ width: 44, height: 44, borderRadius: 22 }} />
+  );
 
   return (
-    <Screen
-      backgroundBrand
-      padded={false}
-      loading={loading}
-      loadingLabel="Carregando..."
-      refreshing={isFetchingAny && !loading}
-      onRefresh={onRefresh}
-    >
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Avatar src={me?.image} name={me?.name} size={48} />
-          <View style={{ marginLeft: 12, flex: 1 }}>
-            <Text style={styles.greeting}>{greeting()},</Text>
-            <Text style={styles.username} numberOfLines={1}>
-              Olá, {me?.name ?? "Carregando..."}
-            </Text>
-          </View>
-        </View>
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      <View style={styles.headerBar}>
+        <View style={{ flex: 1 }}>{headerLeft}</View>
+        <View>{headerRight}</View>
       </View>
 
-      {firstError && !loading ? (
-        <View style={styles.errorWrap}>
-          <MaterialCommunityIcons name="alert-circle" size={18} color={theme.colors.destructive} />
-          <Text style={styles.errorText}>
-            {firstError.message || "Erro ao carregar dados. Arraste para atualizar."}
-          </Text>
-        </View>
-      ) : null}
-
-      <View style={styles.cardsList}>
-        <HomeCard
-          title="Próximo Culto"
-          icon="church"
-          iconColor={theme.colors.primary}
-          iconBg={theme.colors.primarySoft}
-          loading={loading}
-          emptyText="Nenhum culto agendado"
-          emptyIcon="church-outline"
-        >
-          {nextCulto ? (
-            <CardContent
-              title={nextCulto.title}
-              subtitle={friendlyEventDate(nextCulto.startsAt)}
-              location={nextCulto.location ?? undefined}
+      <ScreenContainer
+        scrollable={true}
+        padded={true}
+        edges={["left", "right", "bottom"]}
+        noTopPadding={true}
+        refreshing={isFetchingAny && !isLoading}
+        onRefresh={onRefresh}
+      >
+        {firstError && !isLoading ? (
+          <View style={{ marginBottom: 16 }}>
+            <ErrorState
+              title="Erro ao carregar"
+              message={firstError.message || "Arraste para atualizar."}
+              onRetry={onRefresh}
             />
-          ) : null}
-        </HomeCard>
+          </View>
+        ) : null}
 
-        <HomeCard
-          title="Próxima Escala"
-          icon="clipboard-text-clock"
-          iconColor="#0EA5E9"
-          iconBg="rgba(14,165,233,0.15)"
-          loading={loading}
-          emptyText="Sem escalas pendentes"
-          emptyIcon="clipboard-outline"
-        >
-          {nextSchedule?.schedule ? (
-            <CardContent
-              title={`${nextSchedule.roleName} · ${nextSchedule.schedule.title}`}
-              subtitle={friendlyEventDate(nextSchedule.schedule.startsAt)}
-              location={nextSchedule.schedule.location ?? undefined}
-              badge={nextSchedule.status}
-              badgeColor={
-                nextSchedule.status === "CONFIRMED"
-                  ? theme.colors.success
-                  : nextSchedule.status === "DECLINED"
-                    ? theme.colors.destructive
-                    : theme.colors.warning
-              }
-            />
-          ) : null}
-        </HomeCard>
-
-        <HomeCard
-          title="Minha Célula"
-          icon="account-group"
-          iconColor={theme.colors.success}
-          iconBg="rgba(23,201,100,0.15)"
-          loading={loading}
-          emptyText="Você ainda não participa de uma célula"
-          emptyIcon="account-group-outline"
-        >
-          {myCell ? (
-            <CardContent
-              title={myCell.name}
-              subtitle={`${weekdayLabel(myCell.weekday)} · ${myCell.time}`}
-              location={myCell.address || undefined}
-              badge={myCell.membersCount + " membros"}
-              badgeColor={theme.colors.success}
-            />
-          ) : null}
-        </HomeCard>
-
-        <HomeCard
-          title="Próximo Evento"
-          icon="calendar-star"
-          iconColor={theme.colors.accent}
-          iconBg={theme.colors.accentSoft}
-          loading={loading}
-          emptyText="Nenhum evento programado"
-          emptyIcon="calendar-blank-outline"
-        >
-          {nextEvent ? (
-            <CardContent
-              title={nextEvent.title}
-              subtitle={friendlyEventDate(nextEvent.startsAt)}
-              location={nextEvent.location || undefined}
-              categoryBadge={nextEvent.category}
-            />
-          ) : null}
-        </HomeCard>
-
-        <HomeCard
-          title="Avisos / Notificações"
-          icon="bell-badge"
-          iconColor={theme.colors.warning}
-          iconBg="rgba(244,161,0,0.15)"
-          loading={loading}
-          emptyText="Sem avisos no momento"
-          emptyIcon="bell-outline"
-          actionLink="/(tabs)/agenda"
-          actionLabel="Ver agenda"
-        >
-          {(agenda ?? []).length > 0 ? (
-            <View style={styles.noticePreview}>
-              {(agenda ?? [])
-                .filter((a) => {
-                  const now = Date.now();
-                  return new Date(a.startsAt).getTime() + 3_600_000 >= now;
-                })
-                .slice(0, 2)
-                .map((a) => {
-                  const meta = categoryMeta(a.category);
-                  return (
-                    <View key={a.id} style={styles.noticeRow}>
-                      <View
-                        style={[
-                          styles.noticeDot,
-                          { backgroundColor: meta.color },
-                        ]}
-                      />
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.noticeTitle} numberOfLines={1}>
-                          {a.title}
-                        </Text>
-                        <Text style={styles.noticeSub}>
-                          {friendlyEventDate(a.startsAt)}
-                        </Text>
-                      </View>
-                    </View>
-                  );
-                })}
+        {isLoading ? (
+          <View style={{ gap: 16 }}>
+            <LoadingSkeleton variant="heroCard" />
+            <View style={{ flexDirection: "row", gap: 12 }}>
+              <View style={{ flex: 1 }}>
+                <LoadingSkeleton variant="card" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <LoadingSkeleton variant="card" />
+              </View>
             </View>
-          ) : null}
-        </HomeCard>
-      </View>
-
-      <View style={{ height: 24 }} />
-    </Screen>
-  );
-}
-
-function HomeCard({
-  title,
-  icon,
-  iconColor,
-  iconBg,
-  loading,
-  emptyText,
-  emptyIcon,
-  children,
-  actionLink,
-  actionLabel,
-}: {
-  title: string;
-  icon: IconName;
-  iconColor: string;
-  iconBg: string;
-  loading?: boolean;
-  emptyText?: string;
-  emptyIcon?: IconName;
-  children?: React.ReactNode;
-  actionLink?: string;
-  actionLabel?: string;
-}) {
-  const hasContent = React.Children.count(children) > 0 || loading;
-  return (
-    <Card elevated padding="lg" style={styles.card}>
-      <View style={styles.cardHeader}>
-        <View style={styles.cardHeaderLeft}>
-          <View style={[styles.cardIcon, { backgroundColor: iconBg }]}>
-            <MaterialCommunityIcons name={icon} size={20} color={iconColor} />
+            <View style={{ gap: 12 }}>
+              <LoadingSkeleton variant="title" />
+              <View style={{ flexDirection: "row", gap: 12 }}>
+                <LoadingSkeleton variant="gridCard" style={{ width: SCREEN_WIDTH * 0.72 }} />
+                <LoadingSkeleton variant="gridCard" style={{ width: SCREEN_WIDTH * 0.72 }} />
+              </View>
+            </View>
           </View>
-          <Text style={styles.cardTitle}>{title}</Text>
-        </View>
-        {actionLink && actionLabel ? (
-          <Link href={actionLink as any} asChild>
-            <Pressable>
-              <Text style={styles.cardAction}>{actionLabel}</Text>
-            </Pressable>
-          </Link>
-        ) : null}
-      </View>
-      <View style={{ marginTop: 10 }}>
-        {loading ? (
-          <View style={{ alignItems: "center", paddingVertical: 8 }}>
-            <LoadingSpinner size="small" />
-          </View>
-        ) : hasContent ? (
-          children
         ) : (
-          <EmptyState
-            icon={(emptyIcon as any) ?? "cube-outline"}
-            title={emptyText ?? "Nenhum item"}
-          />
-        )}
-      </View>
-    </Card>
-  );
-}
+          <View style={{ gap: 16 }}>
+            <HeroCultoCard culto={nextCulto} />
 
-function CardContent({
-  title,
-  subtitle,
-  location,
-  badge,
-  badgeColor,
-  categoryBadge,
-}: {
-  title: string;
-  subtitle: string;
-  location?: string;
-  badge?: string;
-  badgeColor?: string;
-  categoryBadge?: AgendaCategory;
-}) {
-  return (
-    <View>
-      <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
-        <Text style={styles.contentTitle} numberOfLines={2}>
-          {title}
-        </Text>
-        {badge ? (
-          <View
-            style={[
-              styles.badge,
-              { backgroundColor: (badgeColor ?? theme.colors.muted) + "22" },
-            ]}
-          >
-            <Text style={[styles.badgeText, { color: badgeColor ?? theme.colors.muted }]}>
-              {badge}
-            </Text>
+            <View style={{ flexDirection: "row", gap: 12 }}>
+              <View style={{ flex: 1 }}>
+                <NextScheduleCard schedule={nextSchedule} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <MyCellCard cell={myCell} />
+              </View>
+            </View>
+
+            <SectionHeader
+              title="Acontecendo na Viva"
+              actionLabel="Ver todos"
+              onActionPress={() => {}}
+            />
+
+            {upcomingEvents.length === 0 ? (
+              <AppCard variant="default">
+                <EmptyState
+                  title="Nenhum evento próximo"
+                  description="Em breve novos eventos aparecerão aqui."
+                  tint="agenda"
+                />
+              </AppCard>
+            ) : (
+              <FlatList
+                data={upcomingEvents}
+                keyExtractor={(item) => item.id}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: 12, paddingRight: 8 }}
+                renderItem={({ item }) => (
+                  <View style={{ width: SCREEN_WIDTH * 0.76 }}>
+                    <EventCard data={item} compact />
+                  </View>
+                )}
+              />
+            )}
           </View>
-        ) : null}
-        {categoryBadge && !badge ? (
-          <View
-            style={[
-              styles.badge,
-              { backgroundColor: categoryMeta(categoryBadge).bg },
-            ]}
-          >
-            <Text style={[styles.badgeText, { color: categoryMeta(categoryBadge).color }]}>
-              {categoryMeta(categoryBadge).label}
-            </Text>
-          </View>
-        ) : null}
-      </View>
-      <View style={styles.metaRow}>
-        <MaterialCommunityIcons name="clock-outline" size={14} color={theme.colors.primary} />
-        <Text style={styles.contentDate}>{subtitle}</Text>
-      </View>
-      {location ? (
-        <View style={styles.metaRow}>
-          <MaterialCommunityIcons name="map-marker-outline" size={14} color={theme.colors.muted} />
-          <Text style={styles.contentLocation} numberOfLines={1}>
-            {location}
-          </Text>
-        </View>
-      ) : null}
+        )}
+
+        <View style={{ height: 24 }} />
+      </ScreenContainer>
     </View>
   );
 }
 
+function HeroCultoCard({ culto }: { culto: any }) {
+  if (!culto) {
+    return (
+      <AppCard variant="hero" style={{ backgroundColor: theme.colors.cardDark }}>
+        <View style={styles.heroInner}>
+          <View style={styles.heroTopRow}>
+            <Badge label="PRÓXIMO CULTO" variant="primary" />
+          </View>
+          <View style={{ marginTop: 12 }}>
+            <EmptyState
+              title="Nenhum culto agendado"
+              description="Em breve o próximo culto aparecerá aqui."
+              tint="info"
+            />
+          </View>
+        </View>
+      </AppCard>
+    );
+  }
+
+  const d = new Date(culto.startsAt);
+  const now = new Date();
+  const isToday =
+    d.getDate() === now.getDate() &&
+    d.getMonth() === now.getMonth() &&
+    d.getFullYear() === now.getFullYear();
+  const timeStr = formatTime(culto.startsAt);
+
+  return (
+    <AppCard variant="hero" padding={0} style={{ overflow: "hidden" }}>
+      <LinearGradient
+        colors={[theme.colors.gradientFrom, theme.colors.gradientTo]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{ padding: theme.spacing.xl }}
+      >
+        <View style={styles.heroInner}>
+          <View style={styles.heroTopRow}>
+            <Badge label="PRÓXIMO CULTO" variant="primary" />
+          </View>
+
+          <Text numberOfLines={2} style={styles.heroTitle}>
+            {culto.title}
+          </Text>
+
+          <View style={styles.heroMetaRow}>
+            <View style={styles.heroMetaItem}>
+              <Text style={styles.heroMetaText}>
+                {isToday ? "Hoje" : friendlyEventDate(culto.startsAt)}
+              </Text>
+            </View>
+            <View style={[styles.heroMetaDot, { backgroundColor: "rgba(255,255,255,0.30)" }]} />
+            <View style={styles.heroMetaItem}>
+              <Clock size={16} color="#FFFFFF" />
+              <Text style={[styles.heroMetaText, { marginLeft: 6 }]}>{timeStr}</Text>
+            </View>
+          </View>
+
+          {culto.location ? (
+            <View style={[styles.heroMetaRow, { marginTop: 8 }]}>
+              <MapPin size={16} color="rgba(255,255,255,0.70)" />
+              <Text style={[styles.heroMetaText, { marginLeft: 6, color: "rgba(255,255,255,0.78)" }]} numberOfLines={1}>
+                {culto.location}
+              </Text>
+            </View>
+          ) : null}
+
+          <View style={{ marginTop: 20 }}>
+            <SecondaryButton
+              title="Ver detalhes"
+              variant="outline"
+              height={44}
+            />
+          </View>
+        </View>
+      </LinearGradient>
+    </AppCard>
+  );
+}
+
+function NextScheduleCard({ schedule }: { schedule: any }) {
+  const hasSched = !!schedule?.schedule;
+  const st = schedule?.status ?? "PENDING";
+  const dateLabel = hasSched ? friendlyEventDate(schedule.schedule.startsAt) : undefined;
+  const timeLabel = hasSched ? formatTime(schedule.schedule.startsAt) : undefined;
+
+  return (
+    <AppCard variant="default">
+      <View style={{ gap: 8 }}>
+        <View style={styles.miniCardHeader}>
+          <Badge label="Escala" variant="cyan" />
+        </View>
+        {!hasSched ? (
+          <View style={{ paddingVertical: 8 }}>
+            <Text style={styles.miniCardEmpty}>Sem escalas</Text>
+          </View>
+        ) : (
+          <>
+            <Text numberOfLines={2} style={styles.miniCardTitle}>
+              {schedule.roleName}
+            </Text>
+            <Text numberOfLines={2} style={styles.miniCardSubtitle}>
+              {schedule.schedule.title}
+            </Text>
+            <View style={{ marginTop: 4 }}>
+              <StatusBadge status={st} />
+            </View>
+            {dateLabel ? (
+              <Text style={styles.miniCardMeta}>
+                {dateLabel} {timeLabel ? `• ${timeLabel}` : ""}
+              </Text>
+            ) : null}
+          </>
+        )}
+      </View>
+    </AppCard>
+  );
+}
+
+function MyCellCard({ cell }: { cell: CellDetail | null | undefined }) {
+  return (
+    <AppCard variant="default">
+      <View style={{ gap: 8 }}>
+        <View style={styles.miniCardHeader}>
+          <Badge label="Célula" variant="success" />
+        </View>
+        {!cell ? (
+          <View style={{ paddingVertical: 8 }}>
+            <Text style={styles.miniCardEmpty}>Sem célula</Text>
+          </View>
+        ) : (
+          <>
+            <Text numberOfLines={2} style={styles.miniCardTitle}>
+              {cell.name}
+            </Text>
+            <Text style={styles.miniCardSubtitle}>
+              {weekdayLabel(cell.weekday)} • {cell.time}
+            </Text>
+            <Text style={styles.miniCardMeta}>
+              {cell.membersCount} membros
+            </Text>
+          </>
+        )}
+      </View>
+    </AppCard>
+  );
+}
+
 const styles = StyleSheet.create({
-  header: {
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 10,
+  headerBar: {
+    paddingTop: 0,
+    paddingHorizontal: theme.spacing.lg,
+    paddingBottom: theme.spacing.md,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    backgroundColor: theme.colors.background,
   },
-  headerLeft: { flexDirection: "row", alignItems: "center", flex: 1 },
-  greeting: { color: "rgba(255,255,255,0.72)", fontSize: 13, fontWeight: "500" },
-  username: { color: "#FFFFFF", fontSize: 18, fontWeight: "700", marginTop: 2 },
-  errorWrap: {
-    marginHorizontal: 16,
-    padding: 12,
-    backgroundColor: theme.colors.destructiveSoft,
-    borderWidth: 1,
-    borderColor: "rgba(240,68,56,0.25)",
-    borderRadius: theme.radius.md,
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
+  headerLeftInner: { flex: 1, justifyContent: "center" },
+  greetingText: {
+    color: theme.colors.foregroundMuted,
+    fontSize: 13,
+    fontFamily: theme.fontFamilies.medium,
   },
-  errorText: {
-    flex: 1,
-    color: theme.colors.destructive,
-    fontSize: theme.font.sm,
-    fontWeight: "600",
-  },
-  cardsList: {
-    gap: 12,
-    paddingHorizontal: 16,
-    marginTop: 12,
-  },
-  card: {
-    width: "100%",
-  },
-  cardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  cardHeaderLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  cardIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cardTitle: {
-    fontSize: theme.font.md,
-    fontWeight: "800",
-    color: theme.colors.foregroundDark,
-  },
-  cardAction: {
-    fontSize: theme.font.sm,
-    fontWeight: "700",
-    color: theme.colors.primary,
-  },
-  contentTitle: {
-    flex: 1,
-    fontSize: theme.font.md,
-    fontWeight: "700",
-    color: theme.colors.foregroundDark,
-  },
-  metaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginTop: 6,
-  },
-  contentDate: {
-    fontSize: theme.font.sm,
-    fontWeight: "600",
-    color: theme.colors.primary,
-  },
-  contentLocation: {
-    flex: 1,
-    fontSize: theme.font.xs,
-    color: theme.colors.muted,
-  },
-  badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 999,
-  },
-  badgeText: {
-    fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 0.3,
-  },
-  noticePreview: {
-    gap: 10,
-  },
-  noticeRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingVertical: 6,
-  },
-  noticeDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  noticeTitle: {
-    fontSize: theme.font.sm,
-    fontWeight: "700",
-    color: theme.colors.foregroundDark,
-  },
-  noticeSub: {
+  usernameText: {
+    color: "#FFFFFF",
+    fontSize: 20,
+    fontFamily: theme.fontFamilies.bold,
     marginTop: 2,
-    fontSize: theme.font.xs,
-    color: theme.colors.muted,
+  },
+  heroInner: { width: "100%" },
+  heroTopRow: { flexDirection: "row", alignItems: "center" },
+  heroTitle: {
+    marginTop: 14,
+    color: "#FFFFFF",
+    fontFamily: theme.fontFamilies.bold,
+    fontSize: 26,
+    lineHeight: 32,
+    letterSpacing: -0.2,
+  },
+  heroMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 14,
+  },
+  heroMetaItem: { flexDirection: "row", alignItems: "center" },
+  heroMetaDot: { width: 4, height: 4, borderRadius: 2, marginHorizontal: 10 },
+  heroMetaText: {
+    color: "#FFFFFF",
+    fontFamily: theme.fontFamilies.semibold,
+    fontSize: 14,
+  },
+  miniCardHeader: { flexDirection: "row", alignItems: "center" },
+  miniCardTitle: {
+    color: "#FFFFFF",
+    fontFamily: theme.fontFamilies.bold,
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  miniCardSubtitle: {
+    color: theme.colors.foregroundMuted,
+    fontFamily: theme.fontFamilies.regular,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  miniCardMeta: {
+    color: theme.colors.primary400,
+    fontFamily: theme.fontFamilies.semibold,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  miniCardEmpty: {
+    color: theme.colors.foregroundMuted,
+    fontFamily: theme.fontFamilies.medium,
+    fontSize: 13,
+    textAlign: "center",
+    paddingVertical: 16,
   },
 });
 
 void weekdayLabel;
 void formatTime;
+void Screen;
+void Card;
+void LoadingSpinner;
+void MaterialCommunityIcons;
+void categoryMeta;

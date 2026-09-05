@@ -1,336 +1,275 @@
 import React, { useCallback } from "react";
-import { Link, useRouter } from "expo-router";
-import { ScrollView, StyleSheet, Text, View, Pressable } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Screen } from "@/components/Screen";
+import { StyleSheet, Text, View, Pressable } from "react-native";
+import { useRouter } from "expo-router";
+import {
+  Briefcase,
+  Users,
+  ClipboardList,
+  Settings,
+  LogOut,
+  ChevronRight,
+} from "lucide-react-native";
+import { useQuery } from "@tanstack/react-query";
+import { ScreenContainer } from "@/components/ScreenContainer";
 import { Avatar } from "@/components/Avatar";
-import { Card } from "@/components/Card";
-import { Button } from "@/components/Button";
-import { theme } from "@/constants/theme";
+import { AppCard } from "@/components/AppCard";
+import { PrimaryButton } from "@/components/PrimaryButton";
+import { LoadingSkeleton } from "@/components/LoadingSkeleton";
+import { theme } from "@/theme";
 import { useAuth } from "@/hooks/useAuth";
-import { formatDate } from "@/utils/date";
+import { getMyCell } from "@/services/api/cellsMy";
 
 export default function PerfilScreen() {
   const router = useRouter();
   const { me, logout, loading, initialized, refreshMe } = useAuth();
-  const roles = (me?.roles ?? []) as string[];
-  const permissions = me?.permissions ?? [];
+
+  const cellQuery = useQuery({
+    queryKey: ["my-cell"],
+    queryFn: () => getMyCell(),
+    staleTime: 60_000,
+    enabled: !!initialized,
+  });
 
   const onRefresh = useCallback(async () => {
     await refreshMe(true);
-  }, [refreshMe]);
+    await cellQuery.refetch();
+  }, [refreshMe, cellQuery]);
+
+  const ministries = me?.ministries ?? [];
+  const hasCell = !!cellQuery.data;
+
+  const menuRows = [
+    {
+      id: "ministries",
+      label: "Meus ministérios",
+      Icon: Briefcase,
+      iconBg: "rgba(23,107,255,0.14)",
+      iconColor: theme.colors.primary400,
+      onPress: () => router.push("/igreja/ministerios" as any),
+      danger: false,
+      badge: ministries.length ? String(ministries.length) : null,
+    },
+    {
+      id: "cell",
+      label: "Minha célula",
+      Icon: Users,
+      iconBg: "rgba(34,201,149,0.14)",
+      iconColor: theme.colors.green500,
+      onPress: () => router.push("/igreja/celulas" as any),
+      danger: false,
+      badge: hasCell ? "Ativa" : null,
+    },
+    {
+      id: "data",
+      label: "Meus dados",
+      Icon: ClipboardList,
+      iconBg: "rgba(112,87,255,0.14)",
+      iconColor: theme.colors.purple400,
+      onPress: () => router.push("/perfil/editar"),
+      danger: false,
+      badge: null,
+    },
+    {
+      id: "settings",
+      label: "Configurações",
+      Icon: Settings,
+      iconBg: "rgba(243,155,66,0.14)",
+      iconColor: theme.colors.orange500,
+      onPress: () => {},
+      danger: false,
+      badge: null,
+    },
+    {
+      id: "logout",
+      label: "Sair",
+      Icon: LogOut,
+      iconBg: "rgba(240,68,56,0.14)",
+      iconColor: theme.colors.danger500,
+      onPress: () => logout(),
+      danger: true,
+      badge: null,
+    },
+  ];
 
   return (
-    <Screen
-      backgroundBrand
-      padded={false}
-      refreshing={false}
+    <ScreenContainer
+      scrollable
+      padded
+      edges={["left", "right", "top", "bottom"]}
+      refreshing={!initialized || cellQuery.isFetching}
       onRefresh={onRefresh}
-      loading={!initialized}
-      loadingLabel="Carregando perfil..."
+      contentStyle={{ gap: theme.spacing.lg, paddingBottom: theme.spacing.xxxxl }}
     >
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 14 }}>
-        <Card elevated padding="lg">
-          <View style={styles.hero}>
-            <Avatar src={me?.image} name={me?.name} size={80} />
-            <View style={{ marginLeft: 16, flex: 1 }}>
-              <Text style={styles.name}>{me?.name ?? "Carregando..."}</Text>
-              <Text style={styles.email} numberOfLines={1}>{me?.email ?? "—"}</Text>
-              <View style={styles.chipRow}>
-                {roles.slice(0, 3).map((r) => (
-                  <View key={r} style={styles.roleChip}>
-                    <Text style={styles.roleText}>{r.replace(/_/g, " ")}</Text>
-                  </View>
-                ))}
-              </View>
+      <View style={styles.heroSection}>
+        {!initialized ? (
+          <View style={styles.skeletonWrap}>
+            <LoadingSkeleton variant="avatar" width={120} height={120} borderRadius={60} />
+            <View style={{ gap: theme.spacing.sm, alignItems: "center", marginTop: theme.spacing.lg, width: "80%" }}>
+              <LoadingSkeleton variant="line" width="70%" height={22} />
+              <LoadingSkeleton variant="line" width="55%" height={14} />
+            </View>
+            <View style={{ marginTop: theme.spacing.xl, width: 200 }}>
+              <LoadingSkeleton variant="button" />
             </View>
           </View>
-        </Card>
-
-        <Card elevated padding="lg">
-          <Text style={styles.sectionHeader}>Dados do membro</Text>
-          <InfoRow icon="person" label="Nome completo" value={me?.member?.fullName ?? "—"} />
-          <InfoRow
-            icon="calendar" label="Data de nascimento"
-            value={me?.member?.birthDate ? formatDate(me.member.birthDate) : "—"} />
-          <InfoRow icon="call" label="Telefone" value={me?.member?.phone ?? "—"} />
-          <InfoRow
-            icon="calendar-sharp" label="Batismo / Entrada"
-            value={me?.member?.joinedAt ? formatDate(me.member.joinedAt) : "—"} />
-        </Card>
-
-        <Card elevated padding="lg">
-          <Text style={styles.sectionHeader}>Meus ministérios</Text>
-          {me?.ministries?.length ? (
-            <View style={styles.ministries}>
-              {me.ministries.map((m) => (
-                <View key={m.id} style={styles.ministryChip}>
-                  <Ionicons name="briefcase-outline" size={14} color={theme.colors.primary} />
-                  <Text style={styles.ministryText}>{m.name}</Text>
-                </View>
-              ))}
+        ) : (
+          <>
+            <Avatar
+              src={me?.image ?? me?.member?.photoUrl}
+              name={me?.name}
+              size="xxl"
+              ringColor={theme.colors.primary400}
+              ringWidth={3}
+            />
+            <Text style={styles.name}>{me?.name ?? "Carregando..."}</Text>
+            <Text style={styles.email} numberOfLines={1}>
+              {me?.email ?? "—"}
+            </Text>
+            <View style={styles.editBtnWrap}>
+              <PrimaryButton
+                title="Editar perfil"
+                variant="small"
+                onPress={() => router.push("/perfil/editar")}
+                style={styles.editBtn}
+              />
             </View>
-          ) : (
-            <Text style={styles.muted}>Sem ministérios vinculados.</Text>
-          )}
-        </Card>
-
-        <Card elevated padding="lg">
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionHeader}>Permissões</Text>
-            <Text style={styles.countBadge}>{permissions.length}</Text>
-          </View>
-          <View style={styles.permissionsGrid}>
-            {permissions.length ? (
-              permissions.slice(0, 18).map((p) => (
-                <View key={p} style={styles.permItem}>
-                  <Ionicons name="checkmark-circle" size={14} color={theme.colors.success} />
-                  <Text style={styles.permText} numberOfLines={1}>
-                    {p}
-                  </Text>
-                </View>
-              ))
-            ) : (
-              <Text style={styles.muted}>Nenhuma permissão adicional.</Text>
-            )}
-          </View>
-        </Card>
-
-        <Card elevated padding="none">
-          <Pressable
-            style={styles.listItem}
-            onPress={() => router.push("/perfil/editar")}
-            android_ripple={{ color: theme.colors.primarySoft, borderless: false }}
-          >
-            <View style={[styles.listIconWrap, { backgroundColor: "rgba(244,63,94,0.14)" }]}>
-              <Ionicons name="create-outline" size={20} color={theme.colors.accent} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.listTitle}>Editar perfil</Text>
-              <Text style={styles.listDesc}>Foto, contato, endereço</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={theme.colors.muted} />
-          </Pressable>
-          <View style={styles.divider} />
-          <Pressable
-            style={styles.listItem}
-            onPress={() => router.push("/carteirinha" as any)}
-            android_ripple={{ color: theme.colors.primarySoft, borderless: false }}
-          >
-            <View style={[styles.listIconWrap, { backgroundColor: "rgba(139,92,246,0.15)" }]}>
-              <MaterialCommunityIcons name="card-account-details" size={20} color="#8B5CF6" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.listTitle}>Carteirinha</Text>
-              <Text style={styles.listDesc}>Sua carteirinha de membro com QR Code</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={theme.colors.muted} />
-          </Pressable>
-          <View style={styles.divider} />
-          <Pressable
-            style={styles.listItem}
-            onPress={() => router.push("/qr/scan")}
-            android_ripple={{ color: theme.colors.primarySoft, borderless: false }}
-          >
-            <View style={[styles.listIconWrap, { backgroundColor: "rgba(23,201,100,0.14)" }]}>
-              <Ionicons name="qr-code-outline" size={20} color={theme.colors.success} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.listTitle}>Escanear QR</Text>
-              <Text style={styles.listDesc}>Validar cartão, check-in e ingressos</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={theme.colors.muted} />
-          </Pressable>
-          <View style={styles.divider} />
-          <Pressable
-            style={styles.listItem}
-            onPress={() => router.push("/igreja/eventos" as any)}
-            android_ripple={{ color: theme.colors.primarySoft, borderless: false }}
-          >
-            <View style={[styles.listIconWrap, { backgroundColor: theme.colors.primarySoft }]}>
-              <Ionicons name="business-outline" size={20} color={theme.colors.primary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.listTitle}>Igreja</Text>
-              <Text style={styles.listDesc}>Eventos, células, discipulado, oração...</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={theme.colors.muted} />
-          </Pressable>
-          <View style={styles.divider} />
-          <Pressable
-            style={styles.listItem}
-            android_ripple={{ color: theme.colors.primarySoft, borderless: false }}
-          >
-            <View style={[styles.listIconWrap, { backgroundColor: theme.colors.primarySoft }]}>
-              <Ionicons name="notifications-outline" size={20} color={theme.colors.primary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.listTitle}>Notificações</Text>
-              <Text style={styles.listDesc}>Em breve (pré-configurar preferências)</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={theme.colors.muted} />
-          </Pressable>
-        </Card>
-
-        <Button
-          variant="destructive"
-          style={{ marginTop: 6 }}
-          size="lg"
-          loading={loading}
-          leftIcon={<Ionicons name="log-out-outline" size={18} color="#FFFFFF" />}
-          onPress={() => logout()}
-        >
-          Sair da conta
-        </Button>
-      </ScrollView>
-    </Screen>
-  );
-}
-
-function InfoRow({
-  icon, label, value }: { icon: any; label: string; value: string }) {
-  return (
-    <View style={styles.infoRow}>
-      <Ionicons name={icon as any} size={16} color={theme.colors.primary} />
-      <View style={{ flex: 1, marginLeft: 10 }}>
-        <Text style={styles.infoLabel}>{label}</Text>
-        <Text style={styles.infoValue}>{value}</Text>
+          </>
+        )}
       </View>
-    </View>
+
+      <AppCard variant="default" padding={0} contentStyle={{ padding: 0 }}>
+        {menuRows.map((row, idx) => {
+          const { Icon, label, iconBg, iconColor, onPress, danger, badge } = row;
+          return (
+            <React.Fragment key={row.id}>
+              <Pressable
+                onPress={onPress}
+                style={({ pressed }) => [
+                  styles.menuRow,
+                  pressed && { transform: [{ scale: 0.975 }], opacity: 0.88 },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.menuIcon,
+                    { backgroundColor: iconBg, borderRadius: 12 },
+                  ]}
+                >
+                  <Icon size={22} color={iconColor} />
+                </View>
+                <Text
+                  style={[
+                    styles.menuLabel,
+                    danger && { color: theme.colors.danger500 },
+                  ]}
+                >
+                  {label}
+                </Text>
+                <View style={styles.rowRight}>
+                  {badge ? (
+                    <View
+                      style={[
+                        styles.rowBadge,
+                        {
+                          backgroundColor: danger
+                            ? "rgba(240,68,56,0.14)"
+                            : "rgba(23,107,255,0.14)",
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.rowBadgeText,
+                          { color: danger ? theme.colors.danger500 : theme.colors.primary400 },
+                        ]}
+                      >
+                        {badge}
+                      </Text>
+                    </View>
+                  ) : null}
+                  <ChevronRight
+                    size={20}
+                    color={danger ? theme.colors.danger500 : theme.colors.foregroundMuted}
+                  />
+                </View>
+              </Pressable>
+              {idx < menuRows.length - 1 ? <View style={styles.divider} /> : null}
+            </React.Fragment>
+          );
+        })}
+      </AppCard>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  hero: {
-    flexDirection: "row",
+  heroSection: {
     alignItems: "center",
+    paddingTop: theme.spacing.sm,
+    paddingBottom: theme.spacing.md,
+    gap: theme.spacing.sm,
+  },
+  skeletonWrap: {
+    alignItems: "center",
+    width: "100%",
+    paddingTop: theme.spacing.sm,
   },
   name: {
-    color: theme.colors.foregroundDark,
-    fontSize: 20,
-    fontWeight: "800",
+    color: "#FFFFFF",
+    fontSize: 22,
+    fontFamily: theme.fontFamilies.bold,
+    marginTop: theme.spacing.md,
+    textAlign: "center",
   },
   email: {
-    marginTop: 4,
-    color: theme.colors.muted,
-    fontSize: 13,
+    color: theme.colors.foregroundMuted,
+    ...theme.typography.body,
+    textAlign: "center",
   },
-  chipRow: { flexDirection: "row", flexWrap: "wrap", marginTop: 8, gap: 6 },
-  roleChip: {
-    backgroundColor: theme.colors.primarySoft,
-    borderRadius: 999,
-    paddingHorizontal: 10,
+  editBtnWrap: {
+    marginTop: theme.spacing.xxl,
+    paddingHorizontal: theme.spacing.xxl,
+    width: "100%",
+    alignItems: "center",
+  },
+  editBtn: {
+    width: 220,
+  },
+  menuRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+    gap: theme.spacing.md,
+  },
+  menuIcon: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  menuLabel: {
+    flex: 1,
+    color: "#FFFFFF",
+    ...theme.typography.bodyBold,
+  },
+  rowRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.sm,
+  },
+  rowBadge: {
+    paddingHorizontal: theme.spacing.md,
     paddingVertical: 4,
+    borderRadius: theme.radius.pill,
   },
-  roleText: {
-    color: theme.colors.primary,
-    fontSize: 11,
-    fontWeight: "700",
+  rowBadgeText: {
+    ...theme.typography.captionBold,
+    letterSpacing: 0.3,
   },
-  sectionHeaderRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      marginBottom: 8,
-    },
-  sectionHeader: {
-    fontSize: 13,
-    fontWeight: "800",
-    letterSpacing: 0.5,
-    color: theme.colors.foregroundDark,
-    marginBottom: 10,
-  },
-  countBadge: {
-      fontSize: 11,
-      fontWeight: "800",
-      backgroundColor: theme.colors.primarySoft,
-      color: theme.colors.primary,
-      paddingHorizontal: 8,
-      paddingVertical: 2,
-      borderRadius: 999,
-    },
-  infoRow: {
-      flexDirection: "row",
-      alignItems: "flex-start",
-      paddingVertical: 8,
-    },
-  infoLabel: { color: theme.colors.muted, fontSize: 11, fontWeight: "600" },
-  infoValue: {
-      marginTop: 2,
-      color: theme.colors.foregroundDark,
-      fontSize: 14,
-      fontWeight: "600",
-    },
-  ministries: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: 8,
-    },
-  ministryChip: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 6,
-      paddingHorizontal: 10,
-      paddingVertical: 6,
-      borderRadius: 999,
-      backgroundColor: theme.colors.primarySoft,
-    },
-  ministryText: {
-      fontSize: 12,
-      color: theme.colors.primary,
-      fontWeight: "700",
-    },
-  muted: {
-      color: theme.colors.muted,
-      fontSize: 13,
-    },
-  permissionsGrid: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: 6,
-    },
-  permItem: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 4,
-      width: "48%",
-      paddingVertical: 4,
-    },
-  permText: {
-      flex: 1,
-      fontSize: 11,
-      color: theme.colors.foregroundDark,
-      fontWeight: "600",
-    },
-  listItem: {
-      flexDirection: "row",
-      alignItems: "center",
-      paddingHorizontal: 16,
-      paddingVertical: 14,
-      gap: 12,
-    },
-  listIconWrap: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      backgroundColor: theme.colors.primarySoft,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-  listTitle: {
-      color: theme.colors.foregroundDark,
-      fontSize: 14,
-      fontWeight: "700",
-    },
-  listDesc: {
-      marginTop: 2,
-      color: theme.colors.muted,
-      fontSize: 12,
-    },
   divider: {
-      height: 1,
-      backgroundColor: theme.colors.border,
-      marginHorizontal: 16,
-    },
+    height: 1,
+    backgroundColor: theme.colors.white08,
+    marginHorizontal: theme.spacing.lg,
+  },
 });

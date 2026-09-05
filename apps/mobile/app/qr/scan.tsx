@@ -1,24 +1,31 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { Modal, Platform, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useMutation } from "@tanstack/react-query";
-import { Stack } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
-import { Screen } from "@/components/Screen";
+import { Stack, useRouter } from "expo-router";
+import { Flashlight, Image as ImageIcon, ChevronLeft } from "lucide-react-native";
+import { Pressable } from "react-native";
 import { Avatar } from "@/components/Avatar";
-import { Button } from "@/components/Button";
+import { SecondaryButton } from "@/components/SecondaryButton";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { theme } from "@/constants/theme";
+import { theme } from "@/theme";
 import { postScan } from "@/services/api/qr";
 import type { QrScanResult } from "@/types";
 import { formatDateTime } from "@/utils/date";
 
+const VIEWFINDER_SIZE = 240;
+const CORNER_SIZE = 28;
+const CORNER_BORDER = 3;
+
 export default function QrScanScreen() {
+  const router = useRouter();
   const [permission, requestPermission] = useCameraPermissions();
   const [scanningEnabled, setScanningEnabled] = useState(true);
   const [result, setResult] = useState<QrScanResult | null>(null);
   const [showResult, setShowResult] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
+  const [torchOn, setTorchOn] = useState(false);
   const scanMutRef = useRef<ReturnType<typeof postScan> | null>(null);
 
   const scanMut = useMutation({
@@ -61,43 +68,58 @@ export default function QrScanScreen() {
 
   if (!permission) {
     return (
-      <Screen backgroundBrand title="Escanear QR" loading loadingLabel="Preparando câmera...">
-        <View />
-      </Screen>
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }} edges={["top", "left", "right", "bottom"]}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={styles.noPermWrap}>
+          <LoadingSpinner />
+          <Text style={styles.noPermText}>Preparando câmera...</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
   if (!permission.granted) {
     return (
       <>
-        <Stack.Screen options={{ title: "Escanear QR" }} />
-        <Screen backgroundBrand title="Permissão necessária">
-          <View style={styles.permissionCard}>
-            <View style={styles.permissionIcon}>
-              <Ionicons name="camera-outline" size={40} color={theme.colors.primary} />
-            </View>
-            <Text style={styles.permissionTitle}>Precisamos da câmera</Text>
-            <Text style={styles.permissionDesc}>
-              Para escanear o cartão de membro, check-ins e ingressos de eventos, autorize o
-              acesso à câmera abaixo.
-            </Text>
-            <Button
-              variant="primary"
-              loading={permission.canAskAgain && permission.status === "undetermined"}
-              onPress={() => void requestPermission()}
-            >
-              {permission.canAskAgain ? "Conceder permissão" : "Abrir configurações"}
-            </Button>
+        <Stack.Screen options={{ title: "Escanear QR", headerShown: false }} />
+        <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }} edges={["top", "left", "right", "bottom"]}>
+          <View style={styles.headerRow}>
+            <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={10}>
+              <ChevronLeft size={22} color={theme.colors.foreground} />
+            </Pressable>
+            <Text style={styles.headerTitle}>Escanear QR</Text>
+            <View style={{ width: 40 }} />
           </View>
-        </Screen>
+
+          <View style={{ flex: 1, paddingHorizontal: theme.spacing.lg }}>
+            <View style={styles.permissionCard}>
+              <View style={[styles.permissionIcon, { backgroundColor: "rgba(23,107,255,0.14)" }]}>
+                <Flashlight size={34} color={theme.colors.primary400} />
+              </View>
+              <Text style={styles.permissionTitle}>Precisamos da câmera</Text>
+              <Text style={styles.permissionDesc}>
+                Para escanear o cartão de membro, check-ins e ingressos de eventos, autorize o
+                acesso à câmera abaixo.
+              </Text>
+              <View style={{ width: "100%", marginTop: theme.spacing.lg }}>
+                <SecondaryButton
+                  title={permission.canAskAgain ? "Conceder permissão" : "Abrir configurações"}
+                  onPress={() => void requestPermission()}
+                  style={{ backgroundColor: theme.colors.primary500 }}
+                  textStyle={{ color: "#FFFFFF" }}
+                />
+              </View>
+            </View>
+          </View>
+        </SafeAreaView>
       </>
     );
   }
 
   return (
     <>
-      <Stack.Screen options={{ title: "Escanear QR" }} />
-      <Screen backgroundBrand noSafeArea scrollable={false} padded={false} loading={false}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <SafeAreaView style={styles.root} edges={["top", "left", "right", "bottom"]}>
         <View style={styles.cameraRoot}>
           <CameraView
             style={styles.camera}
@@ -106,31 +128,116 @@ export default function QrScanScreen() {
               barcodeTypes: ["qr", "pdf417", "code128"],
             }}
             onBarcodeScanned={({ data }) => onBarCodeScanned(data)}
-            enableTorch={false}
+            enableTorch={torchOn}
           />
+
           <View style={styles.overlay}>
-            <View style={styles.overlayTop} />
-            <View style={styles.overlayMiddleRow}>
-              <View style={styles.overlaySide} />
-              <View style={styles.viewfinderWrap}>
-                <View style={styles.viewfinder}>
-                  <View style={[styles.corner, styles.tl]} />
-                  <View style={[styles.corner, styles.tr]} />
-                  <View style={[styles.corner, styles.bl]} />
-                  <View style={[styles.corner, styles.br]} />
-                </View>
-                <View style={styles.scanLineWrap}>
-                  <View style={styles.scanLine} />
-                </View>
-              </View>
-              <View style={styles.overlaySide} />
+            <View style={styles.headerRowOverlay}>
+              <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={10}>
+                <ChevronLeft size={22} color="#FFFFFF" />
+              </Pressable>
+              <Text style={styles.headerTitleOverlay}>Escanear QR</Text>
+              <View style={{ width: 40 }} />
             </View>
-            <View style={styles.overlayBottom}>
-              <Text style={styles.hintText}>
-                Aponte a câmera para o QR code do cartão de membro, check-in ou ingresso.
-              </Text>
+
+            <View style={{ flex: 1 }} />
+
+            <View style={styles.viewfinderWrap}>
+              <View style={[styles.viewfinder, { width: VIEWFINDER_SIZE, height: VIEWFINDER_SIZE }]}>
+                <View
+                  style={[
+                    styles.corner,
+                    styles.cornerTL,
+                    {
+                      width: CORNER_SIZE,
+                      height: CORNER_SIZE,
+                      borderTopWidth: CORNER_BORDER,
+                      borderLeftWidth: CORNER_BORDER,
+                      borderColor: theme.colors.primary400,
+                    },
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.corner,
+                    styles.cornerTR,
+                    {
+                      width: CORNER_SIZE,
+                      height: CORNER_SIZE,
+                      borderTopWidth: CORNER_BORDER,
+                      borderRightWidth: CORNER_BORDER,
+                      borderColor: theme.colors.primary400,
+                    },
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.corner,
+                    styles.cornerBL,
+                    {
+                      width: CORNER_SIZE,
+                      height: CORNER_SIZE,
+                      borderBottomWidth: CORNER_BORDER,
+                      borderLeftWidth: CORNER_BORDER,
+                      borderColor: theme.colors.primary400,
+                    },
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.corner,
+                    styles.cornerBR,
+                    {
+                      width: CORNER_SIZE,
+                      height: CORNER_SIZE,
+                      borderBottomWidth: CORNER_BORDER,
+                      borderRightWidth: CORNER_BORDER,
+                      borderColor: theme.colors.primary400,
+                    },
+                  ]}
+                />
+              </View>
+            </View>
+
+            <Text style={styles.hintText}>Aponte a câmera para o QR Code</Text>
+            <Text style={styles.hintSubtitle}>
+              Cartão de membro, check-in ou ingresso de evento
+            </Text>
+
+            <View style={{ flex: 1 }} />
+
+            <View style={styles.footerRow}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.ghostBtn,
+                  { flex: 1, marginRight: theme.spacing.sm },
+                  pressed && { opacity: 0.86, transform: [{ scale: 0.975 }] },
+                ]}
+                onPress={() => setTorchOn((v) => !v)}
+              >
+                <Flashlight
+                  size={18}
+                  color={theme.colors.primary400}
+                  fill={torchOn ? "rgba(23,107,255,0.25)" : undefined}
+                />
+                <Text style={[styles.ghostBtnText, { marginLeft: 8 }]}>
+                  {torchOn ? "Luz ligada" : "Flash"}
+                </Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.ghostBtn,
+                  { flex: 1, marginLeft: theme.spacing.sm },
+                  pressed && { opacity: 0.86, transform: [{ scale: 0.975 }] },
+                ]}
+                onPress={() => {}}
+              >
+                <ImageIcon size={18} color={theme.colors.primary400} />
+                <Text style={[styles.ghostBtnText, { marginLeft: 8 }]}>Galeria</Text>
+              </Pressable>
             </View>
           </View>
+
           {scanMut.isPending ? (
             <View style={styles.scanningOverlay}>
               <LoadingSpinner color="#FFFFFF" />
@@ -138,7 +245,7 @@ export default function QrScanScreen() {
             </View>
           ) : null}
         </View>
-      </Screen>
+      </SafeAreaView>
 
       <Modal visible={showResult} transparent animationType="fade" onRequestClose={resetScan}>
         <View style={styles.resultOverlay}>
@@ -149,10 +256,12 @@ export default function QrScanScreen() {
               </View>
             ) : scanError ? (
               <>
-                <View style={[styles.resultIcon, { backgroundColor: theme.colors.destructiveSoft }]}>
-                  <Ionicons name="alert-circle-outline" size={34} color={theme.colors.destructive} />
+                <View style={[styles.resultIcon, { backgroundColor: "rgba(240,68,56,0.14)" }]}>
+                  <Text style={{ color: theme.colors.danger500, fontSize: 30, fontFamily: theme.fontFamilies.bold, lineHeight: 34 }}>!</Text>
                 </View>
-                <Text style={styles.resultTitle}>Não foi possível validar</Text>
+                <Text style={[styles.resultTitle, { color: theme.colors.danger500 }]}>
+                  Não foi possível validar
+                </Text>
                 <Text style={styles.resultText}>{scanError}</Text>
               </>
             ) : result ? (
@@ -162,21 +271,24 @@ export default function QrScanScreen() {
                     styles.resultIcon,
                     {
                       backgroundColor: result.valid
-                        ? "rgba(23, 201, 100, 0.18)"
-                        : theme.colors.destructiveSoft,
+                        ? "rgba(34,201,149,0.16)"
+                        : "rgba(240,68,56,0.14)",
                     },
                   ]}
                 >
-                  <Ionicons
-                    name={result.valid ? "checkmark" : "close"}
-                    size={34}
-                    color={result.valid ? theme.colors.success : theme.colors.destructive}
-                  />
+                  <Text
+                    style={[
+                      styles.resultCheckMark,
+                      { color: result.valid ? theme.colors.green500 : theme.colors.danger500 },
+                    ]}
+                  >
+                    {result.valid ? "✓" : "×"}
+                  </Text>
                 </View>
                 <Text
                   style={[
                     styles.resultTitle,
-                    { color: result.valid ? theme.colors.success : theme.colors.destructive },
+                    { color: result.valid ? theme.colors.green500 : theme.colors.danger500 },
                   ]}
                 >
                   {result.valid ? "QR válido" : "QR inválido"}
@@ -188,8 +300,8 @@ export default function QrScanScreen() {
                   <Avatar
                     src={result.photoUrl ?? null}
                     name={result.title ?? "Membro"}
-                    size={72}
-                    style={{ alignSelf: "center", marginTop: 8 }}
+                    size="lg"
+                    style={{ alignSelf: "center", marginTop: theme.spacing.md }}
                   />
                 ) : null}
                 {result.subtitle ? (
@@ -204,10 +316,13 @@ export default function QrScanScreen() {
                 />
               </>
             ) : null}
-            <View style={{ marginTop: 16, gap: 10 }}>
-              <Button variant="primary" fullWidth onPress={resetScan}>
-                Esanear outro
-              </Button>
+            <View style={{ marginTop: theme.spacing.lg, gap: theme.spacing.sm, width: "100%" }}>
+              <SecondaryButton
+                title="Escanear outro"
+                onPress={resetScan}
+                style={{ backgroundColor: theme.colors.primary500 }}
+                textStyle={{ color: "#FFFFFF" }}
+              />
             </View>
           </View>
         </View>
@@ -220,113 +335,126 @@ function BadgeLine({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.badgeLine}>
       <Text style={styles.badgeLabel}>{label}</Text>
-      <Text style={styles.badgeValue}>{value}</Text>
+      <Text style={styles.badgeValue} numberOfLines={1}>
+        {value}
+      </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  permissionCard: {
-    backgroundColor: theme.colors.backgroundCard,
-    borderRadius: theme.radius.lg,
-    padding: 20,
-    alignItems: "center",
-    gap: 12,
-  },
-  permissionIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: theme.colors.primarySoft,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  permissionTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: theme.colors.foregroundDark,
-  },
-  permissionDesc: {
-    fontSize: 14,
-    color: theme.colors.muted,
-    textAlign: "center",
-    lineHeight: 20,
+  root: {
+    flex: 1,
+    backgroundColor: "#000000",
   },
   cameraRoot: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: "#000000",
   },
   camera: {
     flex: 1,
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    justifyContent: "center",
+    paddingTop: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.lg,
+    paddingBottom: theme.spacing.md,
   },
-  overlayTop: {
-    flex: 1,
-    backgroundColor: theme.colors.overlay,
-  },
-  overlayMiddleRow: {
+  headerRowOverlay: {
     flexDirection: "row",
-    height: 260,
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: theme.spacing.sm,
   },
-  overlaySide: {
-    flex: 1,
-    backgroundColor: theme.colors.overlay,
+  headerTitleOverlay: {
+    ...theme.typography.card,
+    color: "#FFFFFF",
+    fontFamily: theme.fontFamilies.semibold,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.35)",
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+  },
+  headerTitle: {
+    ...theme.typography.heading,
+    color: theme.colors.foreground,
+    fontFamily: theme.fontFamilies.bold,
   },
   viewfinderWrap: {
-    width: 260,
-    height: 260,
-    position: "relative",
+    alignItems: "center",
+    justifyContent: "center",
+    marginVertical: theme.spacing.md,
   },
   viewfinder: {
-    width: "100%",
-    height: "100%",
+    position: "relative",
   },
   corner: {
     position: "absolute",
-    width: 28,
-    height: 28,
-    borderColor: theme.colors.primary,
-    borderWidth: 4,
+    borderRadius: 2,
   },
-  tl: { top: 0, left: 0, borderRightWidth: 0, borderBottomWidth: 0 },
-  tr: { top: 0, right: 0, borderLeftWidth: 0, borderBottomWidth: 0 },
-  bl: { bottom: 0, left: 0, borderRightWidth: 0, borderTopWidth: 0 },
-  br: { bottom: 0, right: 0, borderLeftWidth: 0, borderTopWidth: 0 },
-  scanLineWrap: {
-    position: "absolute",
+  cornerTL: {
     top: 0,
     left: 0,
+    borderTopLeftRadius: 2,
+  },
+  cornerTR: {
+    top: 0,
     right: 0,
+    borderTopRightRadius: 2,
+  },
+  cornerBL: {
     bottom: 0,
-    alignItems: "center",
-    justifyContent: "center",
+    left: 0,
+    borderBottomLeftRadius: 2,
   },
-  scanLine: {
-    width: "80%",
-    height: 3,
-    backgroundColor: theme.colors.primary,
-    borderRadius: 3,
-    shadowColor: theme.colors.primary,
-    shadowOpacity: 0.8,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 0 },
-  },
-  overlayBottom: {
-    flex: 1,
-    backgroundColor: theme.colors.overlay,
-    paddingHorizontal: 32,
-    paddingTop: 24,
-    alignItems: "center",
+  cornerBR: {
+    bottom: 0,
+    right: 0,
+    borderBottomRightRadius: 2,
   },
   hintText: {
-    color: "rgba(255,255,255,0.85)",
-    fontSize: 14,
+    ...theme.typography.heading,
+    color: "#FFFFFF",
+    fontFamily: theme.fontFamilies.semibold,
     textAlign: "center",
-    lineHeight: 20,
-    fontWeight: "500",
+    marginTop: theme.spacing.sm,
+  },
+  hintSubtitle: {
+    ...theme.typography.subtle,
+    color: "rgba(255,255,255,0.72)",
+    fontFamily: theme.fontFamilies.regular,
+    textAlign: "center",
+    marginTop: theme.spacing.xs,
+  },
+  footerRow: {
+    flexDirection: "row",
+    marginTop: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.xs,
+  },
+  ghostBtn: {
+    height: 52,
+    borderRadius: theme.radius.button,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: theme.spacing.lg,
+    backgroundColor: "rgba(23,107,255,0.10)",
+    flexDirection: "row",
+  },
+  ghostBtnText: {
+    color: theme.colors.primary400,
+    ...theme.typography.button,
+    fontFamily: theme.fontFamilies.semibold,
   },
   scanningOverlay: {
     position: "absolute",
@@ -337,28 +465,59 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.5)",
     alignItems: "center",
     justifyContent: "center",
-    gap: 12,
+    gap: theme.spacing.md,
   },
   scanningText: {
     color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "600",
+    ...theme.typography.bodyBold,
+    fontFamily: theme.fontFamilies.semibold,
+  },
+  permissionCard: {
+    backgroundColor: theme.colors.card,
+    borderRadius: theme.radius.xl,
+    padding: theme.spacing.xl,
+    alignItems: "center",
+    gap: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.borderSubtle,
+    marginTop: theme.spacing.xl,
+  },
+  permissionIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  permissionTitle: {
+    ...theme.typography.heading,
+    color: theme.colors.foreground,
+    fontFamily: theme.fontFamilies.bold,
+    textAlign: "center",
+  },
+  permissionDesc: {
+    ...theme.typography.body,
+    color: theme.colors.foregroundMuted,
+    textAlign: "center",
+    lineHeight: 22,
   },
   resultOverlay: {
     flex: 1,
-    backgroundColor: theme.colors.overlay,
+    backgroundColor: theme.colors.overlayDark,
     alignItems: "center",
     justifyContent: "center",
-    padding: 24,
+    padding: theme.spacing.xl,
   },
   resultCard: {
     width: "100%",
     maxWidth: 380,
-    backgroundColor: theme.colors.backgroundCard,
-    borderRadius: theme.radius.xl,
-    padding: 20,
-    gap: 10,
+    backgroundColor: theme.colors.card,
+    borderRadius: theme.radius.xxl,
+    padding: theme.spacing.xl,
+    gap: theme.spacing.sm,
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: theme.colors.borderSubtle,
   },
   resultIcon: {
     width: 72,
@@ -366,47 +525,62 @@ const styles = StyleSheet.create({
     borderRadius: 36,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 6,
+    marginBottom: theme.spacing.sm,
+  },
+  resultCheckMark: {
+    fontSize: 34,
+    fontFamily: theme.fontFamilies.bold,
+    lineHeight: 38,
   },
   resultTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: theme.colors.foregroundDark,
+    ...theme.typography.heading,
+    fontFamily: theme.fontFamilies.bold,
+    marginBottom: theme.spacing.xs,
   },
   resultMain: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: theme.colors.foregroundDark,
+    ...theme.typography.card,
+    color: theme.colors.foreground,
+    fontFamily: theme.fontFamilies.semibold,
     textAlign: "center",
   },
   resultText: {
-    fontSize: 13,
-    color: theme.colors.muted,
+    ...theme.typography.bodySm,
+    color: theme.colors.foregroundMuted,
     textAlign: "center",
-    lineHeight: 19,
+    lineHeight: 20,
   },
   badgeLine: {
     width: "100%",
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "space-between",
-    gap: 10,
-    paddingVertical: 6,
+    gap: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-    marginTop: 4,
+    borderTopColor: theme.colors.borderSubtle,
+    marginTop: theme.spacing.xs,
   },
   badgeLabel: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: theme.colors.muted,
+    ...theme.typography.caption,
+    color: theme.colors.foregroundMuted,
+    fontFamily: theme.fontFamilies.semibold,
     letterSpacing: 0.3,
   },
   badgeValue: {
     flex: 1,
     textAlign: "right",
-    fontSize: 13,
-    fontWeight: "600",
-    color: theme.colors.foregroundDark,
+    ...theme.typography.bodySm,
+    color: theme.colors.foreground,
+    fontFamily: theme.fontFamilies.semibold,
+  },
+  noPermWrap: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: theme.spacing.md,
+  },
+  noPermText: {
+    ...theme.typography.body,
+    color: theme.colors.foregroundMuted,
   },
 });

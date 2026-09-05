@@ -1,23 +1,25 @@
 import React from "react";
 import { Tabs } from "expo-router";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Platform, StyleSheet, View, Text } from "react-native";
-import { theme } from "@/constants/theme";
-
-type TabIconName = keyof typeof MaterialCommunityIcons.glyphMap;
+import { Home, CalendarDays, ClipboardList, Church, User } from "lucide-react-native";
+import { theme } from "@/theme";
 
 function TabIcon({
-  name,
+  Icon,
   color,
   label,
+  focused,
 }: {
-  name: TabIconName;
+  Icon: React.ComponentType<{ size: number; color: string; strokeWidth?: number }>;
   color: string;
   label: string;
+  focused: boolean;
 }) {
   return (
     <View style={styles.tabWrapper}>
-      <MaterialCommunityIcons name={name} size={24} color={color} />
+      <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
+        <Icon size={22} color={color} strokeWidth={focused ? 2.4 : 2} />
+      </View>
       <Text style={[styles.tabLabel, { color }]}>{label}</Text>
     </View>
   );
@@ -27,19 +29,21 @@ export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerStyle: { backgroundColor: theme.colors.background },
-        headerTintColor: "#FFFFFF",
-        headerTitleStyle: { color: "#FFFFFF", fontWeight: "700", fontSize: 18 },
-        tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: "#8A93A5",
+        headerShown: false,
+        tabBarActiveTintColor: theme.colors.primary500,
+        tabBarInactiveTintColor: theme.colors.foregroundMuted,
         tabBarShowLabel: false,
         tabBarStyle: {
-          backgroundColor: "#FFFFFF",
-          borderTopColor: theme.colors.border,
-          borderTopWidth: 1,
+          backgroundColor: theme.colors.backgroundSecondary,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: theme.colors.borderSubtle,
           height: Platform.OS === "ios" ? 88 : 70,
-          paddingTop: 8,
-          paddingBottom: Platform.OS === "ios" ? 28 : 10,
+          paddingTop: 6,
+          paddingBottom: Platform.OS === "ios" ? 28 : 8,
+          paddingHorizontal: theme.spacing.sm,
+        },
+        tabBarItemStyle: {
+          paddingTop: 4,
         },
       }}
       backBehavior="history"
@@ -49,9 +53,8 @@ export default function TabsLayout() {
         options={{
           title: "Início",
           tabBarLabel: "Início",
-          headerTitle: "Início",
-          tabBarIcon: ({ color }) => (
-            <TabIcon name="home" color={color} label="Início" />
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon Icon={Home} color={color} label="Início" focused={focused} />
           ),
         }}
       />
@@ -60,9 +63,8 @@ export default function TabsLayout() {
         options={{
           title: "Agenda",
           tabBarLabel: "Agenda",
-          headerTitle: "Agenda",
-          tabBarIcon: ({ color }) => (
-            <TabIcon name="calendar-month" color={color} label="Agenda" />
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon Icon={CalendarDays} color={color} label="Agenda" focused={focused} />
           ),
         }}
       />
@@ -71,9 +73,8 @@ export default function TabsLayout() {
         options={{
           title: "Escalas",
           tabBarLabel: "Escalas",
-          headerTitle: "Escalas",
-          tabBarIcon: ({ color }) => (
-            <TabIcon name="clipboard-text-clock" color={color} label="Escalas" />
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon Icon={ClipboardList} color={color} label="Escalas" focused={focused} />
           ),
         }}
       />
@@ -82,9 +83,8 @@ export default function TabsLayout() {
         options={{
           title: "Igreja",
           tabBarLabel: "Igreja",
-          headerTitle: "Igreja",
-          tabBarIcon: ({ color }) => (
-            <TabIcon name="church" color={color} label="Igreja" />
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon Icon={Church} color={color} label="Igreja" focused={focused} />
           ),
         }}
       />
@@ -93,9 +93,8 @@ export default function TabsLayout() {
         options={{
           title: "Perfil",
           tabBarLabel: "Perfil",
-          headerTitle: "Perfil",
-          tabBarIcon: ({ color }) => (
-            <TabIcon name="account-circle" color={color} label="Perfil" />
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon Icon={User} color={color} label="Perfil" focused={focused} />
           ),
         }}
       />
@@ -104,6 +103,21 @@ export default function TabsLayout() {
 }
 
 const styles = StyleSheet.create({
-  tabWrapper: { alignItems: "center", gap: 2, minWidth: 60 },
-  tabLabel: { fontSize: 11, fontWeight: "600" },
+  tabWrapper: { alignItems: "center", justifyContent: "center", gap: 4, flex: 1 },
+  iconWrap: {
+    width: 44,
+    height: 32,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  iconWrapActive: {
+    backgroundColor: "rgba(23,107,255,0.12)",
+  },
+  tabLabel: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+    lineHeight: 14,
+    marginTop: 2,
+  },
 });
