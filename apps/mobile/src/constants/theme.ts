@@ -1,37 +1,27 @@
+import { theme as newTheme } from "@/theme";
+export type { AppTheme, AppColors, AppSpacing, AppRadius, AppShadows, AppTypography, AppFontFamilies } from "@/theme";
+
 export const theme = {
+  ...newTheme,
   colors: {
-    background: "#0B1730",
-    backgroundSoft: "rgba(11,23,48,0.55)",
-    backgroundCard: "#FFFFFF",
-    muted: "#6B7380",
-    border: "rgba(107,115,128,0.22)",
-    foreground: "#F5F7FB",
-    foregroundDark: "#0B1730",
-    primary: "#58A7FF",
-    primarySoft: "rgba(88,167,255,0.18)",
-    secondary: "#394B6B",
-    destructive: "#F04438",
+    ...newTheme.colors,
+    background: newTheme.colors.background,
+    backgroundSoft: newTheme.colors.backgroundSecondary,
+    backgroundCard: newTheme.colors.card,
+    muted: newTheme.colors.foregroundMuted,
+    border: newTheme.colors.borderSubtle,
+    foreground: newTheme.colors.foreground,
+    foregroundDark: newTheme.colors.background,
+    primary: newTheme.colors.primary500,
+    primarySoft: newTheme.colors.borderPrimary,
+    secondary: newTheme.colors.cardDark,
+    destructive: newTheme.colors.danger500,
     destructiveSoft: "rgba(240,68,56,0.12)",
-    success: "#17C964",
-    warning: "#F4A100",
-    accent: "#F43F5E",
-    accentSoft: "rgba(244,63,94,0.12)",
-    overlay: "rgba(3, 7, 18, 0.56)",
-  },
-  radius: {
-    sm: 10,
-    md: 14,
-    lg: 20,
-    xl: 28,
-    pill: 999,
-  },
-  spacing: {
-    xs: 4,
-    sm: 8,
-    md: 12,
-    lg: 16,
-    xl: 20,
-    xxl: 28,
+    success: newTheme.colors.green500,
+    warning: newTheme.colors.warning500,
+    accent: newTheme.colors.pink500,
+    accentSoft: "rgba(236,95,145,0.12)",
+    overlay: newTheme.colors.overlayDark,
   },
   font: {
     xs: 11,
@@ -43,4 +33,3 @@ export const theme = {
   },
 } as const;
 
-export type AppTheme = typeof theme;

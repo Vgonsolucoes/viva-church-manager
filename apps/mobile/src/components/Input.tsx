@@ -1,75 +1,122 @@
-import React, { forwardRef } from "react";
+import React, { useState } from "react";
 import {
-  StyleSheet,
-  Text,
-  TextInput,
   View,
+  Text,
+  StyleSheet,
+  TextInput,
   TextInputProps,
-  StyleProp,
+  Pressable,
+  KeyboardTypeOptions,
   ViewStyle,
-  TextProps,
 } from "react-native";
-import { theme } from "@/constants/theme";
+import { Eye, EyeOff } from "lucide-react-native";
+import { theme } from "@/theme";
 
-export interface InputProps extends TextInputProps {
+export interface InputProps extends Omit<TextInputProps, "onChangeText"> {
   label?: string;
-  error?: string | null;
-  wrapperStyle?: StyleProp<ViewStyle>;
-  labelProps?: TextProps;
+  value: string;
+  onChangeText?: (v: string) => void;
+  placeholder?: string;
+  passwordToggle?: boolean;
+  leftIcon?: React.ReactNode;
+  rightIcon?: React.ReactNode;
+  errorMessage?: string;
+  error?: string;
+  containerStyle?: ViewStyle | ViewStyle[];
+  wrapperStyle?: ViewStyle | ViewStyle[];
+  inputStyle?: any;
+  keyboardType?: KeyboardTypeOptions;
 }
 
-export const Input = forwardRef<TextInput, InputProps>(function Input(
-  { label, error, wrapperStyle, labelProps, style, placeholderTextColor, ...rest },
-  ref,
-) {
+export function Input({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  passwordToggle,
+  leftIcon,
+  rightIcon,
+  errorMessage,
+  error,
+  containerStyle,
+  wrapperStyle,
+  inputStyle,
+  secureTextEntry,
+  ...rest
+}: InputProps) {
+  const [showPwd, setShowPwd] = useState(false);
+  const secure = secureTextEntry && !showPwd;
+  const showPasswordToggle = passwordToggle || secureTextEntry;
+  const errMsg = errorMessage || error;
+
   return (
-    <View style={[styles.wrapper, wrapperStyle]}>
-      {label ? (
-        <Text style={[styles.label, labelProps?.style]} {...labelProps}>
-          {label}
-        </Text>
-      ) : null}
-      <TextInput
-        ref={ref}
-        {...rest}
-        autoCapitalize="none"
-        autoCorrect={false}
-        spellCheck={false}
-        placeholderTextColor={placeholderTextColor ?? theme.colors.muted}
-        style={[styles.input, error ? styles.inputError : null, style]}
-      />
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+    <View style={[styles.container, containerStyle, wrapperStyle]}>
+      {label ? <Text style={styles.label}>{label}</Text> : null}
+      <View style={[styles.wrap, !!errMsg && styles.wrapError]}>
+        {leftIcon ? <View style={styles.leftIcon}>{leftIcon}</View> : null}
+        <TextInput
+          {...rest}
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor={theme.colors.foregroundMuted}
+          secureTextEntry={secure}
+          style={[styles.input, leftIcon && { paddingLeft: 10 }, inputStyle]}
+          cursorColor={theme.colors.primary400}
+          selectionColor={theme.colors.primary400}
+        />
+        {showPasswordToggle ? (
+          <Pressable
+            style={({ pressed }) => [styles.rightIcon, pressed && { opacity: 0.6 }]}
+            onPress={() => setShowPwd((s) => !s)}
+            hitSlop={10}
+          >
+            {showPwd ? (
+              <EyeOff size={18} color={theme.colors.foregroundMuted} />
+            ) : (
+              <Eye size={18} color={theme.colors.foregroundMuted} />
+            )}
+          </Pressable>
+        ) : rightIcon ? (
+          <View style={styles.rightIcon}>{rightIcon}</View>
+        ) : null}
+      </View>
+      {errMsg ? <Text style={styles.errorText}>{errMsg}</Text> : null}
     </View>
   );
-});
+}
 
 const styles = StyleSheet.create({
-  wrapper: { width: "100%" },
+  container: { width: "100%" },
   label: {
-    color: theme.colors.foregroundDark,
-    fontSize: theme.font.sm,
-    fontWeight: "600",
-    marginBottom: 6,
+    ...theme.typography.subtleBold,
+    color: theme.colors.foregroundMuted,
+    marginBottom: 8,
+    letterSpacing: 0.2,
   },
-  input: {
+  wrap: {
     width: "100%",
-    minHeight: 48,
-    backgroundColor: "#FFFFFF",
-    borderRadius: theme.radius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    paddingHorizontal: 14,
-    fontSize: theme.font.md,
-    color: theme.colors.foregroundDark,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: theme.colors.card,
+    borderRadius: theme.radius.input,
+    borderWidth: 0.6,
+    borderColor: theme.colors.white16,
+    minHeight: 52,
   },
-  inputError: {
-    borderColor: theme.colors.destructive,
-    backgroundColor: theme.colors.destructiveSoft,
+  wrapError: { borderColor: theme.colors.danger500, borderWidth: 1 },
+  leftIcon: { paddingHorizontal: theme.spacing.md },
+  rightIcon: { paddingHorizontal: theme.spacing.md },
+  input: {
+    flex: 1,
+    height: 52,
+    paddingHorizontal: theme.spacing.md,
+    color: "#FFFFFF",
+    ...theme.typography.body,
   },
-  error: {
+  errorText: {
     marginTop: 6,
-    color: theme.colors.destructive,
-    fontSize: theme.font.sm,
-    fontWeight: "500",
+    ...theme.typography.caption,
+    color: theme.colors.danger500,
   },
 });
