@@ -32,9 +32,10 @@ async function generateUniquePickupCode(): Promise<string> {
 
 export async function POST(
   req: Request,
-  { params }: { params: Promise<{ childId: string }> },
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const { childId } = await params;
+  const { id } = await params;
+  const childId = id;
 
   const logged = await requireLoggedIn(req);
   if (!logged.ok) return logged.error;
