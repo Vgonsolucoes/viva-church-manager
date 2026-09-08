@@ -9,6 +9,10 @@ import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
 import { logAudit } from "@/server/audit";
 import { saveMemberAvatarUpload } from "@/server/uploads";
+import {
+  safeImageSrc,
+  safeImageSrcOrUndefined,
+} from "@/lib/safe-image-src";
 import { MembersFormClient } from "./MembersFormClient";
 
 export const dynamic = "force-dynamic";
@@ -126,7 +130,7 @@ async function createMember(
     ) {
       const candidate = uploadedPhotoUrlRaw.trim();
       if (candidate.startsWith("/uploads/") || candidate.startsWith("http")) {
-        uploadedPhotoUrl = candidate;
+        uploadedPhotoUrl = safeImageSrc(candidate);
       }
     }
 
@@ -141,7 +145,9 @@ async function createMember(
           typeof (file as { size?: unknown }).size === "number" &&
           (file as File).size > 0
         ) {
-          uploadedPhotoUrl = await saveMemberAvatarUpload(file as File);
+          uploadedPhotoUrl = safeImageSrc(
+            await saveMemberAvatarUpload(file as File),
+          );
         }
       } catch (err) {
         console.error(
@@ -342,7 +348,7 @@ async function updateMember(
         candidate.startsWith("/uploads/") ||
         candidate.startsWith("http")
       ) {
-        uploadedPhotoUrl = candidate;
+        uploadedPhotoUrl = safeImageSrc(candidate);
       }
     }
 
@@ -357,7 +363,9 @@ async function updateMember(
           typeof (file as { size?: unknown }).size === "number" &&
           (file as File).size > 0
         ) {
-          uploadedPhotoUrl = await saveMemberAvatarUpload(file as File);
+          uploadedPhotoUrl = safeImageSrc(
+            await saveMemberAvatarUpload(file as File),
+          );
         }
       } catch (err) {
         console.error(
@@ -563,63 +571,70 @@ async function updateMember(
 }
 
 export default async function MembersPage(props: { searchParams?: Promise<Record<string, string | string[]>> }) {
-  const searchParams = props.searchParams ? await props.searchParams : {};
-  const editIdRaw = searchParams?.edit;
-  const editId = Array.isArray(editIdRaw) ? editIdRaw[0] : editIdRaw;
-  const members = await prisma.member.findMany({
-    orderBy: { createdAt: "desc" },
-    take: 50,
-    select: {
-      id: true,
-      fullName: true,
-      photoUrl: true,
-      cpf: true,
-      email: true,
-      phone: true,
-      type: true,
-      types: true,
-      city: true,
-      state: true,
-      baptized: true,
-      baptismYear: true,
-      conversionYear: true,
-      ministry: { select: { name: true } },
-      memberMinistries: { select: { ministry: { select: { name: true } } } },
-    },
-  });
+  try {
+    const searchParams = props.searchParams ? await props.searchParams : {};
+    const editIdRaw = searchParams?.edit;
+    const editId = Array.isArray(editIdRaw) ? editIdRaw[0] : editIdRaw;
+    const membersRaw = await prisma.member.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      select: {
+        id: true,
+        fullName: true,
+        photoUrl: true,
+        cpf: true,
+        email: true,
+        phone: true,
+        type: true,
+        types: true,
+        city: true,
+        state: true,
+        baptized: true,
+        baptismYear: true,
+        conversionYear: true,
+        ministry: { select: { name: true } },
+        memberMinistries: { select: { ministry: { select: { name: true } } } },
+      },
+    });
 
-  const ministries = await prisma.ministry.findMany({
-    where: { active: true },
-    orderBy: { name: "asc" },
-    select: { id: true, name: true },
-  });
+    const members = membersRaw.map((m) => ({ ...m, photoUrl: safeImageSrc(m.photoUrl) }));
 
-  const editMember = editId
-    ? await prisma.member.findUnique({
-        where: { id: editId },
-        select: {
-          id: true,
-          fullName: true,
-          photoUrl: true,
-          cpf: true,
-          email: true,
-          phone: true,
-          type: true,
-          types: true,
-          zip: true,
-          addressLine1: true,
-          addressLine2: true,
-          neighborhood: true,
-          city: true,
-          state: true,
-          baptized: true,
-          baptismYear: true,
-          conversionYear: true,
-          ministryId: true,
-          memberMinistries: { select: { ministryId: true } },
-        },
-      })
-    : null;
+    const ministries = await prisma.ministry.findMany({
+      where: { active: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    });
+
+    const editMemberRaw = editId
+      ? await prisma.member.findUnique({
+          where: { id: editId },
+          select: {
+            id: true,
+            fullName: true,
+            photoUrl: true,
+            cpf: true,
+            email: true,
+            phone: true,
+            type: true,
+            types: true,
+            zip: true,
+            addressLine1: true,
+            addressLine2: true,
+            neighborhood: true,
+            city: true,
+            state: true,
+            baptized: true,
+            baptismYear: true,
+            conversionYear: true,
+            ministryId: true,
+            memberMinistries: { select: { ministryId: true } },
+          },
+        })
+      : null;
+
+    const editMember = editMemberRaw
+      ? { ...editMemberRaw, photoUrl: safeImageSrc(editMemberRaw.photoUrl) }
+      : null;
 
   return (
     <div className="space-y-6">
@@ -762,4 +777,26 @@ export default async function MembersPage(props: { searchParams?: Promise<Record
       ) : null}
     </div>
   );
+  } catch (err) {
+    console.error("[members] MembersPage SSR render falhou:", err);
+    return (
+      <div className="space-y-6">
+        <div>
+          <div className="text-xl font-semibold tracking-tight">Membros</div>
+          <div className="mt-1 text-sm text-muted-foreground">
+            Cadastro, histórico e acompanhamento.
+          </div>
+        </div>
+        <Card className="p-5">
+          <div className="text-sm font-semibold text-red-600 dark:text-red-400">
+            Não foi possível carregar os membros no momento.
+          </div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            Atualize a página ou verifique a conexão com o banco de dados e permissões de upload.
+            Tente novamente em instantes.
+          </div>
+        </Card>
+      </div>
+    );
+  }
 }

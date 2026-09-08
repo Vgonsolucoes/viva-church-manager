@@ -28,6 +28,7 @@ import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { cn } from "@/lib/cn";
+import { safeImageSrcOrUndefined } from "@/lib/safe-image-src";
 import { hasPermission, type RoleKey } from "@/server/rbac";
 import { useMemo, useState } from "react";
 
@@ -316,21 +317,24 @@ export function AdminShell(props: {
                 </a>
               </div>
               <div className="mt-2 flex items-center gap-3">
-                {typeof props.user.image === "string" && props.user.image.length > 0 ? (
-                  <Image
-                    src={props.user.image}
-                    alt={props.user.name ?? "Usuário"}
-                    width={36}
-                    height={36}
-                    className="size-9 rounded-2xl object-cover"
-                    unoptimized
-                    loader={({ src }) => src}
-                  />
-                ) : (
-                  <div className="flex size-9 items-center justify-center rounded-2xl bg-muted/30 text-xs font-semibold text-foreground">
-                    {initials}
-                  </div>
-                )}
+                {(() => {
+                  const safeAvatar = safeImageSrcOrUndefined(props.user.image);
+                  return safeAvatar ? (
+                    <Image
+                      src={safeAvatar}
+                      alt={props.user.name ?? "Usuário"}
+                      width={36}
+                      height={36}
+                      className="size-9 rounded-2xl object-cover"
+                      unoptimized
+                      loader={({ src }) => src}
+                    />
+                  ) : (
+                    <div className="flex size-9 items-center justify-center rounded-2xl bg-muted/30 text-xs font-semibold text-foreground">
+                      {initials}
+                    </div>
+                  );
+                })()}
                 <div className="min-w-0">
                   <div className="truncate text-sm font-semibold">{props.user.name ?? "Usuário"}</div>
                   <div className="truncate text-xs text-muted-foreground">{roleLabel}</div>
