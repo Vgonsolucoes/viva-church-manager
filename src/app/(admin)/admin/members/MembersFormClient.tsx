@@ -1,10 +1,14 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useActionState } from "react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import {
+  safeImageSrc,
+  safeImageSrcOrUndefined,
+} from "@/lib/safe-image-src";
 
 type MemberTypeValue =
   | "MEMBER"
@@ -158,7 +162,7 @@ export function MembersFormClient(props: {
   );
   const [cepStatus, setCepStatus] = useState<"idle" | "loading" | "error" | "ok">("idle");
   const [photoPreview, setPhotoPreview] = useState<string | null>(
-    props.defaultValues?.photoUrl ?? null,
+    safeImageSrc(props.defaultValues?.photoUrl ?? null),
   );
   const [fileError, setFileError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -167,6 +171,10 @@ export function MembersFormClient(props: {
   const photoFileInputRef = useRef<HTMLInputElement>(null);
   const [actionState, formAction, isPending] = useActionState(props.action, { ok: false });
   const [_tr, startTransition] = useTransition();
+
+  useEffect(() => {
+    setPhotoPreview(safeImageSrc(props.defaultValues?.photoUrl ?? null));
+  }, [props.defaultValues?.photoUrl]);
 
   function toggleType(value: MemberTypeValue) {
     setSelectedTypes((prev) => {
@@ -405,21 +413,27 @@ export function MembersFormClient(props: {
           <div className="text-xs font-medium text-muted-foreground">Foto de perfil</div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-3xl border border-border/70 bg-muted/10">
-              {photoPreview ? (
-                <Image
-                  src={photoPreview}
-                  alt="Pré-visualização"
-                  width={80}
-                  height={80}
-                  className="size-full object-cover"
-                  unoptimized
-                  loader={({ src }) => src}
-                />
-              ) : (
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Sem foto
-                </div>
-              )}
+              {(() => {
+                const src = safeImageSrcOrUndefined(photoPreview);
+                if (!src) {
+                  return (
+                    <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Sem foto
+                    </div>
+                  );
+                }
+                return (
+                  <Image
+                    src={src}
+                    alt="Pré-visualização"
+                    width={80}
+                    height={80}
+                    className="size-full object-cover"
+                    unoptimized
+                    loader={({ src: s }) => s}
+                  />
+                );
+              })()}
             </div>
             <div className="min-w-0 flex-1 space-y-2">
               <input
@@ -430,19 +444,20 @@ export function MembersFormClient(props: {
                 onChange={(e) => {
                   const file = e.target.files?.[0] ?? null;
                   if (!file) {
-                    setPhotoPreview(props.defaultValues?.photoUrl ?? null);
+                    setPhotoPreview(safeImageSrc(props.defaultValues?.photoUrl ?? null));
                     setFileError(null);
                     return;
                   }
                   const validationError = validateFile(file);
                   if (validationError) {
                     setFileError(validationError);
-                    setPhotoPreview(props.defaultValues?.photoUrl ?? null);
+                    setPhotoPreview(safeImageSrc(props.defaultValues?.photoUrl ?? null));
                     return;
                   }
                   setFileError(null);
                   const reader = new FileReader();
-                  reader.onload = () => setPhotoPreview(String(reader.result));
+                  reader.onload = () =>
+                    setPhotoPreview(safeImageSrc(reader.result) ?? null);
                   reader.readAsDataURL(file);
                 }}
                 className="block w-full rounded-2xl border border-border/80 bg-background px-3 py-2 text-sm file:mr-3 file:rounded-xl file:border-0 file:bg-muted/30 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-foreground hover:file:bg-muted/40"
@@ -469,7 +484,7 @@ export function MembersFormClient(props: {
                   size="sm"
                   className="h-8 text-xs"
                   onClick={() => {
-                    setPhotoPreview(props.defaultValues?.photoUrl ?? null);
+                    setPhotoPreview(safeImageSrc(props.defaultValues?.photoUrl ?? null));
                     setFileError(null);
                     if (photoFileInputRef.current) photoFileInputRef.current.value = "";
                   }}
