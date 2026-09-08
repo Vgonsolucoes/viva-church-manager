@@ -706,13 +706,44 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
     newDisciplerName: item.newDiscipler?.fullName ?? null,
   }));
 
-  const decryptedPastoralNotes = pastoralNotes.map((note) => ({
-    id: note.id,
-    memberId: note.memberId,
-    title: note.title,
-    content: decryptString(note.contentEnc),
-    createdAt: note.createdAt.toISOString(),
-  }));
+  let decryptedPastoralNotes: Array<{
+    id: string;
+    memberId: string;
+    title: string | null;
+    content: string | null;
+    createdAt: string;
+  }> = [];
+  try {
+    decryptedPastoralNotes = pastoralNotes.map((note) => {
+      try {
+        const decrypted = decryptString(note.contentEnc ?? "");
+        return {
+          id: note.id,
+          memberId: note.memberId,
+          title: note.title ?? null,
+          content: decrypted ?? null,
+          createdAt: note.createdAt.toISOString(),
+        };
+      } catch (err) {
+        return {
+          id: note.id,
+          memberId: note.memberId,
+          title: note.title ?? null,
+          content: "[Não foi possível descriptografar este anotação]",
+          createdAt: note.createdAt.toISOString(),
+        };
+      }
+    });
+  } catch (err) {
+    decryptedPastoralNotes = pastoralNotes.map((note) => ({
+      id: note.id,
+      memberId: note.memberId,
+      title: note.title ?? null,
+      content: "[Não foi possível descriptografar as anotações pastorais. Verifique a variável de ambiente APP_ENCRYPTION_KEY.]",
+      createdAt: note.createdAt.toISOString(),
+    }));
+    console.error("[discipleships] Falha ao descriptografar pastoralNotes:", err);
+  }
 
   const networksGrowing = activeRows.filter((row) => countDescendants(row.disciplerId) >= 2).length;
 

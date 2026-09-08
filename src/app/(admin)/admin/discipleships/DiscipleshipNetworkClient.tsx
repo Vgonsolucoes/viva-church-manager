@@ -95,7 +95,7 @@ type PastoralNote = {
   id: string;
   memberId: string;
   title?: string | null;
-  content: string;
+  content?: string | null;
   createdAt: string;
 };
 
