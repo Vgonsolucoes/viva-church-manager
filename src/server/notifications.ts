@@ -83,22 +83,31 @@ export async function createNotificationCampaign(
     if (params.targetUsersOverride.ministryIds?.length) {
       const rows = await prisma.memberMinistry.findMany({
         where: { ministryId: { in: params.targetUsersOverride.ministryIds } },
-        select: { member: { select: { userId: true } } },
+        select: { member: { select: { user: { select: { id: true } } } } },
       });
-      for (const r of rows) if (r.member?.userId) extraUserIds.add(r.member.userId);
+      for (const r of rows) {
+        const uid = r.member?.user?.id;
+        if (uid) extraUserIds.add(uid);
+      }
     }
     if (params.targetUsersOverride.cellIds?.length) {
-      const rows = await prisma.cellMember.findMany({
-        where: { cellId: { in: params.targetUsersOverride.cellIds } },
-        select: { member: { select: { userId: true } } },
+      const cellRows = await prisma.cell.findMany({
+        where: { id: { in: params.targetUsersOverride.cellIds } },
+        select: {
+          leader: { select: { user: { select: { id: true } } } },
+          host: { select: { user: { select: { id: true } } } },
+        },
       });
-      for (const r of rows) if (r.member?.userId) extraUserIds.add(r.member.userId);
+      for (const cell of cellRows) {
+        if (cell.leader?.user?.id) extraUserIds.add(cell.leader.user.id);
+        if (cell.host?.user?.id) extraUserIds.add(cell.host.user.id);
+      }
     }
-    const merged = Array.from(new Set([...userIds, ...Array.from(extraUserIds)));
+    const merged = Array.from(new Set([...userIds, ...Array.from(extraUserIds)]));
     userIds = merged;
   }
 
-  if (!userIds.length && (roleUsers.length + memberTypeUsers.length === 0 && !params.targetUsersOverride) {
+  if (!userIds.length && roleUsers.length + memberTypeUsers.length === 0 && !params.targetUsersOverride) {
     const allActive = await prisma.user.findMany({
       select: { id: true },
     });

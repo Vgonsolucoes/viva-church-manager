@@ -1,11 +1,25 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
+import { useActionState } from "react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 
-type MemberTypeValue = "MEMBER" | "VISITOR" | "NEW_MEMBER" | "LEADER" | "VOLUNTEER" | "DISCIPLER";
+type MemberTypeValue =
+  | "MEMBER"
+  | "VISITOR"
+  | "NEW_MEMBER"
+  | "LEADER"
+  | "VOLUNTEER"
+  | "DISCIPLER";
+
+type MemberActionResult = {
+  ok: boolean;
+  message?: string;
+  error?: string;
+  memberId?: string | null;
+};
 
 const memberTypeOptions: Array<{ value: MemberTypeValue; label: string }> = [
   { value: "MEMBER", label: "Membro" },
@@ -15,6 +29,9 @@ const memberTypeOptions: Array<{ value: MemberTypeValue; label: string }> = [
   { value: "VOLUNTEER", label: "Voluntário" },
   { value: "DISCIPLER", label: "Discipulador" },
 ];
+
+const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
+const ALLOWED_MIME = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 function normalizeCep(input: string) {
   return input.replace(/\D/g, "").slice(0, 8);
@@ -29,7 +46,9 @@ function formatCpf(input: string) {
 }
 
 async function fetchViaCep(cep: string) {
-  const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`, { cache: "no-store" });
+  const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`, {
+    cache: "no-store",
+  });
   if (!res.ok) return null;
   const data: unknown = await res.json();
   if (!data || typeof data !== "object") return null;
@@ -42,11 +61,54 @@ async function fetchViaCep(cep: string) {
   };
 }
 
+async function uploadAvatarToApi(file: File): Promise<
+  | { ok: true; url: string }
+  | { ok: false; error: string }
+> {
+  try {
+    const form = new FormData();
+    form.append("photoFile", file);
+    const res = await fetch("/api/uploads/member-avatar", {
+      method: "POST",
+      body: form,
+    });
+    const payload = (await res.json().catch(() => ({}))) as Record<
+      string,
+      unknown
+    >;
+    if (!res.ok || !payload || payload.ok !== true) {
+      return {
+        ok: false,
+        error:
+          typeof payload?.error === "string" && payload.error.length
+            ? payload.error
+            : res.status === 413
+              ? "Foto muito grande. Tamanho máximo permitido: 2MB."
+              : res.status === 403 || res.status === 401
+                ? "Sessão expirou ou você não tem permissão para enviar fotos. Recarregue a página e tente novamente."
+                : `Falha ao enviar foto (HTTP ${res.status}).`,
+      };
+    }
+    if (typeof payload.url !== "string" || !payload.url.length) {
+      return { ok: false, error: "Resposta inválida ao salvar foto." };
+    }
+    return { ok: true, url: payload.url };
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : String(err ?? "desconhecido");
+    return {
+      ok: false,
+      error: `Erro ao enviar foto (${message}).`,
+    };
+  }
+}
+
 export function MembersFormClient(props: {
   mode: "create" | "edit";
   title: string;
   submitLabel: string;
-  action: (formData: FormData) => void;
+  action: (
+    prevState: MemberActionResult, formData: FormData) => Promise<MemberActionResult>;
   ministries: Array<{ id: string; name: string }>;
   defaultValues?: Partial<{
     memberId: string;
@@ -98,6 +160,13 @@ export function MembersFormClient(props: {
   const [photoPreview, setPhotoPreview] = useState<string | null>(
     props.defaultValues?.photoUrl ?? null,
   );
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const photoUrlHiddenRef = useRef<HTMLInputElement>(null);
+  const photoFileInputRef = useRef<HTMLInputElement>(null);
+  const [actionState, formAction, isPending] = useActionState(props.action, { ok: false });
+  const [_tr, startTransition] = useTransition();
 
   function toggleType(value: MemberTypeValue) {
     setSelectedTypes((prev) => {
@@ -134,10 +203,75 @@ export function MembersFormClient(props: {
     if (data.uf) setState(data.uf);
   }
 
+  function validateFile(file: File): string | null {
+    if (!file) return null;
+    if (!ALLOWED_MIME.has(file.type)) {
+      return `Formato não permitido (${file.type || "desconhecido"}). Aceitos: JPG, PNG, WEBP.`;
+    }
+    if (file.size <= 0) return "Arquivo de foto vazio.";
+    if (file.size > MAX_AVATAR_BYTES) {
+      const mb = MAX_AVATAR_BYTES / 1024 / 1024;
+      return `Foto muito grande. Tamanho máximo permitido: ${mb.toFixed(0)}MB.`;
+    }
+    return null;
+  }
+
+  const initialState: MemberActionResult = { ok: false };
+
   return (
     <div>
       <div className="text-sm font-medium">{props.title}</div>
-      <form action={props.action} className="mt-4 space-y-3" encType="multipart/form-data">
+      <form
+        ref={formRef}
+        onSubmit={async (event) => {
+          const formData = new FormData(event.currentTarget);
+          event.preventDefault();
+          startTransition(async () => {
+            const pendingFile = photoFileInputRef.current?.files?.[0] ?? null;
+            if (pendingFile) {
+              const validationError = validateFile(pendingFile);
+              if (validationError) {
+                setFileError(validationError);
+                return;
+              }
+              setFileError(null);
+              setIsUploading(true);
+              const uploadRes = await uploadAvatarToApi(pendingFile);
+              setIsUploading(false);
+              if (!uploadRes.ok) {
+                setFileError(uploadRes.error);
+                return;
+              }
+              if (photoUrlHiddenRef.current) {
+                photoUrlHiddenRef.current.value = uploadRes.url;
+              }
+              formData.set("photoUrl", uploadRes.url);
+              if (photoFileInputRef.current) {
+                try {
+                  const dt = new DataTransfer();
+                  photoFileInputRef.current.files = dt.files;
+                } catch {
+                  // não importa; já passamos photoUrl hidden
+                }
+              }
+            } else {
+              setFileError(null);
+            }
+
+            formAction(formData);
+          });
+        }}
+        action={formAction as unknown as (formData: FormData) => void}
+        className="mt-4 space-y-3"
+        encType="multipart/form-data"
+      >
+        <input
+          ref={photoUrlHiddenRef}
+          type="hidden"
+          name="photoUrl"
+          defaultValue=""
+          autoComplete="off"
+        />
         {props.mode === "edit" ? (
           <input type="hidden" name="memberId" value={props.defaultValues?.memberId ?? ""} />
         ) : null}
@@ -289,15 +423,24 @@ export function MembersFormClient(props: {
             </div>
             <div className="min-w-0 flex-1 space-y-2">
               <input
+                ref={photoFileInputRef}
                 type="file"
                 name="photoFile"
                 accept="image/png,image/jpeg,image/webp"
                 onChange={(e) => {
-                  const file = e.target.files?.[0];
+                  const file = e.target.files?.[0] ?? null;
                   if (!file) {
+                    setPhotoPreview(props.defaultValues?.photoUrl ?? null);
+                    setFileError(null);
+                    return;
+                  }
+                  const validationError = validateFile(file);
+                  if (validationError) {
+                    setFileError(validationError);
                     setPhotoPreview(props.defaultValues?.photoUrl ?? null);
                     return;
                   }
+                  setFileError(null);
                   const reader = new FileReader();
                   reader.onload = () => setPhotoPreview(String(reader.result));
                   reader.readAsDataURL(file);
@@ -309,13 +452,27 @@ export function MembersFormClient(props: {
                   Formatos aceitos: JPG, PNG ou WEBP. Até 2MB.
                 </div>
               </div>
+              {fileError ? (
+                <div className="rounded-2xl border border-red-400/60 bg-red-500/10 p-3 text-xs font-medium text-red-400">
+                  {fileError}
+                </div>
+              ) : null}
+              {isUploading ? (
+                <div className="rounded-2xl border border-border/70 bg-muted/20 p-3 text-xs text-muted-foreground">
+                  Enviando foto…
+                </div>
+              ) : null}
               {photoPreview && props.defaultValues?.photoUrl !== photoPreview ? (
                 <Button
                   variant="ghost"
                   type="button"
                   size="sm"
                   className="h-8 text-xs"
-                  onClick={() => setPhotoPreview(props.defaultValues?.photoUrl ?? null)}
+                  onClick={() => {
+                    setPhotoPreview(props.defaultValues?.photoUrl ?? null);
+                    setFileError(null);
+                    if (photoFileInputRef.current) photoFileInputRef.current.value = "";
+                  }}
                 >
                   Manter foto atual
                 </Button>
@@ -391,9 +548,27 @@ export function MembersFormClient(props: {
           </div>
         </div>
 
-        <Button className="w-full" type="submit">
-          {props.submitLabel}
-        </Button>
+        <div className="space-y-2">
+          <Button className="w-full" type="submit" disabled={isPending || isUploading}>
+            {isPending
+              ? "Salvando…"
+              : isUploading
+                ? "Enviando foto e salvando…"
+                : props.submitLabel}
+          </Button>
+
+          {actionState?.ok && actionState?.message ? (
+            <div className="rounded-2xl border border-emerald-500/50 bg-emerald-500/10 p-3 text-xs font-medium text-emerald-400">
+              {actionState.message}
+            </div>
+          ) : null}
+
+          {actionState && !actionState.ok && actionState?.error ? (
+            <div className="rounded-2xl border border-red-400/60 bg-red-500/10 p-3 text-xs font-medium text-red-400">
+                Erro ao salvar: {actionState.error}
+            </div>
+          ) : null}
+        </div>
       </form>
     </div>
   );

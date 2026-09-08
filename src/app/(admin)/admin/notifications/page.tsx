@@ -204,14 +204,19 @@ export default async function NotificationsPage() {
     orderBy: { name: "asc" },
     select: { id: true, name: true },
   });
-  const cells = await prisma.cellGroup.findMany({
+  const cells = await prisma.cell.findMany({
     orderBy: { name: "asc" },
     select: { id: true, name: true, leader: { select: { fullName: true } } },
   });
   const people = await prisma.member.findMany({
     orderBy: { fullName: "asc" },
     take: 200,
-    select: { id: true, fullName: true, userId: true, email: true },
+    select: {
+      id: true,
+      fullName: true,
+      email: true,
+      user: { select: { id: true } },
+    },
   });
 
   return (
@@ -420,7 +425,7 @@ export default async function NotificationsPage() {
                 className="h-32 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
               >
                 {people.map((p) => (
-                  <option key={p.id} value={p.userId ?? ""} disabled={!p.userId}>
+                  <option key={p.id} value={p.user?.id ?? ""} disabled={!p.user?.id}>
                     {p.fullName}
                     {p.email ? ` (${p.email})` : ""}
                   </option>
