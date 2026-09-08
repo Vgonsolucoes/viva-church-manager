@@ -9,6 +9,11 @@ import {
   safeImageSrc,
   safeImageSrcOrUndefined,
 } from "@/lib/safe-image-src";
+import {
+  createMember,
+  updateMember,
+  type MemberActionResult,
+} from "./actions";
 
 type MemberTypeValue =
   | "MEMBER"
@@ -17,13 +22,6 @@ type MemberTypeValue =
   | "LEADER"
   | "VOLUNTEER"
   | "DISCIPLER";
-
-type MemberActionResult = {
-  ok: boolean;
-  message?: string;
-  error?: string;
-  memberId?: string | null;
-};
 
 const memberTypeOptions: Array<{ value: MemberTypeValue; label: string }> = [
   { value: "MEMBER", label: "Membro" },
@@ -111,8 +109,6 @@ export function MembersFormClient(props: {
   mode: "create" | "edit";
   title: string;
   submitLabel: string;
-  action: (
-    prevState: MemberActionResult, formData: FormData) => Promise<MemberActionResult>;
   ministries: Array<{ id: string; name: string }>;
   defaultValues?: Partial<{
     memberId: string;
@@ -169,7 +165,8 @@ export function MembersFormClient(props: {
   const formRef = useRef<HTMLFormElement>(null);
   const photoUrlHiddenRef = useRef<HTMLInputElement>(null);
   const photoFileInputRef = useRef<HTMLInputElement>(null);
-  const [actionState, formAction, isPending] = useActionState(props.action, { ok: false });
+  const serverAction = props.mode === "edit" ? updateMember : createMember;
+  const [actionState, formAction, isPending] = useActionState(serverAction, { ok: false });
   const [_tr, startTransition] = useTransition();
 
   useEffect(() => {
