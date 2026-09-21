@@ -108,64 +108,92 @@ export default async function MembersPage(props: { searchParams?: Promise<Record
           </div>
           <div className="mt-4 divide-y divide-border">
             {members.length ? (
-              members.map((m) => (
-                <div key={m.id} className="flex items-center justify-between gap-4 py-3">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border/70 bg-muted/10">
-                      {m.photoUrl ? (
-                        <Image
-                          src={m.photoUrl}
-                          alt={m.fullName}
-                          width={44}
-                          height={44}
-                          className="size-full object-cover"
-                          unoptimized
-                          loader={({ src }) => src}
-                        />
-                      ) : (
-                        <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                          {m.fullName.slice(0, 2).toUpperCase()}
+              members.map((m) => {
+                try {
+                  const safePhoto = safeImageSrcOrUndefined(m.photoUrl);
+                  const initials = m.fullName.slice(0, 2).toUpperCase();
+                  const displayTypes = (m.types?.length ? m.types : [m.type]) ?? [m.type];
+                  const ministriesText = m.memberMinistries.length
+                    ? ` • ${m.memberMinistries.map((mm) => mm.ministry.name).join(", ")}`
+                    : m.ministry?.name
+                      ? ` • ${m.ministry.name}`
+                      : "";
+                  const subParts: string[] = [];
+                  if (m.cpf) subParts.push(`CPF ${m.cpf}`);
+                  subParts.push(m.email ?? "—");
+                  if (m.phone) subParts.push(m.phone);
+                  const location = [m.city, m.state].filter(Boolean).join(" - ");
+                  if (location) subParts.push(location);
+                  const subtitle = `${subParts.slice(0, 3).join(" • ")}${ministriesText}`;
+                  return (
+                    <div key={m.id} className="flex items-center justify-between gap-4 py-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border/70 bg-muted/10">
+                          {safePhoto ? (
+                            <Image
+                              src={safePhoto}
+                              alt={m.fullName}
+                              width={44}
+                              height={44}
+                              className="size-full object-cover"
+                              unoptimized
+                              loader={({ src }) => src}
+                            />
+                          ) : (
+                            <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                              {initials}
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-semibold">{m.fullName}</div>
-                      <div className="truncate text-xs text-muted-foreground">
-                        {m.cpf ? `CPF ${m.cpf} • ` : ""}
-                        {m.email ?? "—"} {m.phone ? `• ${m.phone}` : ""}
-                        {m.city || m.state ? ` • ${[m.city, m.state].filter(Boolean).join(" - ")}` : ""}
-                        {m.memberMinistries.length
-                          ? ` • ${m.memberMinistries.map((mm) => mm.ministry.name).join(", ")}`
-                          : m.ministry?.name
-                            ? ` • ${m.ministry.name}`
-                            : ""}
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-semibold">{m.fullName}</div>
+                          <div className="truncate text-xs text-muted-foreground">{subtitle}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="flex flex-wrap justify-end gap-2">
+                          {displayTypes.map((type) => (
+                            <Badge key={`${m.id}-${type}`} className="shrink-0">
+                              {memberTypeLabels[type]}
+                            </Badge>
+                          ))}
+                          {m.baptized ? (
+                            <Badge className="shrink-0">
+                              Batizado{m.baptismYear ? ` • ${m.baptismYear}` : ""}
+                            </Badge>
+                          ) : (
+                            <Badge className="shrink-0">Não batizado</Badge>
+                          )}
+                        </div>
+                        <a
+                          href={`/admin/members?edit=${m.id}`}
+                          className="shrink-0 text-xs font-medium text-primary hover:underline"
+                        >
+                          Editar
+                        </a>
                       </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="flex flex-wrap justify-end gap-2">
-                      {((m.types?.length ? m.types : [m.type]) ?? [m.type]).map((type) => (
-                        <Badge key={`${m.id}-${type}`} className="shrink-0">
-                          {memberTypeLabels[type]}
-                        </Badge>
-                      ))}
-                      {m.baptized ? (
-                        <Badge className="shrink-0">
-                          Batizado{m.baptismYear ? ` • ${m.baptismYear}` : ""}
-                        </Badge>
-                      ) : (
-                        <Badge className="shrink-0">Não batizado</Badge>
-                      )}
+                  );
+                } catch (memberErr) {
+                  console.error("[members] render card do membro falhou (id=%s):", m.id, memberErr);
+                  return (
+                    <div key={m.id} className="flex items-center justify-between gap-4 py-3">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-semibold">{m.fullName}</div>
+                        <div className="truncate text-xs text-muted-foreground">
+                          Não foi possível exibir este membro no momento.
+                        </div>
+                      </div>
+                      <a
+                        href={`/admin/members?edit=${m.id}`}
+                        className="shrink-0 text-xs font-medium text-primary hover:underline"
+                      >
+                        Editar
+                      </a>
                     </div>
-                    <a
-                      href={`/admin/members?edit=${m.id}`}
-                      className="shrink-0 text-xs font-medium text-primary hover:underline"
-                    >
-                      Editar
-                    </a>
-                  </div>
-                </div>
-              ))
+                  );
+                }
+              })
             ) : (
               <div className="py-6 text-sm text-muted-foreground">
                 Nenhum membro cadastrado ainda.

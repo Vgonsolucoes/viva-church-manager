@@ -394,21 +394,24 @@ export function AdminShell(props: {
                 {rangeLabel}
               </div>
               <div className="flex items-center gap-2 rounded-2xl border border-border bg-muted/20 px-2 py-1.5">
-                {typeof props.user.image === "string" && props.user.image.length > 0 ? (
-                  <Image
-                    src={props.user.image}
-                    alt={props.user.name ?? "Usuário"}
-                    width={28}
-                    height={28}
-                    className="size-7 rounded-full object-cover"
-                    unoptimized
-                    loader={({ src }) => src}
-                  />
-                ) : (
-                  <div className="flex size-7 items-center justify-center rounded-full bg-muted text-xs font-semibold text-foreground">
-                    {initials}
-                  </div>
-                )}
+                {(() => {
+                  const safeAvatar = safeImageSrcOrUndefined(props.user.image);
+                  return safeAvatar ? (
+                    <Image
+                      src={safeAvatar}
+                      alt={props.user.name ?? "Usuário"}
+                      width={28}
+                      height={28}
+                      className="size-7 rounded-full object-cover"
+                      unoptimized
+                      loader={({ src }) => src}
+                    />
+                  ) : (
+                    <div className="flex size-7 items-center justify-center rounded-full bg-muted text-xs font-semibold text-foreground">
+                      {initials}
+                    </div>
+                  );
+                })()}
                 <div className="hidden md:block">
                   <div className="max-w-[220px] truncate text-xs font-semibold">
                     {props.user.name ?? "Usuário"}
