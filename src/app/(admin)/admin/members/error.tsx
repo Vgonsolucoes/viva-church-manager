@@ -9,7 +9,14 @@ export default function MembersErrorBoundary(props: {
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error("[members] Error boundary acionado:", props.error);
+    console.error(
+      "[members] Error boundary acionado:",
+      props.error,
+      "digest=",
+      props.error?.digest,
+      "message=",
+      props.error?.message,
+    );
   }, [props.error]);
 
   return (
@@ -27,12 +34,39 @@ export default function MembersErrorBoundary(props: {
         <div className="mt-1 text-xs text-muted-foreground">
           Se o problema continuar, tente recarregar a página ou limpar o cache do
           navegador. Clique em Tentar novamente abaixo para re-renderizar.
-          {props.error?.digest ? (
-            <div className="mt-2 text-[11px] font-mono text-muted-foreground/80">
-              Identificador do erro: <span className="ml-1">{props.error.digest}</span>
-            </div>
-          ) : null}
         </div>
+
+        {typeof props.error?.digest === "string" && props.error.digest.length > 0 ? (
+          <div className="mt-4 rounded-xl border border-border bg-muted/30 p-3">
+            <div className="text-[11px] uppercase tracking-wider text-muted-foreground">
+              Identificador do erro (digest)
+            </div>
+            <div className="mt-1 font-mono text-xs break-all">{props.error.digest}</div>
+          </div>
+        ) : null}
+
+        {process.env.NODE_ENV === "development" && typeof props.error?.message === "string" ? (
+          <div className="mt-3 rounded-xl border border-border bg-muted/30 p-3">
+            <div className="text-[11px] uppercase tracking-wider text-muted-foreground">
+              Mensagem (development)
+            </div>
+            <pre className="mt-1 whitespace-pre-wrap font-mono text-xs break-all">
+              {props.error.message}
+            </pre>
+          </div>
+        ) : null}
+
+        {process.env.NODE_ENV === "development" && typeof props.error?.stack === "string" ? (
+          <details className="mt-3 rounded-xl border border-border bg-muted/30 p-3">
+            <summary className="text-[11px] uppercase tracking-wider text-muted-foreground cursor-pointer">
+              Stack trace (development)
+            </summary>
+            <pre className="mt-2 whitespace-pre-wrap font-mono text-[11px] break-all">
+              {props.error.stack}
+            </pre>
+          </details>
+        ) : null}
+
         <div className="mt-5 flex flex-wrap items-center gap-2">
           <Button
             type="button"

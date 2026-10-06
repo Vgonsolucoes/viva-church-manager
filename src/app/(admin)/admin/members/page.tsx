@@ -30,35 +30,69 @@ export default async function MembersPage(props: { searchParams?: Promise<Record
     const searchParams = props.searchParams ? await props.searchParams : {};
     const editIdRaw = searchParams?.edit;
     const editId = Array.isArray(editIdRaw) ? editIdRaw[0] : editIdRaw;
-    const membersRaw = await prisma.member.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 50,
-      select: {
-        id: true,
-        fullName: true,
-        photoUrl: true,
-        cpf: true,
-        email: true,
-        phone: true,
-        type: true,
-        types: true,
-        city: true,
-        state: true,
-        baptized: true,
-        baptismYear: true,
-        conversionYear: true,
-        ministry: { select: { name: true } },
-        memberMinistries: { select: { ministry: { select: { name: true } } } },
-      },
+    let membersRaw: Array<{
+      id: string;
+      fullName: string;
+      photoUrl: string | null;
+      cpf: string | null;
+      email: string | null;
+      phone: string | null;
+      type: MemberType;
+      types: MemberType[] | null;
+      city: string | null;
+      state: string | null;
+      baptized: boolean;
+      baptismYear: number | null;
+      conversionYear: number | null;
+      ministry: { name: string } | null;
+      memberMinistries: Array<{ ministry: { name: string } }>;
+    }> = [];
+    try {
+      membersRaw = await prisma.member.findMany({
+        orderBy: { createdAt: "desc" },
+        take: 50,
+        select: {
+          id: true,
+          fullName: true,
+          photoUrl: true,
+          cpf: true,
+          email: true,
+          phone: true,
+          type: true,
+          types: true,
+          city: true,
+          state: true,
+          baptized: true,
+          baptismYear: true,
+          conversionYear: true,
+          ministry: { select: { name: true } },
+          memberMinistries: { select: { ministry: { select: { name: true } } } },
+        },
+      });
+    } catch (err) {
+      console.error("[members] prisma.member.findMany falhou:", err);
+      membersRaw = [];
+    }
+
+    const members = membersRaw.map((m) => {
+      try {
+        return { ...m, photoUrl: safeImageSrc(m.photoUrl) };
+      } catch {
+        return { ...m, photoUrl: null };
+      }
     });
 
-    const members = membersRaw.map((m) => ({ ...m, photoUrl: safeImageSrc(m.photoUrl) }));
-
-    const ministries = await prisma.ministry.findMany({
-      where: { active: true },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    });
+    let ministries: Array<{ id: string; name: string }> = [];
+    try {
+      ministries = await prisma.ministry.findMany({
+        where: { active: true },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true },
+      });
+    } catch (err) {
+      console.error("[members] prisma.ministry.findMany falhou:", err);
+      ministries = [];
+    }
 
     const editMemberRaw = editId
       ? await prisma.member.findUnique({
@@ -84,6 +118,9 @@ export default async function MembersPage(props: { searchParams?: Promise<Record
             ministryId: true,
             memberMinistries: { select: { ministryId: true } },
           },
+        }).catch((err) => {
+          console.error("[members] prisma.member.findUnique(edit) falhou:", err);
+          return null;
         })
       : null;
 

@@ -274,10 +274,10 @@ export function DashboardClient(props: {
             </Link>
           </div>
           <div className="px-6 pb-6 pt-4 grid grid-cols-2 gap-4">
-            <div className="relative h-44">
+            <div className="relative h-44 min-h-[176px] min-w-0 w-full">
               {chartsReady ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
+                <ResponsiveContainer width="100%" height="100%" minWidth={120} minHeight={176}>
+                  <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
                     <Pie
                       data={donutData}
                       dataKey="value"
@@ -330,9 +330,9 @@ export function DashboardClient(props: {
               <FinancePill title="Saídas (mês)" value={brl(props.finance.outCents)} tone="red" />
               <FinancePill title="Saldo Atual" value={brl(props.finance.balanceCents)} tone="purple" />
             </div>
-            <div className="min-w-0 xl:col-span-7 h-56">
+            <div className="min-w-0 xl:col-span-7 h-56 min-h-[224px] w-full">
               {chartsReady ? (
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={200} minHeight={224}>
                   <AreaChart data={props.finance.series} margin={{ left: 8, right: 12, top: 10, bottom: 0 }}>
                     <defs>
                       <linearGradient id="finFill" x1="0" x2="0" y1="0" y2="1">
