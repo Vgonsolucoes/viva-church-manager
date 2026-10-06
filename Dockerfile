@@ -5,7 +5,9 @@ LABEL build.trigger="2026-10-06T20-33-00Z_NOCACHE_AGGRESSIVE_EASYPANEL_DOCKER_CA
 
 SHELL ["/bin/bash", "-c"]
 RUN set -euxo pipefail; \
-  echo "START BUILD TRIGGER ${BUILD_TRIGGER} $(date +%s%N)" > /build_trigger.txt; \
+  UNIQUE_NS=$(awk 'BEGIN {srand(); printf "%d_%d", mktime("2026 10 06 20 40 00") + int(rand()*999999999), PROCINFO["pid"]} END {}'); \
+  if [ -z "${UNIQUE_NS}" ]; then UNIQUE_NS="${RANDOM}_$$_$(date +%s)"; fi; \
+  echo "START BUILD TRIGGER ${BUILD_TRIGGER} rnd=${UNIQUE_NS}" > /build_trigger.txt; \
   head -n 1 /build_trigger.txt;
 
 WORKDIR /app
@@ -38,8 +40,12 @@ COPY . .
 
 RUN set -euxo pipefail; \
   rm -rf /app/.next /app/node_modules/.cache /app/out; \
-  echo "PREBUILD_INVALIDATE=$(date +%s%N) ${BUILD_TRIGGER}" >> .env; \
+  UNIQUE_BUILD=$(awk 'BEGIN {srand(); printf "BUILDID_%d_%d_%d", systime(), int(rand()*999999), PROCINFO["pid"]}'); \
+  if [ -z "${UNIQUE_BUILD}" ]; then UNIQUE_BUILD="RND_${RANDOM}_$$_$(date +%s)"; fi; \
+  echo "NEXT_PUBLIC_BUILD_ID=${UNIQUE_BUILD}" >> .env; \
+  echo "PREBUILD_INVALIDATE=${UNIQUE_BUILD}" >> .env; \
   cat /build_trigger.txt; \
+  echo "Build unique id: ${UNIQUE_BUILD}"; \
   npx prisma generate; \
   SKIP_ENV_VALIDATION=1 npm run build;
 
