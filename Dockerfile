@@ -32,9 +32,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 COPY package.json package-lock.json ./
 RUN set -euxo pipefail; \
-  npm cache clean --force || true; \
-  rm -rf /root/.npm /app/node_modules; \
-  npm install --no-audit --no-fund --prefer-offline=false;
+  [ -d node_modules ] || rm -rf node_modules; \
+  if [ -f /root/.npm/_cacache/package-json-cache.lock ]; then echo "[npm cache] using existing cache"; else npm cache clean --force || true; fi; \
+  npm install --no-audit --no-fund --prefer-offline --loglevel=error;
 
 COPY . .
 
