@@ -258,47 +258,64 @@ export default async function MembersPage(props: { searchParams?: Promise<Record
       </div>
 
       {editMember ? (
-        <Card className="p-5">
-          <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0">
-              <div className="text-sm font-medium">Editar cadastro</div>
-              <div className="mt-1 truncate text-xs text-muted-foreground">{editMember.fullName}</div>
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Editar cadastro de membro"
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm sm:items-center"
+        >
+          <a
+            href="/admin/members"
+            aria-label="Fechar edição"
+            className="absolute inset-0 cursor-default"
+          />
+          <Card className="relative z-10 w-full max-w-2xl p-5 shadow-2xl">
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <div className="text-sm font-medium">Editar cadastro</div>
+                <div className="mt-1 truncate text-xs text-muted-foreground">{editMember.fullName}</div>
+              </div>
+              <a
+                href="/admin/members"
+                className="inline-flex size-8 shrink-0 items-center justify-center rounded-xl border border-border text-sm text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+                aria-label="Fechar"
+                title="Fechar"
+              >
+                ✕
+              </a>
             </div>
-            <a href="/admin/members" className="text-xs font-medium text-muted-foreground hover:underline">
-              Cancelar
-            </a>
-          </div>
-          <div className="mt-4">
-            <MembersFormClient
-              title="Dados do membro"
-              submitLabel="Salvar alterações"
-              ministries={ministries}
-              defaultValues={{
-                memberId: editMember.id,
-                fullName: editMember.fullName,
-                photoUrl: editMember.photoUrl,
-                cpf: editMember.cpf,
-                email: editMember.email,
-                phone: editMember.phone,
-                ministryIds: editMember.memberMinistries.length
-                  ? editMember.memberMinistries.map((mm) => mm.ministryId)
-                  : editMember.ministryId
-                    ? [editMember.ministryId]
-                    : [],
-                zip: editMember.zip,
-                addressLine1: editMember.addressLine1,
-                addressLine2: editMember.addressLine2,
-                neighborhood: editMember.neighborhood,
-                city: editMember.city,
-                state: editMember.state,
-                baptized: editMember.baptized,
-                baptismYear: editMember.baptismYear,
-                conversionYear: editMember.conversionYear,
-                types: (editMember.types.length ? editMember.types : [editMember.type]) as MemberType[],
-              }}
-            />
-          </div>
-        </Card>
+            <div className="mt-4 max-h-[75vh] overflow-y-auto pr-1">
+              <MembersFormClient
+                title="Dados do membro"
+                submitLabel="Salvar alterações"
+                ministries={ministries}
+                defaultValues={{
+                  memberId: editMember.id,
+                  fullName: editMember.fullName,
+                  photoUrl: editMember.photoUrl,
+                  cpf: editMember.cpf,
+                  email: editMember.email,
+                  phone: editMember.phone,
+                  ministryIds: editMember.memberMinistries.length
+                    ? editMember.memberMinistries.map((mm) => mm.ministryId)
+                    : editMember.ministryId
+                      ? [editMember.ministryId]
+                      : [],
+                  zip: editMember.zip,
+                  addressLine1: editMember.addressLine1,
+                  addressLine2: editMember.addressLine2,
+                  neighborhood: editMember.neighborhood,
+                  city: editMember.city,
+                  state: editMember.state,
+                  baptized: editMember.baptized,
+                  baptismYear: editMember.baptismYear,
+                  conversionYear: editMember.conversionYear,
+                  types: (editMember.types.length ? editMember.types : [editMember.type]) as MemberType[],
+                }}
+              />
+            </div>
+          </Card>
+        </div>
       ) : null}
     </div>
   );
