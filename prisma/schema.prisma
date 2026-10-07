@@ -236,9 +236,11 @@ model Ministry {
   name        String
   description String?
   active      Boolean  @default(true)
+  leaderId    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  leader     Member?   @relation("MinistryLeader", fields: [leaderId], references: [id], onDelete: SetNull)
   members    Member[]
   memberMinistries MemberMinistry[]
   volunteers VolunteerProfile[]
@@ -278,6 +280,7 @@ model Member {
   updatedAt         DateTime      @updatedAt
 
   ministry         Ministry?         @relation(fields: [ministryId], references: [id], onDelete: SetNull)
+  ministriesLeading Ministry[]       @relation("MinistryLeader")
   user             User?
   pastorProfile    PastorProfile?
   volunteerProfile VolunteerProfile?
