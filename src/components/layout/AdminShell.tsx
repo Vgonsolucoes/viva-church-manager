@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { SafeAvatarImage } from "@/components/ui/SafeAvatarImage";
 import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import {
@@ -319,19 +320,20 @@ export function AdminShell(props: {
               <div className="mt-2 flex items-center gap-3">
                 {(() => {
                   const safeAvatar = safeImageSrcOrUndefined(props.user.image);
-                  return safeAvatar ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={safeAvatar}
-                      alt={props.user.name ?? "Usuário"}
-                      loading="lazy"
-                      referrerPolicy="no-referrer"
-                      className="size-9 rounded-2xl object-cover"
-                    />
-                  ) : (
+                  const fallbackAvatar = (
                     <div className="flex size-9 items-center justify-center rounded-2xl bg-muted/30 text-xs font-semibold text-foreground">
                       {initials}
                     </div>
+                  );
+                  return safeAvatar ? (
+                    <SafeAvatarImage
+                      src={safeAvatar}
+                      alt={props.user.name ?? "Usuário"}
+                      className="size-9 rounded-2xl object-cover"
+                      fallback={fallbackAvatar}
+                    />
+                  ) : (
+                    fallbackAvatar
                   );
                 })()}
                 <div className="min-w-0">
@@ -395,19 +397,20 @@ export function AdminShell(props: {
               <div className="flex items-center gap-2 rounded-2xl border border-border bg-muted/20 px-2 py-1.5">
                 {(() => {
                   const safeAvatar = safeImageSrcOrUndefined(props.user.image);
-                  return safeAvatar ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={safeAvatar}
-                      alt={props.user.name ?? "Usuário"}
-                      loading="lazy"
-                      referrerPolicy="no-referrer"
-                      className="size-7 rounded-full object-cover"
-                    />
-                  ) : (
+                  const fallbackAvatar = (
                     <div className="flex size-7 items-center justify-center rounded-full bg-muted text-xs font-semibold text-foreground">
                       {initials}
                     </div>
+                  );
+                  return safeAvatar ? (
+                    <SafeAvatarImage
+                      src={safeAvatar}
+                      alt={props.user.name ?? "Usuário"}
+                      className="size-7 rounded-full object-cover"
+                      fallback={fallbackAvatar}
+                    />
+                  ) : (
+                    fallbackAvatar
                   );
                 })()}
                 <div className="hidden md:block">

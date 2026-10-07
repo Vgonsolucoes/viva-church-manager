@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useActionState } from "react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { SafeAvatarImage } from "@/components/ui/SafeAvatarImage";
 import {
   safeImageSrc,
   safeImageSrcOrUndefined,
@@ -426,13 +427,16 @@ export function MembersFormClient(props: {
                     </div>
                   );
                 }
-                // eslint-disable-next-line @next/next/no-img-element
                 return (
-                  <img
+                  <SafeAvatarImage
                     src={src}
                     alt="Pré-visualização"
-                    referrerPolicy="no-referrer"
                     className="size-full object-cover"
+                    fallback={
+                      <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Sem foto
+                      </div>
+                    }
                   />
                 );
               })()}
