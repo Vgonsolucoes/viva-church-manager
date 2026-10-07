@@ -3,6 +3,7 @@
 import crypto from "crypto";
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
+import { resolveUploadsDir } from "@/server/uploads-dir";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
@@ -12,16 +13,6 @@ const allowedMimeToExt: Record<string, string> = {
   "image/png": "png",
   "image/webp": "webp",
 };
-
-const PUBLIC_UPLOADS_FALLBACK = path.join("public", "uploads");
-
-function resolveUploadsDir(): string {
-  const envDir = process.env.UPLOADS_DIR?.trim();
-  if (envDir) {
-    return path.isAbsolute(envDir) ? envDir : path.join(process.cwd(), envDir);
-  }
-  return path.join(process.cwd(), PUBLIC_UPLOADS_FALLBACK);
-}
 
 async function saveUploadedFile(
   file: File,
