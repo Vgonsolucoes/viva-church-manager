@@ -12,6 +12,8 @@ import { MembersFormClient } from "./MembersFormClient";
 
 export const dynamic = "force-dynamic";
 
+export const BUILD_LABEL = "BUILD_2026_10_07_MEMBERS_V3_SEM_MODE_SEM_ACTION";
+
 const memberTypeOptions = [
   { value: "MEMBER", label: "Membro" },
   { value: "VISITOR", label: "Visitante" },
@@ -131,9 +133,16 @@ export default async function MembersPage(props: { searchParams?: Promise<Record
   return (
     <div className="space-y-6">
       <div>
-        <div className="text-xl font-semibold tracking-tight">Membros</div>
-        <div className="mt-1 text-sm text-muted-foreground">
-          Cadastro, histórico e acompanhamento.
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <div className="text-xl font-semibold tracking-tight">Membros</div>
+            <div className="mt-1 text-sm text-muted-foreground">
+              Cadastro, histórico e acompanhamento.
+            </div>
+          </div>
+          <div className="rounded-full border border-emerald-600/30 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-emerald-500 dark:text-emerald-400">
+            {BUILD_LABEL}
+          </div>
         </div>
       </div>
 
@@ -241,7 +250,6 @@ export default async function MembersPage(props: { searchParams?: Promise<Record
 
         <Card className="p-5">
           <MembersFormClient
-            mode="create"
             title="Novo cadastro"
             submitLabel="Cadastrar"
             ministries={ministries}
@@ -262,7 +270,6 @@ export default async function MembersPage(props: { searchParams?: Promise<Record
           </div>
           <div className="mt-4">
             <MembersFormClient
-              mode="edit"
               title="Dados do membro"
               submitLabel="Salvar alterações"
               ministries={ministries}

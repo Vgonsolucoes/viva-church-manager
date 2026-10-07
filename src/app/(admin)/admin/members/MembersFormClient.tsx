@@ -106,7 +106,6 @@ async function uploadAvatarToApi(file: File): Promise<
 }
 
 export function MembersFormClient(props: {
-  mode: "create" | "edit";
   title: string;
   submitLabel: string;
   ministries: Array<{ id: string; name: string }>;
@@ -165,9 +164,18 @@ export function MembersFormClient(props: {
   const formRef = useRef<HTMLFormElement>(null);
   const photoUrlHiddenRef = useRef<HTMLInputElement>(null);
   const photoFileInputRef = useRef<HTMLInputElement>(null);
-  const serverAction = props.mode === "edit" ? updateMember : createMember;
+  const isEdit = Boolean(
+    typeof props.defaultValues?.memberId === "string" && props.defaultValues.memberId.length > 0,
+  );
+  const serverAction = isEdit ? updateMember : createMember;
   const [actionState, formAction, isPending] = useActionState(serverAction, { ok: false });
   const [_tr, startTransition] = useTransition();
+  console.log(
+    "[MembersFormClient BUILD=2026_10_07_V3] rendered isEdit=%s action=%s defaultMemberId=%s",
+    isEdit,
+    serverAction.name,
+    props.defaultValues?.memberId ?? "novo",
+  );
 
   useEffect(() => {
     setPhotoPreview(safeImageSrc(props.defaultValues?.photoUrl ?? null));
@@ -277,7 +285,7 @@ export function MembersFormClient(props: {
           defaultValue=""
           autoComplete="off"
         />
-        {props.mode === "edit" ? (
+        {isEdit ? (
           <input type="hidden" name="memberId" value={props.defaultValues?.memberId ?? ""} />
         ) : null}
 
