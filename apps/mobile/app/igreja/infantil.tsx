@@ -5,10 +5,9 @@ import { useRouter } from "expo-router";
 import {
   Baby,
   GraduationCap,
-  Users,
   Phone,
   ShieldCheck,
-  LogIn,
+  QrCode,
   TicketCheck,
   UserPlus,
   Pencil,
@@ -24,37 +23,33 @@ import { LoadingSkeleton } from "@/components/LoadingSkeleton";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
 import { theme } from "@/theme";
-import { getMyChildren, postCheckIn, postCheckOut } from "@/services/api/kids";
-import type { Child, ChildCheckIn } from "@/types";
+import { getMyChildren, postCheckOut } from "@/services/api/kids";
+import type { Child } from "@/types";
 import { formatDate } from "@/utils/date";
 
 export default function IgrejaInfantilScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [activeCheckIns, setActiveCheckIns] = useState<Record<string, ChildCheckIn>>({});
   const [toast, setToast] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const { data, isLoading, isFetching, isError, refetch } = useQuery({
     queryKey: ["my-children"],
     queryFn: () => getMyChildren(),
-    staleTime: 60_000,
+    staleTime: 30_000,
   });
 
-  const checkInMut = useMutation({
-    mutationFn: (childId: string) => postCheckIn(childId),
-    onSuccess: (res, childId) => {
-      setActiveCheckIns((prev) => ({ ...prev, [childId]: res }));
+  const checkOutMut = useMutation({
+    mutationFn: (vars: { checkInId: string; pickupCode: string }) =>
+      postCheckOut(vars.checkInId, vars.pickupCode),
+    onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["my-children"] });
-      setToast({
-        type: "success",
-        text: `Check-in realizado! Código de retirada: ${res.pickupCode}`,
-      });
-      setTimeout(() => setToast(null), 3500);
+      setToast({ type: "success", text: "Check-out realizado com sucesso!" });
+      setTimeout(() => setToast(null), 3000);
     },
     onError: (e) => {
       setToast({
         type: "error",
-        text: e instanceof Error ? e.message : "Não foi possível fazer o check-in.",
+        text: e instanceof Error ? e.message : "Não foi possível fazer o check-out.",
       });
       setTimeout(() => setToast(null), 3500);
     },
@@ -67,8 +62,8 @@ export default function IgrejaInfantilScreen() {
   const children = data ?? [];
 
   const renderItem = ({ item }: { item: Child }) => {
-    const active = activeCheckIns[item.id];
-    const isChecked = active?.status === "CHECKED_IN";
+    const active = item.pendingCheckIn ?? null;
+    const isChecked = !!active && active.status === "CHECKED_IN";
 
     return (
       <AppCard variant="default" style={{ marginBottom: theme.spacing.lg }}>
@@ -123,7 +118,7 @@ export default function IgrejaInfantilScreen() {
         </View>
 
         <View style={styles.checkInSection}>
-          {isChecked ? (
+          {isChecked && active ? (
             <View style={{ gap: theme.spacing.md }}>
               <View style={styles.checkInInfo}>
                 <View style={styles.checkInInfoRow}>
@@ -133,31 +128,26 @@ export default function IgrejaInfantilScreen() {
                 </View>
               </View>
               <SecondaryButton
-                title="Fazer check-out"
+                title={checkOutMut.isPending ? "Processando..." : "Fazer check-out"}
                 variant="outline"
                 height={46}
-                loading={checkInMut.isPending}
-                onPress={() => {
-                  if (!active) return;
-                  setActiveCheckIns((prev) => {
-                    const next = { ...prev };
-                    delete next[item.id];
-                    return next;
-                  });
-                  setToast({ type: "success", text: "Check-out realizado com sucesso!" });
-                  setTimeout(() => setToast(null), 3000);
-                }}
+                loading={checkOutMut.isPending}
+                disabled={checkOutMut.isPending}
+                onPress={() =>
+                  checkOutMut.mutate({
+                    checkInId: active.id,
+                    pickupCode: active.pickupCode,
+                  })
+                }
               />
             </View>
           ) : (
-            <PrimaryButton
-              title={checkInMut.variables === item.id && checkInMut.isPending ? "Processando..." : "FAZER CHECK-IN"}
-              variant="solid"
-              loading={checkInMut.variables === item.id && checkInMut.isPending}
-              disabled={checkInMut.isPending}
-              leftIcon={<LogIn size={18} color="#FFFFFF" />}
-              onPress={() => checkInMut.mutate(item.id)}
-            />
+            <View style={styles.scanHintRow}>
+              <QrCode size={15} color={theme.colors.foregroundMuted} />
+              <Text style={styles.scanHintText}>
+                Check-in disponível escaneando o QR Code na entrada do Kids.
+              </Text>
+            </View>
           )}
         </View>
 
@@ -236,6 +226,13 @@ export default function IgrejaInfantilScreen() {
           />
         ) : (
           <>
+            <PrimaryButton
+              title="Fazer check-in"
+              variant="solid"
+              leftIcon={<QrCode size={18} color="#FFFFFF" />}
+              onPress={() => router.push("/igreja/kids-scan")}
+              style={{ marginTop: theme.spacing.sm }}
+            />
             <Pressable
               style={({ pressed }) => [
                 styles.registerRow,
@@ -283,7 +280,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: theme.spacing.sm,
     paddingVertical: theme.spacing.md,
-    marginTop: theme.spacing.sm,
+    marginTop: theme.spacing.md,
     marginBottom: theme.spacing.md,
     borderRadius: theme.radius.md,
     borderWidth: 1,
@@ -345,6 +342,16 @@ const styles = StyleSheet.create({
     ...theme.typography.heading,
     fontSize: 20,
     fontFamily: theme.fontFamilies.bold,
+  },
+  scanHintRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.sm,
+  },
+  scanHintText: {
+    ...theme.typography.caption,
+    color: theme.colors.foregroundMuted,
+    flex: 1,
   },
   guardiansSection: {
     marginTop: theme.spacing.lg,

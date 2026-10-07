@@ -1,34 +1,12 @@
 import { NextResponse } from "next/server";
-import { randomInt } from "crypto";
 import { prisma } from "@/server/db";
 import { requireLoggedIn, requirePermission } from "@/server/session-helpers";
 import { createAuditLog } from "@/server/audit";
 import { hasPermission } from "@/server/rbac";
+import { generateUniquePickupCode } from "@/server/kids-checkin";
+import { getActiveKidsService } from "@/server/kids-services";
 
 export const dynamic = "force-dynamic";
-
-async function generateUniquePickupCode(): Promise<string> {
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const todayEnd = new Date();
-  todayEnd.setHours(23, 59, 59, 999);
-
-  let code: string;
-  let attempts = 0;
-  do {
-    code = String(randomInt(100000, 999999 + 1));
-    const exists = await prisma.childCheckIn.findFirst({
-      where: {
-        pickupCode: code,
-        checkInAt: { gte: todayStart, lte: todayEnd },
-      },
-      select: { id: true },
-    });
-    if (!exists) return code;
-    attempts++;
-  } while (attempts < 50);
-  return code;
-}
 
 export async function POST(
   req: Request,
@@ -74,6 +52,10 @@ export async function POST(
     return NextResponse.json({ error: "CHILD_NOT_FOUND" }, { status: 404 });
   }
 
+  // Vincula ao culto ativo quando houver (check-in manual/legado).
+  const active = await getActiveKidsService();
+  const serviceScheduleId = active.ok ? active.service.id : null;
+
   const pickupCode = await generateUniquePickupCode();
 
   const checkIn = await prisma.childCheckIn.create({
@@ -82,6 +64,7 @@ export async function POST(
       status: "CHECKED_IN",
       pickupCode,
       createdById: ctx.user.id,
+      serviceScheduleId,
     },
     include: { child: true },
   });

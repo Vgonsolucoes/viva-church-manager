@@ -2,8 +2,12 @@ import { api } from "@/services/api/client";
 import {
   ChildSchema,
   ChildCheckInSchema,
+  KidsServiceInfoSchema,
+  KidsCheckinResultSchema,
   type Child,
   type ChildCheckIn,
+  type KidsServiceInfo,
+  type KidsCheckinResult,
 } from "@/types";
 
 export type ChildPayload = {
@@ -69,6 +73,27 @@ export async function postCheckIn(
     `/api/v1/kids/check-ins/${childId}/check-in`,
   );
   return ChildCheckInSchema.parse(res);
+}
+
+export async function validateKidsCheckinQr(
+  token: string,
+): Promise<KidsServiceInfo> {
+  const res = await api.post<unknown>("/api/v1/kids/checkin/validate", {
+    token,
+  });
+  const parsed = KidsServiceInfoSchema.parse((res as { service: unknown }).service);
+  return parsed;
+}
+
+export async function postKidsCheckin(
+  token: string,
+  childIds: string[],
+): Promise<KidsCheckinResult> {
+  const res = await api.post<unknown>("/api/v1/kids/checkin", {
+    token,
+    childIds,
+  });
+  return KidsCheckinResultSchema.parse(res);
 }
 
 export async function postCheckOut(

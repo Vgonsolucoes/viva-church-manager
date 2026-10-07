@@ -348,6 +348,16 @@ export const MinistrySchema = z.object({
 });
 export type Ministry = z.infer<typeof MinistrySchema>;
 
+export const ChildCheckInSchema = z.object({
+  id: z.string(),
+  childId: z.string(),
+  status: z.enum(["CHECKED_IN", "CHECKED_OUT"]),
+  pickupCode: z.string(),
+  checkInAt: z.coerce.date(),
+  checkOutAt: z.coerce.date().nullable(),
+});
+export type ChildCheckIn = z.infer<typeof ChildCheckInSchema>;
+
 export const ChildSchema = z.object({
   id: z.string(),
   fullName: z.string(),
@@ -368,18 +378,34 @@ export const ChildSchema = z.object({
       relationship: z.string().nullable(),
     }),
   ),
+  pendingCheckIn: ChildCheckInSchema.nullable().optional(),
 });
 export type Child = z.infer<typeof ChildSchema>;
 
-export const ChildCheckInSchema = z.object({
+export const KidsServiceInfoSchema = z.object({
   id: z.string(),
-  childId: z.string(),
-  status: z.enum(["CHECKED_IN", "CHECKED_OUT"]),
-  pickupCode: z.string(),
-  checkInAt: z.coerce.date(),
-  checkOutAt: z.coerce.date().nullable(),
+  name: z.string(),
+  dayOfWeek: z.number().optional(),
+  startTime: z.string(),
+  endTime: z.string(),
 });
-export type ChildCheckIn = z.infer<typeof ChildCheckInSchema>;
+export type KidsServiceInfo = z.infer<typeof KidsServiceInfoSchema>;
+
+export const KidsCheckinResultSchema = z.object({
+  service: KidsServiceInfoSchema,
+  created: z.number(),
+  results: z.array(
+    z.object({
+      childId: z.string(),
+      childName: z.string(),
+      ok: z.boolean(),
+      pickupCode: z.string().optional(),
+      error: z.string().optional(),
+      message: z.string().optional(),
+    }),
+  ),
+});
+export type KidsCheckinResult = z.infer<typeof KidsCheckinResultSchema>;
 
 export const PrayerRequestSchema = z.object({
   id: z.string(),

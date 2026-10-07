@@ -6,6 +6,8 @@ import { cn } from "@/lib/cn";
 
 const items = [
   { href: "/admin/kids", label: "Painel", exact: true },
+  { href: "/admin/kids/checkins", label: "Check-ins", exact: false },
+  { href: "/admin/kids/criancas", label: "Crianças", exact: false },
   { href: "/admin/kids/horarios", label: "Horários dos Cultos", exact: false },
   { href: "/admin/kids/qrcode", label: "QR de Check-in", exact: false },
 ];
