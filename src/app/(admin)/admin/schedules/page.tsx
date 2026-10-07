@@ -1,109 +1,20 @@
-import { revalidatePath } from "next/cache";
-import { getServerSession } from "next-auth";
-import { z } from "zod";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
-import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
-import { logAudit } from "@/server/audit";
+import { addAssignment, createSchedule } from "./actions";
+import { ScheduleEditModal } from "./ScheduleEditModal";
 
 export const dynamic = "force-dynamic";
 
-const createScheduleSchema = z.object({
-  title: z.string().min(2),
-  kind: z.enum(["SERVICE", "EVENT", "CELL", "MEETING", "REHEARSAL", "OTHER"]).default("SERVICE"),
-  startsAt: z.string().min(5),
-  ministryName: z.string().optional().or(z.literal("")),
-});
-
-async function createSchedule(formData: FormData) {
-  "use server";
-
-  const session = await getServerSession(authOptions);
-  const parsed = createScheduleSchema.safeParse({
-    title: formData.get("title"),
-    kind: formData.get("kind"),
-    startsAt: formData.get("startsAt"),
-    ministryName: formData.get("ministryName"),
-  });
-  if (!parsed.success) return;
-
-  const ministry =
-    parsed.data.ministryName && parsed.data.ministryName.trim().length
-      ? await prisma.ministry.upsert({
-          where: { name: parsed.data.ministryName.trim() },
-          update: {},
-          create: { name: parsed.data.ministryName.trim() },
-        })
-      : null;
-
-  const schedule = await prisma.schedule.create({
-    data: {
-      title: parsed.data.title.trim(),
-      kind: parsed.data.kind,
-      startsAt: new Date(parsed.data.startsAt),
-      ministryId: ministry?.id ?? null,
-      createdById: session?.uid ?? null,
-    },
-  });
-
-  await logAudit({
-    actorUserId: session?.uid ?? null,
-    action: "CREATE",
-    entityType: "Schedule",
-    entityId: schedule.id,
-    after: { id: schedule.id, title: schedule.title, startsAt: schedule.startsAt },
-  });
-
-  revalidatePath("/admin/schedules");
-}
-
-const addAssignmentSchema = z.object({
-  scheduleId: z.string().min(1),
-  volunteerId: z.string().min(1),
-  roleName: z.string().min(2),
-});
-
-async function addAssignment(formData: FormData) {
-  "use server";
-
-  const session = await getServerSession(authOptions);
-  const parsed = addAssignmentSchema.safeParse({
-    scheduleId: formData.get("scheduleId"),
-    volunteerId: formData.get("volunteerId"),
-    roleName: formData.get("roleName"),
-  });
-  if (!parsed.success) return;
-
-  const assignment = await prisma.scheduleAssignment.create({
-    data: {
-      scheduleId: parsed.data.scheduleId,
-      volunteerId: parsed.data.volunteerId,
-      roleName: parsed.data.roleName.trim(),
-      status: "PENDING",
-    },
-  });
-
-  await logAudit({
-    actorUserId: session?.uid ?? null,
-    action: "CREATE",
-    entityType: "ScheduleAssignment",
-    entityId: assignment.id,
-    after: {
-      id: assignment.id,
-      scheduleId: assignment.scheduleId,
-      volunteerId: assignment.volunteerId,
-      roleName: assignment.roleName,
-    },
-  });
-
-  revalidatePath("/admin/schedules");
+function toLocalInputValue(date: Date) {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 export default async function SchedulesPage() {
-  const [schedules, volunteers] = await Promise.all([
+  const [schedules, volunteers, ministries] = await Promise.all([
     prisma.schedule.findMany({
       orderBy: { startsAt: "asc" },
       take: 25,
@@ -116,6 +27,11 @@ export default async function SchedulesPage() {
       orderBy: { createdAt: "desc" },
       take: 200,
       include: { member: true },
+    }),
+    prisma.ministry.findMany({
+      where: { active: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
     }),
   ]);
 
@@ -137,65 +53,113 @@ export default async function SchedulesPage() {
 
           <div className="mt-4 space-y-3">
             {schedules.length ? (
-              schedules.map((s) => (
-                <div key={s.id} className="rounded-2xl border border-border bg-muted/20 p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-semibold">{s.title}</div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        {new Intl.DateTimeFormat("pt-BR", {
-                          dateStyle: "short",
-                          timeStyle: "short",
-                        }).format(s.startsAt)}
-                        {s.ministry?.name ? ` • ${s.ministry.name}` : ""} • {s.kind}
+              schedules.map((s) => {
+                const ministryVolunteers = s.ministryId
+                  ? volunteers.filter((v) => v.ministryId === s.ministryId)
+                  : [];
+                const otherVolunteers = s.ministryId
+                  ? volunteers.filter((v) => v.ministryId !== s.ministryId)
+                  : volunteers;
+                const editMinistries =
+                  s.ministry && !ministries.some((m) => m.id === s.ministry!.id)
+                    ? [
+                        ...ministries,
+                        { id: s.ministry.id, name: `${s.ministry.name} (inativo)` },
+                      ]
+                    : ministries;
+
+                return (
+                  <div key={s.id} className="rounded-2xl border border-border bg-muted/20 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-semibold">{s.title}</div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          {new Intl.DateTimeFormat("pt-BR", {
+                            dateStyle: "short",
+                            timeStyle: "short",
+                          }).format(s.startsAt)}
+                          {s.ministry?.name ? ` • ${s.ministry.name}` : ""} • {s.kind}
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <Badge>{s.assignments.length} alocados</Badge>
+                        <ScheduleEditModal
+                          schedule={{
+                            id: s.id,
+                            title: s.title,
+                            kind: s.kind,
+                            startsAtLocal: toLocalInputValue(s.startsAt),
+                            ministryId: s.ministryId,
+                            assignmentsCount: s.assignments.length,
+                          }}
+                          ministries={editMinistries}
+                        />
                       </div>
                     </div>
-                    <Badge>{s.assignments.length} alocados</Badge>
-                  </div>
 
-                  <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
-                    {s.assignments.map((a) => (
-                      <div
-                        key={a.id}
-                        className="flex items-center justify-between rounded-xl border border-border bg-card px-3 py-2"
-                      >
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-medium">
-                            {a.volunteer.member.fullName}
+                    <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
+                      {s.assignments.map((a) => (
+                        <div
+                          key={a.id}
+                          className="flex items-center justify-between rounded-xl border border-border bg-card px-3 py-2"
+                        >
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-medium">
+                              {a.volunteer.member.fullName}
+                            </div>
+                            <div className="truncate text-xs text-muted-foreground">
+                              {a.roleName}
+                            </div>
                           </div>
-                          <div className="truncate text-xs text-muted-foreground">
-                            {a.roleName}
-                          </div>
+                          <Badge className="shrink-0">{a.status}</Badge>
                         </div>
-                        <Badge className="shrink-0">{a.status}</Badge>
-                      </div>
-                    ))}
-                  </div>
-
-                  <form action={addAssignment} className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-4">
-                    <input type="hidden" name="scheduleId" value={s.id} />
-                    <select
-                      name="volunteerId"
-                      className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm md:col-span-2"
-                      required
-                      defaultValue=""
-                    >
-                      <option value="" disabled>
-                        Selecionar voluntário
-                      </option>
-                      {volunteers.map((v) => (
-                        <option key={v.id} value={v.id}>
-                          {v.member.fullName}
-                        </option>
                       ))}
-                    </select>
-                    <Input name="roleName" placeholder="Função (ex: Som)" required />
-                    <Button type="submit" variant="secondary">
-                      Alocar
-                    </Button>
-                  </form>
-                </div>
-              ))
+                    </div>
+
+                    <form action={addAssignment} className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-4">
+                      <input type="hidden" name="scheduleId" value={s.id} />
+                      <select
+                        name="volunteerId"
+                        className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm md:col-span-2"
+                        required
+                        defaultValue=""
+                      >
+                        <option value="" disabled>
+                          Selecionar voluntário
+                        </option>
+                        {ministryVolunteers.length ? (
+                          <optgroup label="Voluntários do ministério">
+                            {ministryVolunteers.map((v) => (
+                              <option key={v.id} value={v.id}>
+                                {v.member.fullName}
+                              </option>
+                            ))}
+                          </optgroup>
+                        ) : null}
+                        {otherVolunteers.length ? (
+                          <optgroup
+                            label={
+                              ministryVolunteers.length
+                                ? "Outros voluntários"
+                                : "Voluntários"
+                            }
+                          >
+                            {otherVolunteers.map((v) => (
+                              <option key={v.id} value={v.id}>
+                                {v.member.fullName}
+                              </option>
+                            ))}
+                          </optgroup>
+                        ) : null}
+                      </select>
+                      <Input name="roleName" placeholder="Função (ex: Som)" required />
+                      <Button type="submit" variant="secondary">
+                        Alocar
+                      </Button>
+                    </form>
+                  </div>
+                );
+              })
             ) : (
               <div className="text-sm text-muted-foreground">
                 Nenhuma escala cadastrada ainda.
@@ -232,7 +196,21 @@ export default async function SchedulesPage() {
             </div>
             <div className="space-y-2">
               <div className="text-xs font-medium text-muted-foreground">Ministério</div>
-              <Input name="ministryName" placeholder="Ex: Boas-vindas" />
+              <select
+                name="ministryId"
+                className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm"
+                defaultValue=""
+              >
+                <option value="">Selecione um Ministério</option>
+                {ministries.map((ministry) => (
+                  <option key={ministry.id} value={ministry.id}>
+                    {ministry.name}
+                  </option>
+                ))}
+              </select>
+              <div className="text-[11px] text-muted-foreground">
+                Somente ministérios ativos cadastrados em Ministérios.
+              </div>
             </div>
             <Button className="w-full" type="submit">
               Criar escala
