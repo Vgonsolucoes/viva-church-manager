@@ -10,6 +10,7 @@ import {
   verifyKidsCheckinPointToken,
 } from "@/server/kids-checkin";
 import { getActiveKidsService, NO_ACTIVE_SERVICE_MESSAGE } from "@/server/kids-services";
+import { enqueueKidsPrintJobsForCheckin } from "@/server/kids-print";
 
 export const dynamic = "force-dynamic";
 
@@ -140,6 +141,13 @@ export async function POST(req: Request) {
       },
       createdById: ctx.user.id,
     });
+
+    // Impressão desacoplada: falha na fila NÃO pode impedir o check-in.
+    try {
+      await enqueueKidsPrintJobsForCheckin(checkIn.id);
+    } catch (err) {
+      console.error("[kids-print] Falha ao enfileirar etiquetas:", err);
+    }
 
     results.push({ childId, childName: child.fullName, ok: true, pickupCode });
   }

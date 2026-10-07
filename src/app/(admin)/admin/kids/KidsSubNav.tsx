@@ -10,6 +10,7 @@ const items = [
   { href: "/admin/kids/criancas", label: "Crianças", exact: false },
   { href: "/admin/kids/horarios", label: "Horários dos Cultos", exact: false },
   { href: "/admin/kids/qrcode", label: "QR de Check-in", exact: false },
+  { href: "/admin/kids/impressao", label: "Impressão", exact: false },
 ];
 
 export function KidsSubNav() {

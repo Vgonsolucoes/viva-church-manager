@@ -5,6 +5,7 @@ import { createAuditLog } from "@/server/audit";
 import { hasPermission } from "@/server/rbac";
 import { generateUniquePickupCode } from "@/server/kids-checkin";
 import { getActiveKidsService } from "@/server/kids-services";
+import { enqueueKidsPrintJobsForCheckin } from "@/server/kids-print";
 
 export const dynamic = "force-dynamic";
 
@@ -77,6 +78,13 @@ export async function POST(
     after: checkIn,
     createdById: ctx.user.id,
   });
+
+  // Impressão desacoplada: falha na fila NÃO pode impedir o check-in.
+  try {
+    await enqueueKidsPrintJobsForCheckin(checkIn.id);
+  } catch (err) {
+    console.error("[kids-print] Falha ao enfileirar etiquetas:", err);
+  }
 
   return NextResponse.json(
     {

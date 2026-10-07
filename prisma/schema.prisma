@@ -206,6 +206,7 @@ model User {
   financeCreated       FinanceTransaction[] @relation("FinanceCreatedBy")
   lostFoundCreated     LostFoundItem[]   @relation("LostFoundCreatedBy")
   childCheckInsCreated ChildCheckIn[]    @relation("ChildCheckInCreatedBy")
+  kidsPrintJobsPrinted KidsPrintJob[]    @relation("KidsPrintJobPrintedBy")
   parkingFlowsCreated  ParkingFlow[]     @relation("ParkingFlowCreatedBy")
   notificationsCreated Notification[]    @relation("NotificationCreatedBy")
   coursesCreated       Course[]          @relation("CourseCreatedBy")
@@ -854,6 +855,7 @@ model Child {
 
   guardians ChildGuardian[]
   checkins  ChildCheckIn[]
+  printJobs KidsPrintJob[]
 }
 
 model ChildGuardian {
@@ -885,6 +887,7 @@ model ChildCheckIn {
   child           Child                @relation(fields: [childId], references: [id], onDelete: Cascade)
   createdBy       User?                @relation("ChildCheckInCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   serviceSchedule KidsServiceSchedule? @relation(fields: [serviceScheduleId], references: [id], onDelete: SetNull)
+  printJobs       KidsPrintJob[]
 
   @@index([childId])
   @@index([checkInAt])
@@ -905,6 +908,33 @@ model KidsServiceSchedule {
   checkins ChildCheckIn[]
 
   @@index([dayOfWeek, isActive])
+}
+
+// Fila de impressão das etiquetas Kids (camada desacoplada — seção 11 da spec).
+// O check-in apenas enfileira jobs; um agente (navegador da recepção) consome
+// a fila e imprime localmente, pois o EasyPanel não alcança USB/LAN da igreja.
+model KidsPrintJob {
+  id          String    @id @default(cuid())
+  checkInId   String
+  childId     String
+  labelType   String // CHILD | GUARDIAN
+  status      String    @default("PENDING") // PENDING | PRINTED | FAILED | CANCELLED
+  payload     Json // snapshot imutável usado na renderização da etiqueta
+  copies      Int       @default(1)
+  attempts    Int       @default(0)
+  error       String?
+  printedAt   DateTime?
+  printedById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  checkIn   ChildCheckIn @relation(fields: [checkInId], references: [id], onDelete: Cascade)
+  child     Child        @relation(fields: [childId], references: [id], onDelete: Cascade)
+  printedBy User?        @relation("KidsPrintJobPrintedBy", fields: [printedById], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([checkInId])
+  @@index([childId])
 }
 
 model ParkingFlow {
