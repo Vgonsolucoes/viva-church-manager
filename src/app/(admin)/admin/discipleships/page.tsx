@@ -87,7 +87,7 @@ const historyActionLabels = {
   PROGRESS_UPDATED: "Progresso atualizado",
 } as const;
 
-type SearchParamsInput = Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined> | undefined;
+type SearchParamsInput = Promise<Record<string, string | string[] | undefined>>;
 type PageView = "overview" | "network" | "meetings" | "reports" | "settings";
 
 function getSearchValue(value: string | string[] | undefined) {

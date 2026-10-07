@@ -873,19 +873,38 @@ model ChildGuardian {
 }
 
 model ChildCheckIn {
-  id          String           @id @default(cuid())
-  childId     String
-  status      ChildCheckStatus @default(CHECKED_IN)
-  checkInAt   DateTime         @default(now())
-  checkOutAt  DateTime?
-  pickupCode  String
-  createdById String?
+  id                String           @id @default(cuid())
+  childId           String
+  status            ChildCheckStatus @default(CHECKED_IN)
+  checkInAt         DateTime         @default(now())
+  checkOutAt        DateTime?
+  pickupCode        String
+  createdById       String?
+  serviceScheduleId String?
 
-  child     Child @relation(fields: [childId], references: [id], onDelete: Cascade)
-  createdBy User?  @relation("ChildCheckInCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  child           Child                @relation(fields: [childId], references: [id], onDelete: Cascade)
+  createdBy       User?                @relation("ChildCheckInCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  serviceSchedule KidsServiceSchedule? @relation(fields: [serviceScheduleId], references: [id], onDelete: SetNull)
 
   @@index([childId])
   @@index([checkInAt])
+  @@index([serviceScheduleId])
+}
+
+model KidsServiceSchedule {
+  id               String   @id @default(cuid())
+  name             String
+  dayOfWeek        Int
+  startTime        String
+  endTime          String
+  toleranceMinutes Int      @default(30)
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  checkins ChildCheckIn[]
+
+  @@index([dayOfWeek, isActive])
 }
 
 model ParkingFlow {

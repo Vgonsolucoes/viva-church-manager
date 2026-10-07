@@ -11,9 +11,9 @@ function normalizeQuery(q?: string) {
 }
 
 export default async function AdminSearchPage(props: {
-  searchParams: { q?: string } | Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string }>;
 }) {
-  const searchParams = await Promise.resolve(props.searchParams);
+  const searchParams = await props.searchParams;
   const q = normalizeQuery(searchParams.q);
 
   if (!q || q.length < 2) {

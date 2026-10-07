@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/Input";
 import { authOptions } from "@/server/auth";
 import { logAudit } from "@/server/audit";
 import { prisma } from "@/server/db";
+import { KidsSubNav } from "./KidsSubNav";
 
 export const dynamic = "force-dynamic";
 
@@ -152,6 +153,8 @@ export default async function KidsPage() {
           Cadastro de crianças, responsáveis e check-in/check-out com código de retirada.
         </div>
       </div>
+
+      <KidsSubNav />
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <Card className="p-5 xl:col-span-2">

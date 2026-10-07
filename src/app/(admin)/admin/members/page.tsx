@@ -16,8 +16,6 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const fetchCache = "force-no-store";
 
-export const BUILD_LABEL = "BUILD_2026_10_07_MEMBERS_V3_SEM_MODE_SEM_ACTION_NO_CACHE_ADMIN";
-
 const memberTypeOptions = [
   { value: "MEMBER", label: "Membro" },
   { value: "VISITOR", label: "Visitante" },
@@ -141,16 +139,9 @@ export default async function MembersPage(props: { searchParams?: Promise<Record
   return (
     <div className="space-y-6">
       <div>
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <div className="text-xl font-semibold tracking-tight">Membros</div>
-            <div className="mt-1 text-sm text-muted-foreground">
-              Cadastro, histórico e acompanhamento.
-            </div>
-          </div>
-          <div className="rounded-full border border-emerald-600/30 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-emerald-500 dark:text-emerald-400">
-            {BUILD_LABEL}
-          </div>
+        <div className="text-xl font-semibold tracking-tight">Membros</div>
+        <div className="mt-1 text-sm text-muted-foreground">
+          Cadastro, histórico e acompanhamento.
         </div>
       </div>
 

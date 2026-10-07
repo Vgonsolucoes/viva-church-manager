@@ -4,7 +4,6 @@ import { requireLoggedIn, requirePermission } from "@/server/session-helpers";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
-export const maxBodySize = "10mb";
 
 const ALLOWED_MIME = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
