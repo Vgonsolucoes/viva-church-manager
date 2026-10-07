@@ -23,7 +23,7 @@ export type WhatsAppActionResult = {
 
 async function requireSession(): Promise<boolean> {
   const session = await getServerSession(authOptions);
-  return Boolean(session?.user?.id);
+  return Boolean(session?.uid);
 }
 
 function mapError(error: unknown): string {

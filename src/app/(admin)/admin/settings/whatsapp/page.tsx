@@ -1,5 +1,4 @@
 import { Card } from "@/components/ui/Card";
-import { PageHeader } from "@/components/layout/PageHeader";
 import { evolutionConfig, evolutionInstanceState } from "@/server/evolution";
 import { WhatsAppClient } from "./WhatsAppClient";
 
@@ -24,10 +23,12 @@ export default async function WhatsAppSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="WhatsApp"
-        description="Conexão com a Evolution API — crie a instância e conecte via QR Code."
-      />
+      <div>
+        <div className="text-xl font-semibold tracking-tight">WhatsApp</div>
+        <div className="mt-1 text-sm text-muted-foreground">
+          Conexão com a Evolution API — crie a instância e conecte via QR Code.
+        </div>
+      </div>
       <Card className="p-5">
         <WhatsAppClient
           initialConfigured={configured}
