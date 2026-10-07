@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from "react";
 import { StyleSheet, Text, View, Pressable, FlatList } from "react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "expo-router";
 import {
   Baby,
   GraduationCap,
@@ -9,6 +10,8 @@ import {
   ShieldCheck,
   LogIn,
   TicketCheck,
+  UserPlus,
+  Pencil,
 } from "lucide-react-native";
 import { ScreenContainer } from "@/components/ScreenContainer";
 import { AppHeader } from "@/components/AppHeader";
@@ -26,6 +29,7 @@ import type { Child, ChildCheckIn } from "@/types";
 import { formatDate } from "@/utils/date";
 
 export default function IgrejaInfantilScreen() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [activeCheckIns, setActiveCheckIns] = useState<Record<string, ChildCheckIn>>({});
   const [toast, setToast] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -100,6 +104,22 @@ export default function IgrejaInfantilScreen() {
           ) : (
             <Badge label="Ausente" variant="muted" />
           )}
+          <Pressable
+            onPress={() =>
+              router.push({
+                pathname: "/igreja/kids-cadastro",
+                params: { childId: item.id },
+              })
+            }
+            hitSlop={8}
+            style={({ pressed }) => [
+              styles.editButton,
+              pressed && { opacity: 0.6 },
+            ]}
+            accessibilityLabel={`Editar ${item.fullName}`}
+          >
+            <Pencil size={16} color={theme.colors.foregroundMuted} />
+          </Pressable>
         </View>
 
         <View style={styles.checkInSection}>
@@ -210,19 +230,31 @@ export default function IgrejaInfantilScreen() {
           <EmptyState
             tint="cells"
             title="Nenhum filho vinculado"
-            description="Quando houver crianças vinculadas ao seu perfil, elas aparecerão aqui para check-in."
-            actionLabel="Atualizar"
-            onAction={onRefresh}
+            description="Cadastre seu filho(a) para realizar o check-in no Ministério Infantil."
+            actionLabel="Cadastrar filho(a)"
+            onAction={() => router.push("/igreja/kids-cadastro")}
           />
         ) : (
-          <FlatList
-            data={children}
-            keyExtractor={(item) => item.id}
-            renderItem={renderItem}
-            contentContainerStyle={{ paddingTop: theme.spacing.sm }}
-            showsVerticalScrollIndicator={false}
-            ItemSeparatorComponent={() => <View style={{ height: theme.spacing.md }} />}
-          />
+          <>
+            <Pressable
+              style={({ pressed }) => [
+                styles.registerRow,
+                pressed && { opacity: 0.7 },
+              ]}
+              onPress={() => router.push("/igreja/kids-cadastro")}
+            >
+              <UserPlus size={16} color={theme.colors.primary400} />
+              <Text style={styles.registerText}>Cadastrar filho(a)</Text>
+            </Pressable>
+            <FlatList
+              data={children}
+              keyExtractor={(item) => item.id}
+              renderItem={renderItem}
+              contentContainerStyle={{ paddingTop: theme.spacing.sm }}
+              showsVerticalScrollIndicator={false}
+              ItemSeparatorComponent={() => <View style={{ height: theme.spacing.md }} />}
+            />
+          </>
         )}
       </ScreenContainer>
 
@@ -245,6 +277,27 @@ export default function IgrejaInfantilScreen() {
 }
 
 const styles = StyleSheet.create({
+  registerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: theme.spacing.sm,
+    paddingVertical: theme.spacing.md,
+    marginTop: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: theme.colors.primary400,
+  },
+  registerText: {
+    ...theme.typography.bodyBold,
+    color: theme.colors.primary400,
+  },
+  editButton: {
+    padding: theme.spacing.sm,
+    marginLeft: theme.spacing.xs,
+  },
   childHeader: {
     flexDirection: "row",
     alignItems: "center",

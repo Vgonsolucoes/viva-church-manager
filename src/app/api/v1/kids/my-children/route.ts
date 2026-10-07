@@ -15,28 +15,29 @@ export async function GET(req: Request) {
     if (err) return err;
   }
 
+  const memberId = ctx.member?.id ?? null;
   const memberName = ctx.member?.fullName;
   const memberPhone = ctx.member?.phone;
 
-  if (!memberName && !memberPhone) {
+  if (!memberId && !memberName && !memberPhone) {
     return NextResponse.json([]);
   }
 
-  const where: any = { OR: [] };
+  const orConditions: (
+    | { memberId: string }
+    | { fullName: { equals: string; mode: "insensitive" } }
+    | { phone: string }
+  )[] = [];
+  if (memberId) orConditions.push({ memberId });
   if (memberName) {
-    where.OR.push({
-      fullName: {
-        equals: memberName,
-        mode: "insensitive",
-      },
+    orConditions.push({
+      fullName: { equals: memberName, mode: "insensitive" },
     });
   }
-  if (memberPhone) {
-    where.OR.push({ phone: memberPhone });
-  }
+  if (memberPhone) orConditions.push({ phone: memberPhone });
 
   const guardians = await prisma.childGuardian.findMany({
-    where,
+    where: { OR: orConditions },
     include: {
       child: {
         include: {
@@ -52,7 +53,7 @@ export async function GET(req: Request) {
   });
 
   const childIds = new Set<string>();
-  const children: any[] = [];
+  const children = [];
 
   for (const g of guardians) {
     if (childIds.has(g.child.id)) continue;
@@ -62,9 +63,20 @@ export async function GET(req: Request) {
       id: g.child.id,
       fullName: g.child.fullName,
       birthDate: g.child.birthDate,
+      sex: g.child.sex,
+      photoUrl: g.child.photoUrl,
+      classroom: null,
       allergies: g.child.allergies,
+      medications: g.child.medications,
+      specialNeeds: g.child.specialNeeds,
+      emergencyContact: g.child.emergencyContact,
       notes: g.child.notes,
-      guardians: g.child.guardians,
+      guardians: g.child.guardians.map((guardian) => ({
+        id: guardian.id,
+        fullName: guardian.fullName,
+        phone: guardian.phone,
+        relationship: guardian.relationship,
+      })),
       pendingCheckIn,
     });
   }

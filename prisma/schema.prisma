@@ -302,6 +302,7 @@ model Member {
   memberMinistries           MemberMinistry[]
   followUpJourney            FollowUpJourney? @relation("FollowUpJourneyMember")
   assignedFollowUpJourneys   FollowUpJourney[] @relation("FollowUpJourneyAssignedTo")
+  childGuardians             ChildGuardian[]
 
   @@index([fullName])
   @@index([email])
@@ -838,28 +839,37 @@ model LostFoundItem {
 }
 
 model Child {
-  id           String   @id @default(cuid())
-  fullName     String
-  birthDate    DateTime?
-  allergies    String?
-  notes        String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                String   @id @default(cuid())
+  fullName          String
+  birthDate         DateTime?
+  sex               String?
+  photoUrl          String?
+  allergies         String?
+  medications       String?
+  specialNeeds      String?
+  emergencyContact  String?
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   guardians ChildGuardian[]
   checkins  ChildCheckIn[]
 }
 
 model ChildGuardian {
-  id        String   @id @default(cuid())
-  childId   String
-  fullName  String
-  phone     String?
-  createdAt DateTime @default(now())
+  id           String   @id @default(cuid())
+  childId      String
+  memberId     String?
+  fullName     String
+  phone        String?
+  relationship String?
+  createdAt    DateTime @default(now())
 
-  child Child @relation(fields: [childId], references: [id], onDelete: Cascade)
+  child  Child   @relation(fields: [childId], references: [id], onDelete: Cascade)
+  member Member? @relation(fields: [memberId], references: [id], onDelete: SetNull)
 
   @@index([childId])
+  @@index([memberId])
 }
 
 model ChildCheckIn {

@@ -91,3 +91,12 @@ export async function saveMemberAvatarUploadDetailed(file: File): Promise<
   return { ok: false, error: result.error ?? "Falha ao salvar foto." };
 }
 
+export async function saveChildPhotoUploadDetailed(file: File): Promise<
+  | { ok: true; url: string }
+  | { ok: false; error: string }
+> {
+  const result = await saveUploadedFile(file, "child", MAX_AVATAR_BYTES);
+  if (result.ok && result.url) return { ok: true, url: result.url };
+  return { ok: false, error: result.error ?? "Falha ao salvar foto." };
+}
+

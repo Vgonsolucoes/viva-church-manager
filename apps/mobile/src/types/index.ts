@@ -352,8 +352,14 @@ export const ChildSchema = z.object({
   id: z.string(),
   fullName: z.string(),
   birthDate: z.coerce.date().nullable(),
+  sex: z.enum(["MALE", "FEMALE"]).nullable().optional(),
   classroom: z.string().nullable(),
   photoUrl: z.string().nullable(),
+  allergies: z.string().nullable().optional(),
+  medications: z.string().nullable().optional(),
+  specialNeeds: z.string().nullable().optional(),
+  emergencyContact: z.string().nullable().optional(),
+  notes: z.string().nullable().optional(),
   guardians: z.array(
     z.object({
       id: z.string(),
