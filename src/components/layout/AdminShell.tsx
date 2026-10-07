@@ -320,14 +320,13 @@ export function AdminShell(props: {
                 {(() => {
                   const safeAvatar = safeImageSrcOrUndefined(props.user.image);
                   return safeAvatar ? (
-                    <Image
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
                       src={safeAvatar}
                       alt={props.user.name ?? "Usuário"}
-                      width={36}
-                      height={36}
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
                       className="size-9 rounded-2xl object-cover"
-                      unoptimized
-                      loader={({ src }) => src}
                     />
                   ) : (
                     <div className="flex size-9 items-center justify-center rounded-2xl bg-muted/30 text-xs font-semibold text-foreground">
@@ -397,14 +396,13 @@ export function AdminShell(props: {
                 {(() => {
                   const safeAvatar = safeImageSrcOrUndefined(props.user.image);
                   return safeAvatar ? (
-                    <Image
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
                       src={safeAvatar}
                       alt={props.user.name ?? "Usuário"}
-                      width={28}
-                      height={28}
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
                       className="size-7 rounded-full object-cover"
-                      unoptimized
-                      loader={({ src }) => src}
                     />
                   ) : (
                     <div className="flex size-7 items-center justify-center rounded-full bg-muted text-xs font-semibold text-foreground">

@@ -1,5 +1,4 @@
 import { revalidatePath } from "next/cache";
-import Image from "next/image";
 import type { MemberType } from "@/generated/prisma/client";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -178,14 +177,13 @@ export default async function MembersPage(props: { searchParams?: Promise<Record
                       <div className="flex min-w-0 items-center gap-3">
                         <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border/70 bg-muted/10">
                           {safePhoto ? (
-                            <Image
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
                               src={safePhoto}
                               alt={m.fullName}
-                              width={44}
-                              height={44}
+                              loading="lazy"
+                              referrerPolicy="no-referrer"
                               className="size-full object-cover"
-                              unoptimized
-                              loader={({ src }) => src}
                             />
                           ) : (
                             <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">

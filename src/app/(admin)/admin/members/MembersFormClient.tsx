@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useActionState } from "react";
 import { Input } from "@/components/ui/Input";
@@ -427,15 +426,13 @@ export function MembersFormClient(props: {
                     </div>
                   );
                 }
+                // eslint-disable-next-line @next/next/no-img-element
                 return (
-                  <Image
+                  <img
                     src={src}
                     alt="Pré-visualização"
-                    width={80}
-                    height={80}
+                    referrerPolicy="no-referrer"
                     className="size-full object-cover"
-                    unoptimized
-                    loader={({ src: s }) => s}
                   />
                 );
               })()}
