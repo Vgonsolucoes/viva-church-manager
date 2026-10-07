@@ -9,6 +9,10 @@ import { Input } from "@/components/ui/Input";
 import { authOptions } from "@/server/auth";
 import { logAudit } from "@/server/audit";
 import { prisma } from "@/server/db";
+import {
+  closeEndedKidsSessions,
+  KIDS_CLOSE_REASON_CHECKED_OUT,
+} from "@/server/kids-close";
 import { KidsSubNav } from "./KidsSubNav";
 
 export const dynamic = "force-dynamic";
@@ -114,7 +118,11 @@ async function checkOut(formData: FormData) {
 
   const row = await prisma.childCheckIn.update({
     where: { id: parsed.data.checkInId },
-    data: { status: "CHECKED_OUT", checkOutAt: new Date() },
+    data: {
+      status: "CHECKED_OUT",
+      checkOutAt: new Date(),
+      closeReason: KIDS_CLOSE_REASON_CHECKED_OUT,
+    },
   });
 
   await logAudit({
@@ -130,6 +138,9 @@ async function checkOut(formData: FormData) {
 }
 
 export default async function KidsPage() {
+  // Lazy close: sessões de cultos já encerrados não contam como "no Kids".
+  await closeEndedKidsSessions();
+
   const [children, active, recent] = await Promise.all([
     prisma.child.findMany({ orderBy: { createdAt: "desc" }, take: 50, include: { guardians: true } }),
     prisma.childCheckIn.findMany({

@@ -5,6 +5,7 @@ import { createAuditLog } from "@/server/audit";
 import { hasPermission } from "@/server/rbac";
 import { generateUniquePickupCode } from "@/server/kids-checkin";
 import { getActiveKidsService } from "@/server/kids-services";
+import { closeEndedKidsSessions } from "@/server/kids-close";
 import { enqueueKidsPrintJobsForCheckin } from "@/server/kids-print";
 
 export const dynamic = "force-dynamic";
@@ -52,6 +53,9 @@ export async function POST(
   if (!child) {
     return NextResponse.json({ error: "CHILD_NOT_FOUND" }, { status: 404 });
   }
+
+  // Lazy close: sessões de cultos já encerrados são fechadas administrativamente.
+  await closeEndedKidsSessions();
 
   // Vincula ao culto ativo quando houver (check-in manual/legado).
   const active = await getActiveKidsService();

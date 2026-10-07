@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/server/auth";
 import { getActiveKidsService, KIDS_WEEKDAY_LABELS, NO_ACTIVE_SERVICE_MESSAGE } from "@/server/kids-services";
+import { closeEndedKidsSessions, KIDS_CLOSE_REASON_SERVICE_ENDED } from "@/server/kids-close";
 import { prisma } from "@/server/db";
 import { hasPermission, type RoleKey } from "@/server/rbac";
 import { Badge } from "@/components/ui/Badge";
@@ -32,6 +33,10 @@ function initialsOf(name: string): string {
 export default async function KidsCheckinsPage() {
   const session = await getServerSession(authOptions);
   const canWrite = hasPermission((session?.roles ?? []) as RoleKey[], "kids:write");
+
+  // Lazy close: encerra administrativamente sessões de cultos já finalizados
+  // antes de montar a visão do painel.
+  await closeEndedKidsSessions();
 
   const activeResult = await getActiveKidsService();
   const activeService = activeResult.ok ? activeResult.service : null;
@@ -122,7 +127,9 @@ export default async function KidsCheckinsPage() {
                     </div>
                     {c.status === "CHECKED_OUT" ? (
                       <div className="mt-0.5 text-xs text-muted-foreground">
-                        Check-out às {c.checkOutAt ? timeFmt.format(c.checkOutAt) : "—"}
+                        {c.closeReason === KIDS_CLOSE_REASON_SERVICE_ENDED
+                          ? "Check-in encerrado automaticamente ao final do culto"
+                          : `Check-out às ${c.checkOutAt ? timeFmt.format(c.checkOutAt) : "—"}`}
                       </div>
                     ) : null}
                   </div>
@@ -146,6 +153,10 @@ export default async function KidsCheckinsPage() {
                         No ambiente
                       </Badge>
                     )
+                  ) : c.closeReason === KIDS_CLOSE_REASON_SERVICE_ENDED ? (
+                    <Badge className="border border-amber-500/40 bg-amber-500/15 text-amber-100">
+                      Sessão encerrada
+                    </Badge>
                   ) : (
                     <Badge>Retirada</Badge>
                   )}

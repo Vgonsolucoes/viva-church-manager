@@ -26,6 +26,20 @@ export function timeToMinutes(value: string): number {
   return h * 60 + m;
 }
 
+/**
+ * Data civil da igreja (yyyy-mm-dd) no fuso oficial, para comparações de
+ * "mesmo dia" independentes do fuso do servidor/container.
+ */
+export function getChurchLocalDateString(date: Date): string {
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: KIDS_CHURCH_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  return fmt.format(date);
+}
+
 function getChurchLocalParts(now: Date): { dayOfWeek: number; minutes: number } {
   const fmt = new Intl.DateTimeFormat("en-US", {
     timeZone: KIDS_CHURCH_TIMEZONE,

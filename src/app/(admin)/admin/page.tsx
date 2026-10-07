@@ -2,6 +2,7 @@ import { endOfMonth, startOfMonth } from "date-fns";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
+import { closeEndedKidsSessions } from "@/server/kids-close";
 import { DashboardClient } from "@/app/(admin)/admin/ui/DashboardClient";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +14,9 @@ function monthRange(date = new Date()) {
 export default async function AdminDashboardPage() {
   const session = await getServerSession(authOptions);
   const now = new Date();
+
+  // Lazy close: mantém o contador "Crianças no Kids" coerente após o fim do culto.
+  await closeEndedKidsSessions();
   const month = monthRange(now);
   const last30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
 import { requireLoggedIn, requirePermission } from "@/server/session-helpers";
 import { hasPermission } from "@/server/rbac";
+import { closeEndedKidsSessions } from "@/server/kids-close";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,9 @@ export async function GET(req: Request) {
     const err = requirePermission(ctx, "kids:checkin:self");
     if (err) return err;
   }
+
+  // Lazy close: sessões de cultos já encerrados não devem aparecer como pendentes no app.
+  await closeEndedKidsSessions();
 
   const memberId = ctx.member?.id ?? null;
   const memberName = ctx.member?.fullName;

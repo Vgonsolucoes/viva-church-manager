@@ -4,6 +4,7 @@ import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
 import { hasPermission, type RoleKey } from "@/server/rbac";
 import { getActiveKidsService } from "@/server/kids-services";
+import { closeEndedKidsSessions } from "@/server/kids-close";
 import { KIDS_PROJECTION_STATUS } from "@/server/kids-projection";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -25,6 +26,9 @@ export default async function KidsProjecaoAdminPage() {
   const roles = (session?.roles ?? []) as RoleKey[];
   const canSend = hasPermission(roles, "kids:projection:send");
   const canViewScreen = hasPermission(roles, "kids:projection:view");
+
+  // Lazy close: crianças de cultos já encerrados não devem ser elegíveis para chamado.
+  await closeEndedKidsSessions();
 
   const activeResult = await getActiveKidsService();
   const activeService = activeResult.ok ? activeResult.service : null;

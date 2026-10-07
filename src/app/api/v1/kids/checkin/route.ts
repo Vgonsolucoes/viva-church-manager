@@ -10,6 +10,7 @@ import {
   verifyKidsCheckinPointToken,
 } from "@/server/kids-checkin";
 import { getActiveKidsService, NO_ACTIVE_SERVICE_MESSAGE } from "@/server/kids-services";
+import { closeEndedKidsSessions } from "@/server/kids-close";
 import { enqueueKidsPrintJobsForCheckin } from "@/server/kids-print";
 
 export const dynamic = "force-dynamic";
@@ -56,6 +57,10 @@ export async function POST(req: Request) {
     );
   }
   const service = active.service;
+
+  // Lazy close: evita que sessões órfãs de cultos encerrados bloqueiem
+  // um novo check-in com "já está no Kids".
+  await closeEndedKidsSessions();
 
   const canWrite = hasPermission(ctx.roles, "kids:write");
   const allowedChildIds = canWrite ? null : await resolveGuardianChildIds(ctx);

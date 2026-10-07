@@ -4,6 +4,11 @@ import { prisma } from "@/server/db";
 import { requireLoggedIn, requirePermission } from "@/server/session-helpers";
 import { createAuditLog } from "@/server/audit";
 import { hasPermission } from "@/server/rbac";
+import {
+  closeEndedKidsSessions,
+  KIDS_CLOSE_REASON_CHECKED_OUT,
+  KIDS_CLOSE_REASON_SERVICE_ENDED,
+} from "@/server/kids-close";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +34,10 @@ export async function POST(
 
   const hasKidsWrite = hasPermission(ctx.roles, "kids:write");
 
+  // Lazy close: se a sessão já foi encerrada ao fim do culto, o check-out
+  // não deve ser apresentado como retirada pelo responsável.
+  await closeEndedKidsSessions();
+
   const checkIn = await prisma.childCheckIn.findUnique({
     where: { id },
   });
@@ -36,6 +45,15 @@ export async function POST(
     return NextResponse.json({ error: "CHECKIN_NOT_FOUND" }, { status: 404 });
   }
   if (checkIn.status !== "CHECKED_IN") {
+    if (checkIn.closeReason === KIDS_CLOSE_REASON_SERVICE_ENDED) {
+      return NextResponse.json(
+        {
+          error: "SESSION_CLOSED",
+          message: "Sessão encerrada automaticamente ao final do culto.",
+        },
+        { status: 400 },
+      );
+    }
     return NextResponse.json({ error: "INVALID_CHECKIN_STATUS" }, { status: 400 });
   }
 
@@ -55,6 +73,7 @@ export async function POST(
     data: {
       status: "CHECKED_OUT",
       checkOutAt: new Date(),
+      closeReason: KIDS_CLOSE_REASON_CHECKED_OUT,
     },
   });
 

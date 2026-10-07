@@ -6,6 +6,7 @@ import { authOptions } from "@/server/auth";
 import { logAudit } from "@/server/audit";
 import { prisma } from "@/server/db";
 import { hasPermission, type RoleKey } from "@/server/rbac";
+import { KIDS_CLOSE_REASON_CHECKED_OUT } from "@/server/kids-close";
 
 export async function checkOutFromPanel(formData: FormData) {
   const session = await getServerSession(authOptions);
@@ -22,7 +23,11 @@ export async function checkOutFromPanel(formData: FormData) {
 
   const updated = await prisma.childCheckIn.update({
     where: { id: checkInId },
-    data: { status: "CHECKED_OUT", checkOutAt: new Date() },
+    data: {
+      status: "CHECKED_OUT",
+      checkOutAt: new Date(),
+      closeReason: KIDS_CLOSE_REASON_CHECKED_OUT,
+    },
   });
 
   await logAudit({

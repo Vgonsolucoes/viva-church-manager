@@ -883,6 +883,7 @@ model ChildCheckIn {
   status            ChildCheckStatus @default(CHECKED_IN)
   checkInAt         DateTime         @default(now())
   checkOutAt        DateTime?
+  closeReason       String?
   pickupCode        String
   createdById       String?
   serviceScheduleId String?
