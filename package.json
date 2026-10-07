@@ -11,7 +11,8 @@
     "lint": "eslint",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "kids:smoke": "tsx scripts/kids-smoke.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
