@@ -1,6 +1,6 @@
 import React from "react";
 import { Tabs } from "expo-router";
-import { Platform, StyleSheet, View, Text } from "react-native";
+import { ColorValue, Platform, StyleSheet, View, Text } from "react-native";
 import { Home, CalendarDays, ClipboardList, Church, User } from "lucide-react-native";
 import { theme } from "@/theme";
 
@@ -11,14 +11,16 @@ function TabIcon({
   focused,
 }: {
   Icon: React.ComponentType<{ size: number; color: string; strokeWidth?: number }>;
-  color: string;
+  color: ColorValue;
   label: string;
   focused: boolean;
 }) {
+  // React Navigation fornece o tint color como string em runtime
+  const iconColor = color as string;
   return (
     <View style={styles.tabWrapper}>
       <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
-        <Icon size={22} color={color} strokeWidth={focused ? 2.4 : 2} />
+        <Icon size={22} color={iconColor} strokeWidth={focused ? 2.4 : 2} />
       </View>
       <Text style={[styles.tabLabel, { color }]}>{label}</Text>
     </View>
