@@ -129,6 +129,7 @@ export function MembersFormClient(props: {
     conversionYear: number | null;
     types: MemberTypeValue[] | null;
     isSuperAdmin: boolean;
+    loginEmail: string | null;
   }>;
 }) {
   const initialTypes = useMemo(() => {
@@ -144,6 +145,7 @@ export function MembersFormClient(props: {
   const [selectedTypes, setSelectedTypes] = useState<Set<MemberTypeValue>>(initialTypes);
   const [selectedMinistryIds, setSelectedMinistryIds] = useState<Set<string>>(initialMinistries);
   const [isSuperAdmin, setIsSuperAdmin] = useState(Boolean(props.defaultValues?.isSuperAdmin));
+  const [showPassword, setShowPassword] = useState(false);
   const [cpf, setCpf] = useState(props.defaultValues?.cpf ? formatCpf(props.defaultValues.cpf) : "");
   const [zip, setZip] = useState(props.defaultValues?.zip ?? "");
   const [addressLine1, setAddressLine1] = useState(props.defaultValues?.addressLine1 ?? "");
@@ -398,6 +400,60 @@ export function MembersFormClient(props: {
             Você pode marcar mais de um tipo para a mesma pessoa.
           </div>
         </div>
+
+        {props.canManageSuperAdmin && isSuperAdmin ? (
+          <div className="space-y-3 rounded-2xl border border-border bg-background p-3">
+            <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Acesso ao sistema
+            </div>
+            <div className="space-y-2">
+              <div className="text-xs font-medium text-muted-foreground">E-mail de login</div>
+              <Input
+                name="loginEmail"
+                type="email"
+                placeholder="admin@vivachurch.com.br"
+                defaultValue={props.defaultValues?.loginEmail ?? ""}
+                autoComplete="off"
+              />
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-2">
+                <div className="text-xs font-medium text-muted-foreground">Senha</div>
+                <Input
+                  name="accessPassword"
+                  type={showPassword ? "text" : "password"}
+                  placeholder={
+                    isEdit ? "Deixe em branco para manter a senha atual" : "Senha de acesso"
+                  }
+                  autoComplete="new-password"
+                />
+              </div>
+              <div className="space-y-2">
+                <div className="text-xs font-medium text-muted-foreground">Confirmar senha</div>
+                <Input
+                  name="accessPasswordConfirm"
+                  type={showPassword ? "text" : "password"}
+                  placeholder={isEdit ? "Repita apenas se for trocar" : "Repita a senha"}
+                  autoComplete="new-password"
+                />
+              </div>
+            </div>
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                className="size-4"
+                checked={showPassword}
+                onChange={(e) => setShowPassword(e.target.checked)}
+              />
+              <span>Mostrar senha</span>
+            </label>
+            <div className="text-xs text-muted-foreground">
+              A senha deve ter no mínimo 8 caracteres, com pelo menos uma letra e um número.
+              A conta de acesso é vinculada a este membro e permite entrar no sistema web e no
+              aplicativo.
+            </div>
+          </div>
+        ) : null}
 
         <div className="rounded-2xl border border-border bg-background p-3">
           <label className="flex items-center gap-2 text-sm">

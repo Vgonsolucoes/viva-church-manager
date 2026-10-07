@@ -125,7 +125,7 @@ export default async function MembersPage(props: { searchParams?: Promise<Record
             conversionYear: true,
             ministryId: true,
             memberMinistries: { select: { ministryId: true } },
-            user: { select: { id: true, roles: { select: { role: true } } } },
+            user: { select: { id: true, email: true, roles: { select: { role: true } } } },
           },
         }).catch((err) => {
           console.error("[members] prisma.member.findUnique(edit) falhou:", err);
@@ -322,6 +322,7 @@ export default async function MembersPage(props: { searchParams?: Promise<Record
                   conversionYear: editMember.conversionYear,
                   types: (editMember.types.length ? editMember.types : [editMember.type]) as MemberType[],
                   isSuperAdmin: editMember.user?.roles.some((r) => r.role === "SUPER_ADMIN") ?? false,
+                  loginEmail: editMember.user?.email ?? null,
                 }}
               />
             </div>

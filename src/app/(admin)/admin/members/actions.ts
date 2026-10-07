@@ -1,5 +1,6 @@
 "use server";
 
+import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { z } from "zod";
@@ -59,16 +60,91 @@ const updateMemberSchema = createMemberSchema.extend({
 });
 
 // ---------------------------------------------------------------------------
-// Super Administrador (reutiliza RoleKey.SUPER_ADMIN + RBAC existente)
-// Regra: somente um SUPER_ADMIN pode conceder/remover SUPER_ADMIN, e o sistema
-// nunca pode ficar sem pelo menos um SUPER_ADMIN ativo.
+// Super Administrador / Admin Master (reutiliza RoleKey.SUPER_ADMIN + RBAC +
+// autenticação existentes: bcryptjs custo 12, campo User.passwordHash — o
+// mesmo mecanismo de src/server/auth-jwt.ts e do seed).
+// Regras: somente um SUPER_ADMIN pode conceder/remover SUPER_ADMIN ou alterar
+// credenciais de acesso; o sistema nunca fica sem pelo menos um SUPER_ADMIN;
+// senha nunca é persistida em texto puro.
 // ---------------------------------------------------------------------------
+function passwordPolicyError(password: string): string | null {
+  if (password.length < 8) return "A senha deve ter no mínimo 8 caracteres.";
+  if (!/[A-Za-zÀ-ÿ]/.test(password))
+    return "A senha deve conter pelo menos uma letra.";
+  if (!/\d/.test(password))
+    return "A senha deve conter pelo menos um número.";
+  return null;
+}
+
+// Valida e prepara as credenciais ANTES de salvar o membro, para que erros
+// (e-mail duplicado, senhas diferentes, política de senha) não salvem nada.
+async function prepareAdminAccess(input: {
+  memberUserEmail: string | null | undefined;
+  loginEmailRaw: FormDataEntryValue | null;
+  passwordRaw: FormDataEntryValue | null;
+  passwordConfirmRaw: FormDataEntryValue | null;
+}): Promise<
+  | { ok: true; email?: string; passwordHash?: string }
+  | { ok: false; error: string }
+> {
+  const hasExistingUser = typeof input.memberUserEmail === "string";
+  const loginEmail = String(input.loginEmailRaw ?? "").trim().toLowerCase();
+  const password = String(input.passwordRaw ?? "");
+  const passwordConfirm = String(input.passwordConfirmRaw ?? "");
+
+  let email: string | undefined;
+  if (loginEmail) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginEmail)) {
+      return { ok: false, error: "E-mail de login inválido." };
+    }
+    if (!hasExistingUser || loginEmail !== input.memberUserEmail) {
+      const existing = await prisma.user.findUnique({
+        where: { email: loginEmail },
+        select: { id: true },
+      });
+      if (existing) {
+        return {
+          ok: false,
+          error: "Este e-mail de login já pertence a outro usuário do sistema.",
+        };
+      }
+      email = loginEmail;
+    }
+  } else if (!hasExistingUser) {
+    return {
+      ok: false,
+      error:
+        "Informe o e-mail de login para criar a conta de acesso do Super Administrador.",
+    };
+  }
+
+  let passwordHash: string | undefined;
+  if (password || passwordConfirm) {
+    if (password !== passwordConfirm) {
+      return { ok: false, error: "A senha e a confirmação não coincidem." };
+    }
+    const policyError = passwordPolicyError(password);
+    if (policyError) return { ok: false, error: policyError };
+    passwordHash = await bcrypt.hash(password, 12);
+  } else if (!hasExistingUser) {
+    return {
+      ok: false,
+      error:
+        "Informe a senha e a confirmação para criar a conta de acesso do Super Administrador.",
+    };
+  }
+
+  return { ok: true, email, passwordHash };
+}
+
 async function applySuperAdminChange(input: {
   actorUserId: string | null;
   actorIsSuperAdmin: boolean;
   memberId: string;
   memberName: string;
+  memberPhotoUrl?: string | null;
   wantsSuperAdmin: boolean;
+  access?: { email?: string; passwordHash?: string };
 }): Promise<{ ok: true; note?: string } | { ok: false; error: string }> {
   const memberUser = await prisma.user.findUnique({
     where: { memberId: input.memberId },
@@ -77,7 +153,14 @@ async function applySuperAdminChange(input: {
   const currentlySuperAdmin =
     memberUser?.roles.some((r) => r.role === "SUPER_ADMIN") ?? false;
 
-  if (input.wantsSuperAdmin === currentlySuperAdmin) return { ok: true };
+  const accessEmail = input.access?.email;
+  const accessPasswordHash = input.access?.passwordHash;
+  const hasCredentialChange = Boolean(accessEmail || accessPasswordHash);
+
+  // Nenhuma mudança de role nem de credenciais: nada a fazer.
+  if (input.wantsSuperAdmin === currentlySuperAdmin && !hasCredentialChange) {
+    return { ok: true };
+  }
 
   if (!input.actorIsSuperAdmin) {
     return {
@@ -89,12 +172,54 @@ async function applySuperAdminChange(input: {
 
   if (input.wantsSuperAdmin) {
     if (!memberUser) {
-      return {
-        ok: false,
-        error:
-          "Este membro não possui conta de acesso (usuário) vinculada. Crie/vincule o acesso antes de conceder Super Administrador.",
-      };
+      // Cria o User vinculado ao Member existente (credenciais já validadas).
+      if (!accessEmail || !accessPasswordHash) {
+        return {
+          ok: false,
+          error:
+            "Informe e-mail de login e senha para criar a conta de acesso do Super Administrador.",
+        };
+      }
+      const user = await prisma.user.create({
+        data: {
+          email: accessEmail,
+          name: input.memberName,
+          passwordHash: accessPasswordHash,
+          memberId: input.memberId,
+          imageUrl: input.memberPhotoUrl ?? null,
+        },
+      });
+      await prisma.userRole.upsert({
+        where: { userId_role: { userId: user.id, role: "SUPER_ADMIN" } },
+        create: { userId: user.id, role: "SUPER_ADMIN" },
+        update: {},
+      });
+      await logAudit({
+        actorUserId: input.actorUserId,
+        action: "SUPER_ADMIN_GRANTED",
+        entityType: "User",
+        entityId: user.id,
+        after: {
+          memberId: input.memberId,
+          memberName: input.memberName,
+          role: "SUPER_ADMIN",
+          accountCreated: true,
+          loginEmail: user.email,
+        },
+      });
+      return { ok: true };
     }
+
+    if (hasCredentialChange) {
+      await prisma.user.update({
+        where: { id: memberUser.id },
+        data: {
+          ...(accessEmail ? { email: accessEmail } : {}),
+          ...(accessPasswordHash ? { passwordHash: accessPasswordHash } : {}),
+        },
+      });
+    }
+
     await prisma.userRole.upsert({
       where: { userId_role: { userId: memberUser.id, role: "SUPER_ADMIN" } },
       create: { userId: memberUser.id, role: "SUPER_ADMIN" },
@@ -102,13 +227,18 @@ async function applySuperAdminChange(input: {
     });
     await logAudit({
       actorUserId: input.actorUserId,
-      action: "SUPER_ADMIN_GRANTED",
+      action: currentlySuperAdmin
+        ? "SUPER_ADMIN_CREDENTIALS_UPDATED"
+        : "SUPER_ADMIN_GRANTED",
       entityType: "User",
       entityId: memberUser.id,
       after: {
         memberId: input.memberId,
         memberName: input.memberName,
         role: "SUPER_ADMIN",
+        accountCreated: false,
+        emailChanged: Boolean(accessEmail),
+        passwordChanged: Boolean(accessPasswordHash),
       },
     });
     return { ok: true };
@@ -259,6 +389,30 @@ export async function createMember(
       }
     }
 
+    // Super Administrador: valida permissão do ator e credenciais ANTES de
+    // criar o membro, para que nenhum dado seja salvo se o acesso for inválido.
+    const wantsSuperAdmin = formData.get("superAdmin") === "on";
+    const actorRoles = (session?.roles ?? []) as RoleKey[];
+    const actorIsSuperAdmin = actorRoles.includes("SUPER_ADMIN");
+    let adminAccess: { email?: string; passwordHash?: string } | undefined;
+    if (wantsSuperAdmin) {
+      if (!actorIsSuperAdmin) {
+        return {
+          ok: false,
+          error:
+            "Somente um Super Administrador pode conceder a permissão de Super Administrador.",
+        };
+      }
+      const prepared = await prepareAdminAccess({
+        memberUserEmail: null,
+        loginEmailRaw: formData.get("loginEmail"),
+        passwordRaw: formData.get("accessPassword"),
+        passwordConfirmRaw: formData.get("accessPasswordConfirm"),
+      });
+      if (!prepared.ok) return { ok: false, error: prepared.error };
+      adminAccess = { email: prepared.email, passwordHash: prepared.passwordHash };
+    }
+
     const member = await prisma.member.create({
       data: {
         fullName: parsed.data.fullName,
@@ -345,16 +499,28 @@ export async function createMember(
       );
     }
 
-    // Membro recém-criado não possui conta de acesso (User) vinculada.
-    // Se marcaram "Super Administrador", não criamos credenciais silenciosamente:
-    // o membro é salvo normalmente e orientamos a concessão após vincular o acesso.
-    const wantsSuperAdminOnCreate = formData.get("superAdmin") === "on";
+    // Cria o User vinculado + role SUPER_ADMIN (credenciais já validadas acima).
+    if (wantsSuperAdmin) {
+      const superAdminResult = await applySuperAdminChange({
+        actorUserId: session?.uid ?? null,
+        actorIsSuperAdmin,
+        memberId: member.id,
+        memberName: member.fullName,
+        memberPhotoUrl: member.photoUrl,
+        wantsSuperAdmin: true,
+        access: adminAccess,
+      });
+      if (!superAdminResult.ok) {
+        revalidatePath("/admin/members");
+        return { ok: false, error: superAdminResult.error };
+      }
+    }
 
     revalidatePath("/admin/members");
     return {
       ok: true,
-      message: wantsSuperAdminOnCreate
-        ? "Membro cadastrado com sucesso. Para conceder Super Administrador, vincule uma conta de acesso a este membro e edite o cadastro novamente."
+      message: wantsSuperAdmin
+        ? "Membro cadastrado com sucesso com acesso de Super Administrador."
         : "Membro cadastrado com sucesso.",
       memberId: member.id,
     };
@@ -508,6 +674,34 @@ export async function updateMember(
       }
     }
 
+    // Super Administrador: valida permissão do ator e credenciais ANTES de
+    // salvar, para que nenhum dado seja alterado se o acesso for inválido.
+    const wantsSuperAdmin = formData.get("superAdmin") === "on";
+    const actorRoles = (session?.roles ?? []) as RoleKey[];
+    const actorIsSuperAdmin = actorRoles.includes("SUPER_ADMIN");
+    let adminAccess: { email?: string; passwordHash?: string } | undefined;
+    if (wantsSuperAdmin) {
+      if (!actorIsSuperAdmin) {
+        return {
+          ok: false,
+          error:
+            "Somente um Super Administrador pode conceder a permissão de Super Administrador.",
+        };
+      }
+      const existingUser = await prisma.user.findUnique({
+        where: { memberId: before.id },
+        select: { email: true },
+      });
+      const prepared = await prepareAdminAccess({
+        memberUserEmail: existingUser?.email ?? null,
+        loginEmailRaw: formData.get("loginEmail"),
+        passwordRaw: formData.get("accessPassword"),
+        passwordConfirmRaw: formData.get("accessPasswordConfirm"),
+      });
+      if (!prepared.ok) return { ok: false, error: prepared.error };
+      adminAccess = { email: prepared.email, passwordHash: prepared.passwordHash };
+    }
+
     const updated = await prisma.$transaction(async (tx) => {
       const nextMinistryId = validMinistryIds[0] ?? null;
 
@@ -613,13 +807,14 @@ export async function updateMember(
 
     // Super Administrador (aplicado após o cadastro ser salvo; validações de
     // segurança no backend: só SUPER_ADMIN altera, e nunca remove o último).
-    const actorRoles = (session?.roles ?? []) as RoleKey[];
     const superAdminResult = await applySuperAdminChange({
       actorUserId: session?.uid ?? null,
-      actorIsSuperAdmin: actorRoles.includes("SUPER_ADMIN"),
+      actorIsSuperAdmin,
       memberId: updated.id,
       memberName: updated.fullName,
-      wantsSuperAdmin: formData.get("superAdmin") === "on",
+      memberPhotoUrl: updated.photoUrl,
+      wantsSuperAdmin,
+      access: adminAccess,
     });
     if (!superAdminResult.ok) {
       revalidatePath("/admin/members");
