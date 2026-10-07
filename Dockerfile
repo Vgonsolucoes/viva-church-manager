@@ -44,6 +44,7 @@ RUN set -euxo pipefail; \
   if [ -z "${UNIQUE_BUILD}" ]; then UNIQUE_BUILD="RND_${RANDOM}_$$_$(date +%s)"; fi; \
   echo "NEXT_PUBLIC_BUILD_ID=${UNIQUE_BUILD}" >> .env; \
   echo "PREBUILD_INVALIDATE=${UNIQUE_BUILD}" >> .env; \
+  echo "NEXT_PUBLIC_BUILD_LABEL=BUILD_2026_10_07_MEMBERS_V3_SEM_MODE_SEM_ACTION" >> .env; \
   cat /build_trigger.txt; \
   echo "Build unique id: ${UNIQUE_BUILD}"; \
   npx prisma generate; \
@@ -56,4 +57,7 @@ ENV PORT=3000
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "npx prisma migrate deploy && (npx prisma db seed || echo '[seed] WARN: seed did not complete successfully') && npm run start"]
+ENV BUILD_LABEL_STARTUP=BUILD_2026_10_07_MEMBERS_V3_SEM_MODE_SEM_ACTION
+ENV NEXT_PUBLIC_BUILD_LABEL=BUILD_2026_10_07_MEMBERS_V3_SEM_MODE_SEM_ACTION
+
+CMD ["sh", "-c", "echo '==============================='; echo 'START NEXT SERVER BUILD_LABEL='${BUILD_LABEL_STARTUP}; echo 'NEXT_PUBLIC_BUILD_LABEL='${NEXT_PUBLIC_BUILD_LABEL}; echo '==============================='; npx prisma migrate deploy && (npx prisma db seed || echo '[seed] WARN: seed did not complete successfully') && npm run start"]
