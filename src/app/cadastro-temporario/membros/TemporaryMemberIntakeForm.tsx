@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 
-type MemberTypeValue = "MEMBER" | "VISITOR" | "NEW_MEMBER" | "LEADER" | "VOLUNTEER" | "DISCIPLER";
+type MemberTypeValue = "MEMBER" | "VISITOR" | "NEW_MEMBER" | "LEADER" | "VOLUNTEER" | "DISCIPLER" | "PASTOR";
 
 const memberTypeOptions: Array<{ value: MemberTypeValue; label: string }> = [
   { value: "MEMBER", label: "Membro" },
@@ -13,6 +13,7 @@ const memberTypeOptions: Array<{ value: MemberTypeValue; label: string }> = [
   { value: "LEADER", label: "Lider" },
   { value: "VOLUNTEER", label: "Voluntario" },
   { value: "DISCIPLER", label: "Discipulador" },
+  { value: "PASTOR", label: "Pastor" },
 ];
 
 function normalizeCep(input: string) {

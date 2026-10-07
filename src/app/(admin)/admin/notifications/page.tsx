@@ -51,6 +51,7 @@ const allMemberTypes = [
   "LEADER",
   "VOLUNTEER",
   "DISCIPLER",
+  "PASTOR",
 ] as const;
 const memberTypeSet: ReadonlySet<string> = new Set(allMemberTypes);
 const allTargetScopes = [

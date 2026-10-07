@@ -35,6 +35,7 @@ const memberTypeLabels: Record<MemberType, string> = {
   LEADER: "Líder",
   VOLUNTEER: "Voluntário",
   DISCIPLER: "Discipulador",
+  PASTOR: "Pastor",
 };
 
 const requiredCourseTitles = [

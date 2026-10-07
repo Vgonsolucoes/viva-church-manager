@@ -25,6 +25,7 @@ const memberTypeOptions = [
   { value: "LEADER", label: "Líder" },
   { value: "VOLUNTEER", label: "Voluntário" },
   { value: "DISCIPLER", label: "Discipulador" },
+  { value: "PASTOR", label: "Pastor" },
 ] as const;
 
 const memberTypeLabels = Object.fromEntries(

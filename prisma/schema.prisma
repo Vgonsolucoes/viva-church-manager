@@ -29,6 +29,7 @@ enum MemberType {
   LEADER
   VOLUNTEER
   DISCIPLER
+  PASTOR
 }
 
 enum MaritalStatus {

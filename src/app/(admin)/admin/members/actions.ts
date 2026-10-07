@@ -42,7 +42,7 @@ const createMemberSchema = z.object({
   phone: z.string().optional().or(z.literal("")),
   ministryIds: z.array(z.string()).optional(),
   types: z
-    .array(z.enum(["MEMBER", "VISITOR", "NEW_MEMBER", "LEADER", "VOLUNTEER", "DISCIPLER"]))
+    .array(z.enum(["MEMBER", "VISITOR", "NEW_MEMBER", "LEADER", "VOLUNTEER", "DISCIPLER", "PASTOR"]))
     .min(1),
   zip: z.string().optional().or(z.literal("")),
   addressLine1: z.string().optional().or(z.literal("")),

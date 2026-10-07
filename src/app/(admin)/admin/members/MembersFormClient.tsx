@@ -21,7 +21,8 @@ type MemberTypeValue =
   | "NEW_MEMBER"
   | "LEADER"
   | "VOLUNTEER"
-  | "DISCIPLER";
+  | "DISCIPLER"
+  | "PASTOR";
 
 const memberTypeOptions: Array<{ value: MemberTypeValue; label: string }> = [
   { value: "MEMBER", label: "Membro" },
@@ -30,6 +31,7 @@ const memberTypeOptions: Array<{ value: MemberTypeValue; label: string }> = [
   { value: "LEADER", label: "Líder" },
   { value: "VOLUNTEER", label: "Voluntário" },
   { value: "DISCIPLER", label: "Discipulador" },
+  { value: "PASTOR", label: "Pastor" },
 ];
 
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
