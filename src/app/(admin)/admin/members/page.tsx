@@ -11,8 +11,10 @@ import {
 import { MembersFormClient } from "./MembersFormClient";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
 
-export const BUILD_LABEL = "BUILD_2026_10_07_MEMBERS_V3_SEM_MODE_SEM_ACTION";
+export const BUILD_LABEL = "BUILD_2026_10_07_MEMBERS_V3_SEM_MODE_SEM_ACTION_NO_CACHE_ADMIN";
 
 const memberTypeOptions = [
   { value: "MEMBER", label: "Membro" },
