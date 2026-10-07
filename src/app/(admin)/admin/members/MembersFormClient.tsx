@@ -109,6 +109,7 @@ export function MembersFormClient(props: {
   title: string;
   submitLabel: string;
   ministries: Array<{ id: string; name: string }>;
+  canManageSuperAdmin?: boolean;
   defaultValues?: Partial<{
     memberId: string;
     fullName: string;
@@ -127,6 +128,7 @@ export function MembersFormClient(props: {
     baptismYear: number | null;
     conversionYear: number | null;
     types: MemberTypeValue[] | null;
+    isSuperAdmin: boolean;
   }>;
 }) {
   const initialTypes = useMemo(() => {
@@ -141,6 +143,7 @@ export function MembersFormClient(props: {
 
   const [selectedTypes, setSelectedTypes] = useState<Set<MemberTypeValue>>(initialTypes);
   const [selectedMinistryIds, setSelectedMinistryIds] = useState<Set<string>>(initialMinistries);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(Boolean(props.defaultValues?.isSuperAdmin));
   const [cpf, setCpf] = useState(props.defaultValues?.cpf ? formatCpf(props.defaultValues.cpf) : "");
   const [zip, setZip] = useState(props.defaultValues?.zip ?? "");
   const [addressLine1, setAddressLine1] = useState(props.defaultValues?.addressLine1 ?? "");
@@ -368,6 +371,28 @@ export function MembersFormClient(props: {
                 </label>
               ))}
             </div>
+            {props.canManageSuperAdmin ? (
+              <label className="mt-2 flex items-center gap-2 border-t border-border/60 pt-3 text-sm">
+                <input
+                  type="checkbox"
+                  name="superAdmin"
+                  className="size-4"
+                  checked={isSuperAdmin}
+                  onChange={(e) => setIsSuperAdmin(e.target.checked)}
+                />
+                <span>
+                  Super Administrador{" "}
+                  <span className="text-xs text-muted-foreground">
+                    (acesso total ao sistema — permissão, não é um tipo de cadastro)
+                  </span>
+                </span>
+              </label>
+            ) : isSuperAdmin ? (
+              <div className="mt-2 border-t border-border/60 pt-3 text-xs text-muted-foreground">
+                Este membro possui permissão de Super Administrador (somente um Super
+                Administrador pode alterar).
+              </div>
+            ) : null}
           </div>
           <div className="text-xs text-muted-foreground">
             Você pode marcar mais de um tipo para a mesma pessoa.

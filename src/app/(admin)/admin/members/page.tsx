@@ -1,5 +1,7 @@
 import { revalidatePath } from "next/cache";
+import { getServerSession } from "next-auth";
 import type { MemberType } from "@/generated/prisma/client";
+import { authOptions } from "@/server/auth";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { SafeAvatarImage } from "@/components/ui/SafeAvatarImage";
@@ -31,6 +33,8 @@ const memberTypeLabels = Object.fromEntries(
 
 export default async function MembersPage(props: { searchParams?: Promise<Record<string, string | string[]>> }) {
   try {
+    const session = await getServerSession(authOptions);
+    const canManageSuperAdmin = ((session?.roles ?? []) as string[]).includes("SUPER_ADMIN");
     const searchParams = props.searchParams ? await props.searchParams : {};
     const editIdRaw = searchParams?.edit;
     const editId = Array.isArray(editIdRaw) ? editIdRaw[0] : editIdRaw;
@@ -121,6 +125,7 @@ export default async function MembersPage(props: { searchParams?: Promise<Record
             conversionYear: true,
             ministryId: true,
             memberMinistries: { select: { ministryId: true } },
+            user: { select: { id: true, roles: { select: { role: true } } } },
           },
         }).catch((err) => {
           console.error("[members] prisma.member.findUnique(edit) falhou:", err);
@@ -256,6 +261,7 @@ export default async function MembersPage(props: { searchParams?: Promise<Record
             title="Novo cadastro"
             submitLabel="Cadastrar"
             ministries={ministries}
+            canManageSuperAdmin={canManageSuperAdmin}
           />
         </Card>
       </div>
@@ -292,6 +298,7 @@ export default async function MembersPage(props: { searchParams?: Promise<Record
                 title="Dados do membro"
                 submitLabel="Salvar alterações"
                 ministries={ministries}
+                canManageSuperAdmin={canManageSuperAdmin}
                 defaultValues={{
                   memberId: editMember.id,
                   fullName: editMember.fullName,
@@ -314,6 +321,7 @@ export default async function MembersPage(props: { searchParams?: Promise<Record
                   baptismYear: editMember.baptismYear,
                   conversionYear: editMember.conversionYear,
                   types: (editMember.types.length ? editMember.types : [editMember.type]) as MemberType[],
+                  isSuperAdmin: editMember.user?.roles.some((r) => r.role === "SUPER_ADMIN") ?? false,
                 }}
               />
             </div>

@@ -9,6 +9,7 @@ import { prisma } from "@/server/db";
 import { logAudit } from "@/server/audit";
 import { saveMemberAvatarUpload } from "@/server/uploads";
 import { safeImageSrc } from "@/lib/safe-image-src";
+import type { RoleKey } from "@/server/rbac";
 
 export type MemberActionResult = {
   ok: boolean;
@@ -56,6 +57,91 @@ const createMemberSchema = z.object({
 const updateMemberSchema = createMemberSchema.extend({
   memberId: z.string().min(1),
 });
+
+// ---------------------------------------------------------------------------
+// Super Administrador (reutiliza RoleKey.SUPER_ADMIN + RBAC existente)
+// Regra: somente um SUPER_ADMIN pode conceder/remover SUPER_ADMIN, e o sistema
+// nunca pode ficar sem pelo menos um SUPER_ADMIN ativo.
+// ---------------------------------------------------------------------------
+async function applySuperAdminChange(input: {
+  actorUserId: string | null;
+  actorIsSuperAdmin: boolean;
+  memberId: string;
+  memberName: string;
+  wantsSuperAdmin: boolean;
+}): Promise<{ ok: true; note?: string } | { ok: false; error: string }> {
+  const memberUser = await prisma.user.findUnique({
+    where: { memberId: input.memberId },
+    include: { roles: { select: { role: true } } },
+  });
+  const currentlySuperAdmin =
+    memberUser?.roles.some((r) => r.role === "SUPER_ADMIN") ?? false;
+
+  if (input.wantsSuperAdmin === currentlySuperAdmin) return { ok: true };
+
+  if (!input.actorIsSuperAdmin) {
+    return {
+      ok: false,
+      error:
+        "Somente um Super Administrador pode conceder ou remover a permissão de Super Administrador.",
+    };
+  }
+
+  if (input.wantsSuperAdmin) {
+    if (!memberUser) {
+      return {
+        ok: false,
+        error:
+          "Este membro não possui conta de acesso (usuário) vinculada. Crie/vincule o acesso antes de conceder Super Administrador.",
+      };
+    }
+    await prisma.userRole.upsert({
+      where: { userId_role: { userId: memberUser.id, role: "SUPER_ADMIN" } },
+      create: { userId: memberUser.id, role: "SUPER_ADMIN" },
+      update: {},
+    });
+    await logAudit({
+      actorUserId: input.actorUserId,
+      action: "SUPER_ADMIN_GRANTED",
+      entityType: "User",
+      entityId: memberUser.id,
+      after: {
+        memberId: input.memberId,
+        memberName: input.memberName,
+        role: "SUPER_ADMIN",
+      },
+    });
+    return { ok: true };
+  }
+
+  const totalSuperAdmins = await prisma.userRole.count({
+    where: { role: "SUPER_ADMIN" },
+  });
+  if (totalSuperAdmins <= 1) {
+    return {
+      ok: false,
+      error:
+        "Não é possível remover a permissão de Super Administrador. O sistema precisa possuir pelo menos um Super Administrador ativo.",
+    };
+  }
+  if (memberUser) {
+    await prisma.userRole.deleteMany({
+      where: { userId: memberUser.id, role: "SUPER_ADMIN" },
+    });
+    await logAudit({
+      actorUserId: input.actorUserId,
+      action: "SUPER_ADMIN_REVOKED",
+      entityType: "User",
+      entityId: memberUser.id,
+      before: {
+        memberId: input.memberId,
+        memberName: input.memberName,
+        role: "SUPER_ADMIN",
+      },
+    });
+  }
+  return { ok: true };
+}
 
 function getSelectedTypes(types: MemberType[]) {
   const unique = Array.from(new Set(types));
@@ -259,10 +345,17 @@ export async function createMember(
       );
     }
 
+    // Membro recém-criado não possui conta de acesso (User) vinculada.
+    // Se marcaram "Super Administrador", não criamos credenciais silenciosamente:
+    // o membro é salvo normalmente e orientamos a concessão após vincular o acesso.
+    const wantsSuperAdminOnCreate = formData.get("superAdmin") === "on";
+
     revalidatePath("/admin/members");
     return {
       ok: true,
-      message: "Membro cadastrado com sucesso.",
+      message: wantsSuperAdminOnCreate
+        ? "Membro cadastrado com sucesso. Para conceder Super Administrador, vincule uma conta de acesso a este membro e edite o cadastro novamente."
+        : "Membro cadastrado com sucesso.",
       memberId: member.id,
     };
   } catch (err) {
@@ -516,6 +609,21 @@ export async function updateMember(
         "[members] updateMember: falha ao salvar auditoria (não bloqueia atualização):",
         err,
       );
+    }
+
+    // Super Administrador (aplicado após o cadastro ser salvo; validações de
+    // segurança no backend: só SUPER_ADMIN altera, e nunca remove o último).
+    const actorRoles = (session?.roles ?? []) as RoleKey[];
+    const superAdminResult = await applySuperAdminChange({
+      actorUserId: session?.uid ?? null,
+      actorIsSuperAdmin: actorRoles.includes("SUPER_ADMIN"),
+      memberId: updated.id,
+      memberName: updated.fullName,
+      wantsSuperAdmin: formData.get("superAdmin") === "on",
+    });
+    if (!superAdminResult.ok) {
+      revalidatePath("/admin/members");
+      return { ok: false, error: superAdminResult.error };
     }
 
     revalidatePath("/admin/members");
