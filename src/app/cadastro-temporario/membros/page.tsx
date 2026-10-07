@@ -3,7 +3,8 @@ import { z } from "zod";
 import { Card } from "@/components/ui/Card";
 import { prisma } from "@/server/db";
 import { logAudit } from "@/server/audit";
-import { getTempMemberIntakePath, isTempMemberIntakeEnabled } from "@/server/temp-member-intake";
+import { getTempMemberIntakePath } from "@/server/temp-member-intake";
+import { isPublicMemberRegistrationEnabled } from "@/server/settings";
 import { TemporaryMemberIntakeForm } from "./TemporaryMemberIntakeForm";
 
 export const dynamic = "force-dynamic";
@@ -79,7 +80,9 @@ function getPrimaryType(types: MemberTypeValue[]) {
 async function createTemporaryMember(formData: FormData) {
   "use server";
 
-  if (!isTempMemberIntakeEnabled()) {
+  // Bloqueio no backend: mesmo chamando a action diretamente, o cadastro é
+  // rejeitado quando o cadastro público estiver desativado nas Configurações.
+  if (!(await isPublicMemberRegistrationEnabled())) {
     redirect(`${getTempMemberIntakePath()}?status=desativado`);
   }
 
@@ -188,6 +191,16 @@ async function createTemporaryMember(formData: FormData) {
 
     redirect(`${intakePath}?status=ok`);
   } catch (err) {
+    // redirect() do Next lança um erro interno NEXT_REDIRECT — precisa ser
+    // relançado, senão todo cadastro bem-sucedido cairia em "falha-servidor".
+    if (
+      err &&
+      typeof err === "object" &&
+      "digest" in err &&
+      String((err as { digest?: unknown }).digest ?? "").startsWith("NEXT_REDIRECT")
+    ) {
+      throw err;
+    }
     console.error("[temp-members] Falha ao processar cadastro temporario:", err);
     redirect(`${intakePath}?status=falha-servidor`);
   }
@@ -251,57 +264,24 @@ export default async function TemporaryMembersPage(props: { searchParams?: Searc
   const statusValue = searchParams.status;
   const status = Array.isArray(statusValue) ? statusValue[0] : statusValue;
   const message = getMessage(status);
-  const enabled = isTempMemberIntakeEnabled();
+  const enabled = await isPublicMemberRegistrationEnabled();
 
   if (!enabled) {
     return (
       <div className="min-h-screen bg-background">
         <div className="mx-auto flex min-h-screen w-full max-w-3xl items-center px-4 py-10">
           <Card className="w-full border-border/80 bg-[rgba(11,23,48,0.58)] p-6 backdrop-blur-xl">
-            <div className="text-lg font-semibold tracking-tight">Cadastro temporário desativado</div>
+            <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              VIVA CHURCH
+            </div>
+            <div className="mt-2 text-lg font-semibold tracking-tight">
+              Cadastro temporariamente indisponível
+            </div>
             <div className="mt-3 space-y-2 text-sm text-muted-foreground">
               <div>
-                Esta tela pública está fechada por segurança. Para reativar o cadastro temporário de
-                membros no ambiente de produção (EasyPanel):
+                No momento não estamos recebendo novos cadastros através deste formulário.
               </div>
-              <ol className="list-decimal space-y-1 pl-5">
-                <li>
-                  Abra o serviço <span className="font-medium">viva-church-manager-app</span>.
-                </li>
-                <li>
-                  Na aba <span className="font-medium">Environment / Variáveis de Ambiente</span>,
-                  adicione:
-                  <pre className="mt-1 rounded-lg border border-border/70 bg-black/40 px-3 py-2 font-mono text-xs">
-                    TEMP_MEMBER_INTAKE_ENABLED=true
-                  </pre>
-                </li>
-                <li>
-                  Salve as variáveis e clique em <span className="font-medium">Redeploy / Re-Deploy</span>.
-                </li>
-                <li>
-                  Aguarde o deploy terminar (1-3 min) e recarregue esta página (Ctrl+F5).
-                </li>
-              </ol>
-              <div className="pt-2 text-xs">
-                Quando terminar a coleta temporária, volte a variável para
-                <span className="font-mono"> TEMP_MEMBER_INTAKE_ENABLED=false </span>
-                e faça outro redeploy para fechar novamente.
-              </div>
-            </div>
-
-            <div className="mt-6 flex flex-wrap items-center gap-3">
-              <a
-                href="/"
-                className="inline-flex items-center justify-center whitespace-nowrap rounded-2xl px-4 py-2 text-sm font-semibold tracking-tight transition-[transform,background,color,box-shadow,filter] bg-muted/20 text-foreground border border-border/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] hover:bg-muted/30"
-              >
-                Voltar para a página inicial
-              </a>
-              <a
-                href="/admin"
-                className="inline-flex items-center justify-center whitespace-nowrap rounded-2xl px-4 py-2 text-sm font-semibold tracking-tight transition-[transform,background,color,box-shadow,filter] bg-gradient-to-r from-[#2b8cff] via-[#58a7ff] to-[#a269ff] text-[#07111f] shadow-[0_12px_34px_-18px_rgba(88,167,255,0.9)] hover:brightness-110"
-              >
-                Ir para o painel administrativo
-              </a>
+              <div>Procure a secretaria da igreja para mais informações.</div>
             </div>
           </Card>
         </div>

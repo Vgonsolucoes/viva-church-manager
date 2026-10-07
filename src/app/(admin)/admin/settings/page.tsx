@@ -27,6 +27,24 @@ export default async function SettingsPage() {
             </div>
           </Card>
         </Link>
+
+        <Link href="/admin/settings/cadastro-publico" className="group">
+          <Card className="h-full p-5 transition-colors group-hover:border-ring/50">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-2xl bg-sky-500/10 text-lg">
+                📝
+              </div>
+              <div className="min-w-0">
+                <div className="text-sm font-semibold tracking-tight">
+                  Cadastro Público de Membros
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  Ativar/desativar o formulário público, copiar link e QR Code.
+                </div>
+              </div>
+            </div>
+          </Card>
+        </Link>
       </div>
 
       <Card className="p-5">

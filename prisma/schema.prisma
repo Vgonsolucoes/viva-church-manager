@@ -935,6 +935,12 @@ model AuditLog {
   @@index([actorUserId])
 }
 
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
 model PrayerRequest {
   id        String               @id @default(cuid())
   title     String
