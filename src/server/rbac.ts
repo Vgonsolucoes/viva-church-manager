@@ -10,6 +10,7 @@ export type RoleKey =
   | "SECRETARY"
   | "RECEPTION"
   | "KIDS_MINISTRY"
+  | "PROJECTION"
   | "PARKING";
 
 export type PermissionKey =
@@ -42,6 +43,9 @@ export type PermissionKey =
   | "kids:read"
   | "kids:write"
   | "kids:checkin:self"
+  | "kids:manage"
+  | "kids:projection:send"
+  | "kids:projection:view"
   | "assets:read"
   | "assets:write"
   | "lostfound:read"
@@ -93,6 +97,9 @@ export const rolePermissions: Record<RoleKey, PermissionKey[]> = {
     "kids:read",
     "kids:write",
     "kids:checkin:self",
+    "kids:manage",
+    "kids:projection:send",
+    "kids:projection:view",
     "assets:read",
     "assets:write",
     "lostfound:read",
@@ -304,11 +311,20 @@ export const rolePermissions: Record<RoleKey, PermissionKey[]> = {
     "courses:read",
     "kids:read",
     "kids:write",
+    "kids:manage",
+    "kids:projection:send",
+    "kids:projection:view",
     "prayer:read",
     "prayer:write",
     "profile:self:edit",
     "discipleship:my:read",
     "kids:checkin:self",
+  ],
+  // Perfil dedicado do operador da tela de projeção (seção 22 da spec Kids):
+  // acesso somente à tela /kids/projecao, sem dados sensíveis do ministério.
+  PROJECTION: [
+    "dashboard:view",
+    "kids:projection:view",
   ],
   PARKING: [
     "admin:access",

@@ -45,6 +45,16 @@ export default withAuth(
       }
     }
 
+    // Tela da projeção Kids: somente perfis com kids:projection:view.
+    if (pathname.startsWith("/kids/projecao")) {
+      if (!hasPermission(roles, "kids:projection:view")) {
+        const url = req.nextUrl.clone();
+        url.pathname = "/login";
+        url.search = `?callbackUrl=${encodeURIComponent(pathname)}`;
+        return NextResponse.redirect(url);
+      }
+    }
+
     return NextResponse.next();
   },
   {
@@ -70,6 +80,11 @@ export default withAuth(
           return !!token;
         }
 
+        // Tela exclusiva da projeção Kids: exige sessão (permissão verificada abaixo).
+        if (pathname.startsWith("/kids")) {
+          return !!token;
+        }
+
         return true;
       },
     },
@@ -77,5 +92,5 @@ export default withAuth(
 );
 
 export const config = {
-  matcher: ["/admin/:path*", "/app/:path*", "/login", "/", "/api/:path*"],
+  matcher: ["/admin/:path*", "/app/:path*", "/kids/:path*", "/login", "/", "/api/:path*"],
 };

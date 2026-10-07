@@ -207,6 +207,8 @@ model User {
   lostFoundCreated     LostFoundItem[]   @relation("LostFoundCreatedBy")
   childCheckInsCreated ChildCheckIn[]    @relation("ChildCheckInCreatedBy")
   kidsPrintJobsPrinted KidsPrintJob[]    @relation("KidsPrintJobPrintedBy")
+  kidsProjectionMessagesSent   KidsProjectionMessage[] @relation("KidsProjectionMessageSentBy")
+  kidsProjectionMessagesViewed KidsProjectionMessage[] @relation("KidsProjectionMessageViewedBy")
   parkingFlowsCreated  ParkingFlow[]     @relation("ParkingFlowCreatedBy")
   notificationsCreated Notification[]    @relation("NotificationCreatedBy")
   coursesCreated       Course[]          @relation("CourseCreatedBy")
@@ -853,9 +855,10 @@ model Child {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  guardians ChildGuardian[]
-  checkins  ChildCheckIn[]
-  printJobs KidsPrintJob[]
+  guardians          ChildGuardian[]
+  checkins           ChildCheckIn[]
+  printJobs          KidsPrintJob[]
+  projectionMessages KidsProjectionMessage[]
 }
 
 model ChildGuardian {
@@ -906,6 +909,7 @@ model KidsServiceSchedule {
   updatedAt        DateTime @updatedAt
 
   checkins ChildCheckIn[]
+  projectionMessages KidsProjectionMessage[]
 
   @@index([dayOfWeek, isActive])
 }
@@ -934,6 +938,31 @@ model KidsPrintJob {
 
   @@index([status, createdAt])
   @@index([checkInId])
+  @@index([childId])
+}
+
+// Comunicação Kids → Projeção (seções 15–23 da spec): mensagem unidirecional
+// do voluntário para a tela do operador. Sem chat de retorno — o operador só
+// marca como visualizado.
+model KidsProjectionMessage {
+  id                String    @id @default(cuid())
+  childId           String
+  message           String
+  status            String    @default("PENDING") // PENDING | VIEWED
+  sentById          String?
+  serviceScheduleId String?
+  sentAt            DateTime  @default(now())
+  viewedAt          DateTime?
+  viewedById        String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  child           Child                @relation(fields: [childId], references: [id], onDelete: Cascade)
+  sentBy          User?                @relation("KidsProjectionMessageSentBy", fields: [sentById], references: [id], onDelete: SetNull)
+  viewedBy        User?                @relation("KidsProjectionMessageViewedBy", fields: [viewedById], references: [id], onDelete: SetNull)
+  serviceSchedule KidsServiceSchedule? @relation(fields: [serviceScheduleId], references: [id], onDelete: SetNull)
+
+  @@index([status, sentAt])
   @@index([childId])
 }
 
