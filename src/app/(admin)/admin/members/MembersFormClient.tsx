@@ -326,7 +326,7 @@ export function MembersFormClient(props: {
             />
           </div>
           <div className="space-y-2">
-            <div className="text-xs font-medium text-muted-foreground">Telefone</div>
+            <div className="text-xs font-medium text-muted-foreground">Telefone WhatsApp</div>
             <Input
               name="phone"
               placeholder="(00) 00000-0000"

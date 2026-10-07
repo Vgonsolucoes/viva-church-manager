@@ -169,7 +169,7 @@ export function TemporaryMemberIntakeForm(props: {
           <Input name="email" type="email" placeholder="email@exemplo.com" />
         </div>
         <div className="space-y-2">
-          <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Telefone</div>
+          <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Telefone WhatsApp</div>
           <Input name="phone" placeholder="(00) 00000-0000" />
         </div>
       </div>
