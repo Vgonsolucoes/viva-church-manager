@@ -8,7 +8,8 @@ import { getMe } from "@/services/api/me";
 import { unregisterPushDevice } from "@/services/api/pushDevices";
 import type { LoginInput, Me, LoginResponse } from "@/types";
 
-const SECURE_TOKEN_KEY = "vc:access_token";
+// SecureStore (Android/iOS) só aceita chaves alfanuméricas com ".", "-" e "_".
+const SECURE_TOKEN_KEY = "vc_access_token";
 const ASYNC_ME_KEY = "vc:me_cache";
 
 type SessionState = {
