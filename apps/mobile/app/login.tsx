@@ -164,9 +164,14 @@ export default function LoginScreen() {
             </PrimaryButton>
 
             {error && !errors.password ? (
-              <Text style={styles.globalError}>
-                Acesso negado. Verifique seus dados e tente novamente.
-              </Text>
+              <View>
+                <Text style={styles.globalError}>
+                  Acesso negado. Verifique seus dados e tente novamente.
+                </Text>
+                <Text style={styles.errorDetail} selectable>
+                  {error}
+                </Text>
+              </View>
             ) : null}
 
             <View style={styles.dividerRow}>
@@ -322,6 +327,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     borderWidth: 1,
     borderColor: "rgba(240,68,56,0.25)",
+    overflow: "hidden",
+  },
+  errorDetail: {
+    marginTop: theme.spacing.xs,
+    color: theme.colors.foregroundMuted,
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
   },
   dividerRow: {
     flexDirection: "row",
