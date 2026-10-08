@@ -71,8 +71,10 @@
     },
     "extra": {
       "eas": {
-        "projectId": ""
-      }
-    }
+        "projectId": "28de298c-2476-4f61-a73a-16964f17de18"
+      },
+      "router": {}
+    },
+    "owner": "vgon"
   }
 }
