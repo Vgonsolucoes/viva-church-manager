@@ -13,6 +13,7 @@ import { prisma } from "@/server/db";
 import { createNotificationCampaign } from "@/server/notifications";
 import { hasPermission } from "@/server/rbac";
 import { savePublicImageUpload } from "@/server/uploads";
+import { ensureRequiredCourses } from "@/server/courses";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +33,8 @@ const createCourseSchema = z
     notifyMembers: z.string().optional(),
     notifyVolunteers: z.string().optional(),
     notifyVisitors: z.string().optional(),
+    isRequired: z.string().optional(),
+    trackOrder: z.string().optional(),
   })
   .refine(
     (data) => !data.endsAt || new Date(data.endsAt).getTime() >= new Date(data.startsAt).getTime(),
@@ -106,6 +109,8 @@ async function createCourse(formData: FormData) {
     notifyMembers: formData.get("notifyMembers"),
     notifyVolunteers: formData.get("notifyVolunteers"),
     notifyVisitors: formData.get("notifyVisitors"),
+    isRequired: formData.get("isRequired"),
+    trackOrder: formData.get("trackOrder"),
   });
   if (!parsed.success) return;
 
@@ -134,6 +139,8 @@ async function createCourse(formData: FormData) {
       bannerImageUrl,
       audience: parsed.data.audience,
       agendaVisible: parsed.data.agendaVisible === "on",
+      isRequired: parsed.data.isRequired === "on",
+      trackOrder: parsed.data.trackOrder ? parseInt(parsed.data.trackOrder, 10) || null : null,
       notifyAdmins,
       notifyMembers,
       notifyVolunteers,
@@ -180,6 +187,8 @@ async function createCourse(formData: FormData) {
       audience: course.audience,
       startsAt: course.startsAt,
       agendaVisible: course.agendaVisible,
+      isRequired: course.isRequired,
+      trackOrder: course.trackOrder,
       notifyAdmins,
       notifyMembers,
       notifyVolunteers,
@@ -197,6 +206,9 @@ async function createCourse(formData: FormData) {
 export default async function CoursesPage() {
   const session = await getServerSession(authOptions);
   const canWrite = hasPermission(session?.roles ?? [], "courses:write");
+
+  // Garante que os cursos predefinidos da trilha obrigatória existam
+  await ensureRequiredCourses();
 
   const courses = await prisma.course.findMany({
     orderBy: { startsAt: "desc" },
@@ -267,6 +279,9 @@ export default async function CoursesPage() {
                       <div className="mt-3 flex flex-wrap gap-2">
                         <Badge>{audienceLabel[course.audience]}</Badge>
                         {course.agendaVisible ? <Badge>AGENDA</Badge> : <Badge className="opacity-60">OCULTO</Badge>}
+                        {course.isRequired ? (
+                          <Badge className="bg-[rgba(76,217,123,0.15)]">TRILHA OBRIGATÓRIA #{course.trackOrder ?? "—"}</Badge>
+                        ) : null}
                         {course.notifyAdmins ? <Badge className="bg-[rgba(88,167,255,0.10)]">ADMINS</Badge> : null}
                         {course.notifyMembers ? <Badge className="bg-[rgba(88,167,255,0.10)]">MEMBROS</Badge> : null}
                         {course.notifyVolunteers ? (
@@ -369,6 +384,16 @@ export default async function CoursesPage() {
                   <input type="checkbox" name="agendaVisible" defaultChecked className="size-4" />
                   <span>Exibir na agenda após o lançamento</span>
                 </label>
+              </div>
+              <div className="space-y-2">
+                <div className="text-xs font-medium text-muted-foreground">Trilha obrigatória</div>
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" name="isRequired" className="size-4" />
+                  <span>Faz parte da Trilha Obrigatória</span>
+                </label>
+                <div className="mt-1">
+                  <Input name="trackOrder" type="number" min={1} placeholder="Ordem na trilha (ex: 4)" />
+                </div>
               </div>
               <div className="space-y-2">
                 <div className="text-xs font-medium text-muted-foreground">Notificar públicos</div>

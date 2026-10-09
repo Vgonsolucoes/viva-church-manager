@@ -3,13 +3,19 @@ import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import type { FollowUpStage, MemberType } from "@/generated/prisma/client";
+import type { CourseCompletionSource, FollowUpStage, MemberType } from "@/generated/prisma/client";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { authOptions } from "@/server/auth";
 import { logAudit } from "@/server/audit";
+import {
+  ensureRequiredCourses,
+  getRequiredCourses,
+  upsertCourseCompletion,
+  removeCourseCompletion,
+} from "@/server/courses";
 import { prisma } from "@/server/db";
 import { hasPermission } from "@/server/rbac";
 
@@ -38,13 +44,13 @@ const memberTypeLabels: Record<MemberType, string> = {
   PASTOR: "Pastor",
 };
 
-const requiredCourseTitles = [
-  "Ide e Fazer Discípulos",
-  "Lealdade e Honra",
-  "Chamados Para Servir",
-] as const;
-
 const requiredEventTitle = "Resgate";
+
+const courseCompletionSourceLabels: Record<CourseCompletionSource, string> = {
+  VIVA_CHURCH: "Viva Church",
+  PREVIOUS: "Anterior",
+  OTHER_CHURCH: "Outra igreja",
+};
 
 const optionalTextField = z.string().optional().or(z.literal(""));
 const followUpStageEnum = z.enum([
@@ -70,9 +76,6 @@ const createJourneySchema = z.object({
 
 const updateJourneySchema = createJourneySchema.extend({
   journeyId: z.string().min(1),
-  ideDiscipleCompletedAt: optionalTextField,
-  loyaltyHonorCompletedAt: optionalTextField,
-  calledToServeCompletedAt: optionalTextField,
   rescueEventCompletedAt: optionalTextField,
   historyNote: optionalTextField,
   promoteToMember: z.boolean().optional(),
@@ -94,14 +97,6 @@ function toDateInput(value: Date | string | null | undefined) {
   return date.toISOString().slice(0, 10);
 }
 
-function normalizeText(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
-}
-
 function getMemberTypes(member: { type: MemberType; types: MemberType[] }) {
   return member.types.length ? member.types : [member.type];
 }
@@ -112,27 +107,27 @@ function getPrimaryType(types: MemberType[]) {
   return (types[0] ?? "MEMBER") as MemberType;
 }
 
-function countCompletedRequirements(journey: {
-  ideDiscipleCompletedAt: Date | null;
-  loyaltyHonorCompletedAt: Date | null;
-  calledToServeCompletedAt: Date | null;
+function countCompletedRequirements(params: {
+  requiredCourseIds: string[];
+  memberCompletionMap: Map<string, { id: string }> | undefined;
   rescueEventCompletedAt: Date | null;
 }) {
-  return [
-    journey.ideDiscipleCompletedAt,
-    journey.loyaltyHonorCompletedAt,
-    journey.calledToServeCompletedAt,
-    journey.rescueEventCompletedAt,
-  ].filter(Boolean).length;
+  const { requiredCourseIds, memberCompletionMap, rescueEventCompletedAt } = params;
+  let count = 0;
+  for (const courseId of requiredCourseIds) {
+    if (memberCompletionMap?.has(courseId)) count += 1;
+  }
+  if (rescueEventCompletedAt) count += 1;
+  return count;
 }
 
-function isReadyToServe(journey: {
-  ideDiscipleCompletedAt: Date | null;
-  loyaltyHonorCompletedAt: Date | null;
-  calledToServeCompletedAt: Date | null;
+function isReadyToServe(params: {
+  requiredCourseIds: string[];
+  memberCompletionMap: Map<string, { id: string }> | undefined;
   rescueEventCompletedAt: Date | null;
 }) {
-  return countCompletedRequirements(journey) === 4;
+  const { requiredCourseIds } = params;
+  return countCompletedRequirements(params) === requiredCourseIds.length + 1;
 }
 
 async function createJourney(formData: FormData) {
@@ -237,9 +232,6 @@ async function updateJourney(formData: FormData) {
     wantsMembership: formData.get("wantsMembership") === "on",
     wantsToServe: formData.get("wantsToServe") === "on",
     notes: formData.get("notes"),
-    ideDiscipleCompletedAt: formData.get("ideDiscipleCompletedAt"),
-    loyaltyHonorCompletedAt: formData.get("loyaltyHonorCompletedAt"),
-    calledToServeCompletedAt: formData.get("calledToServeCompletedAt"),
     rescueEventCompletedAt: formData.get("rescueEventCompletedAt"),
     historyNote: formData.get("historyNote"),
     promoteToMember: formData.get("promoteToMember") === "on",
@@ -317,9 +309,6 @@ async function updateJourney(formData: FormData) {
         nextContactAt: parseOptionalDate(parsed.data.nextContactAt),
         wantsMembership: Boolean(parsed.data.wantsMembership),
         wantsToServe: Boolean(parsed.data.wantsToServe),
-        ideDiscipleCompletedAt: parseOptionalDate(parsed.data.ideDiscipleCompletedAt),
-        loyaltyHonorCompletedAt: parseOptionalDate(parsed.data.loyaltyHonorCompletedAt),
-        calledToServeCompletedAt: parseOptionalDate(parsed.data.calledToServeCompletedAt),
         rescueEventCompletedAt: parseOptionalDate(parsed.data.rescueEventCompletedAt),
         notes: nextNotes,
       },
@@ -367,13 +356,78 @@ async function updateJourney(formData: FormData) {
       wantsToServe: updated.wantsToServe,
       assignedToMemberId: updated.assignedToMemberId,
       memberTypes: getMemberTypes(updated.member),
-      readyToServe: isReadyToServe(updated),
     },
   });
 
   revalidatePath("/admin/acompanhamento");
   revalidatePath("/admin/members");
   revalidatePath("/admin/volunteers");
+}
+
+async function recordCourseCompletion(formData: FormData) {
+  "use server";
+
+  const session = await getServerSession(authOptions);
+  if (!session || !hasPermission(session.roles ?? [], "followup:write")) return;
+
+  const courseId = formData.get("courseId") as string;
+  const memberId = formData.get("memberId") as string;
+  const completedAt = formData.get("completedAt") as string;
+  const source = formData.get("source") as string;
+  const notes = formData.get("notes") as string;
+
+  if (!courseId || !memberId || !completedAt || !source) return;
+
+  const completedDate = new Date(completedAt + "T00:00:00");
+
+  await upsertCourseCompletion({
+    courseId,
+    memberId,
+    completedAt: completedDate,
+    source: source as CourseCompletionSource,
+    notes: notes?.trim() || undefined,
+    createdById: session.uid,
+  });
+
+  await logAudit({
+    actorUserId: session.uid,
+    action: "COURSE_COMPLETION_RECORDED",
+    entityType: "CourseCompletion",
+    entityId: `${courseId}_${memberId}`,
+    after: {
+      courseId,
+      memberId,
+      completedAt: completedDate,
+      source,
+      notes: notes?.trim() || null,
+    },
+  });
+
+  revalidatePath("/admin/acompanhamento");
+}
+
+async function revokeCourseCompletion(formData: FormData) {
+  "use server";
+
+  const session = await getServerSession(authOptions);
+  if (!session || !hasPermission(session.roles ?? [], "followup:write")) return;
+
+  const courseId = formData.get("courseId") as string;
+  const memberId = formData.get("memberId") as string;
+
+  if (!courseId || !memberId) return;
+
+  await removeCourseCompletion(courseId, memberId);
+
+  await logAudit({
+    actorUserId: session.uid,
+    action: "COURSE_COMPLETION_REVOKED",
+    entityType: "CourseCompletion",
+    entityId: `${courseId}_${memberId}`,
+    before: { courseId, memberId },
+  });
+
+  revalidatePath("/admin/acompanhamento");
 }
 
 export default async function AcompanhamentoPage() {
@@ -384,7 +438,9 @@ export default async function AcompanhamentoPage() {
 
   const canWrite = hasPermission(session.roles ?? [], "followup:write");
 
-  const [journeys, eligibleMembers, teamMembers, mappedCourses, rescueEvent] = await Promise.all([
+  await ensureRequiredCourses();
+
+  const [journeys, eligibleMembers, teamMembers, requiredCourses, rescueEvent] = await Promise.all([
     prisma.followUpJourney.findMany({
       orderBy: [{ nextContactAt: "asc" }, { updatedAt: "desc" }],
       take: 100,
@@ -447,18 +503,7 @@ export default async function AcompanhamentoPage() {
         fullName: true,
       },
     }),
-    prisma.course.findMany({
-      where: {
-        OR: requiredCourseTitles.map((title) => ({
-          title: { equals: title, mode: "insensitive" },
-        })),
-      },
-      select: {
-        id: true,
-        title: true,
-        startsAt: true,
-      },
-    }),
+    getRequiredCourses(),
     prisma.event.findFirst({
       where: {
         name: { equals: requiredEventTitle, mode: "insensitive" },
@@ -473,16 +518,45 @@ export default async function AcompanhamentoPage() {
 
   const journeyMemberIds = new Set(journeys.map((journey) => journey.memberId));
   const availableMembers = eligibleMembers.filter((member) => !journeyMemberIds.has(member.id));
+
+  const allCourseCompletions = await prisma.courseCompletion.findMany({
+    where: { memberId: { in: Array.from(journeyMemberIds) } },
+    include: { course: true },
+    orderBy: { completedAt: "desc" },
+  });
+
+  const courseCompletionsByMember = new Map(
+    journeys.map((journey) => [
+      journey.memberId,
+      new Map(
+        allCourseCompletions
+          .filter((completion) => completion.memberId === journey.memberId)
+          .map((completion) => [completion.courseId, completion]),
+      ),
+    ]),
+  );
+
+  const requiredCourseIds = requiredCourses.map((course) => course.id);
+
   const totalJourneys = journeys.length;
-  const readyToServeCount = journeys.filter((journey) => isReadyToServe(journey)).length;
+  const readyToServeCount = journeys.filter((journey) =>
+    isReadyToServe({
+      requiredCourseIds,
+      memberCompletionMap: courseCompletionsByMember.get(journey.memberId),
+      rescueEventCompletedAt: journey.rescueEventCompletedAt,
+    }),
+  ).length;
   const pendingRequirementsCount = journeys.filter(
-    (journey) => journey.wantsToServe && !isReadyToServe(journey),
+    (journey) =>
+      journey.wantsToServe &&
+      !isReadyToServe({
+        requiredCourseIds,
+        memberCompletionMap: courseCompletionsByMember.get(journey.memberId),
+        rescueEventCompletedAt: journey.rescueEventCompletedAt,
+      }),
   ).length;
   const membersCount = journeys.filter((journey) => getMemberTypes(journey.member).includes("MEMBER")).length;
   const visitorsCount = journeys.filter((journey) => getMemberTypes(journey.member).includes("VISITOR")).length;
-  const courseCatalogMap = new Map(
-    mappedCourses.map((course) => [normalizeText(course.title), course]),
-  );
 
   return (
     <div className="space-y-6">
@@ -539,25 +613,20 @@ export default async function AcompanhamentoPage() {
             Controle dos requisitos para voluntariado e participação em ministérios.
           </div>
           <div className="mt-4 space-y-3">
-            {requiredCourseTitles.map((title) => {
-              const catalogItem = courseCatalogMap.get(normalizeText(title));
-              return (
-                <div
-                  key={title}
-                  className="rounded-2xl border border-border/70 bg-muted/10 px-3 py-3"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <div className="text-sm font-semibold">{title}</div>
-                      <div className="text-xs text-muted-foreground">Curso obrigatório</div>
-                    </div>
-                    <Badge className={catalogItem ? "bg-[rgba(88,167,255,0.10)]" : "opacity-70"}>
-                      {catalogItem ? "Cadastrado" : "Cadastrar em Cursos"}
-                    </Badge>
+            {requiredCourses.map((course) => (
+              <div
+                key={course.id}
+                className="rounded-2xl border border-border/70 bg-muted/10 px-3 py-3"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-semibold">{course.title}</div>
+                    <div className="text-xs text-muted-foreground">Curso obrigatório</div>
                   </div>
+                  <Badge className="bg-[rgba(88,167,255,0.10)]">Cadastrado</Badge>
                 </div>
-              );
-            })}
+              </div>
+            ))}
             <div className="rounded-2xl border border-border/70 bg-muted/10 px-3 py-3">
               <div className="flex items-center justify-between gap-3">
                 <div>
@@ -703,8 +772,18 @@ export default async function AcompanhamentoPage() {
           {journeys.length ? (
             journeys.map((journey) => {
               const memberTypes = getMemberTypes(journey.member);
-              const progress = countCompletedRequirements(journey);
-              const readyToServe = isReadyToServe(journey);
+              const memberCompletionMap = courseCompletionsByMember.get(journey.memberId);
+              const progress = countCompletedRequirements({
+                requiredCourseIds,
+                memberCompletionMap,
+                rescueEventCompletedAt: journey.rescueEventCompletedAt,
+              });
+              const totalRequirements = requiredCourseIds.length + 1;
+              const readyToServe = isReadyToServe({
+                requiredCourseIds,
+                memberCompletionMap,
+                rescueEventCompletedAt: journey.rescueEventCompletedAt,
+              });
 
               return (
                 <div key={journey.id} className="rounded-3xl border border-border/70 bg-muted/10 p-4">
@@ -734,29 +813,66 @@ export default async function AcompanhamentoPage() {
                         {journey.wantsToServe ? <Badge>Quer servir</Badge> : null}
                       </div>
                       <div className="mt-4 grid grid-cols-1 gap-2 text-sm text-muted-foreground md:grid-cols-2 xl:grid-cols-4">
+                        {requiredCourses.map((course) => {
+                          const completion = memberCompletionMap?.get(course.id);
+                          return (
+                            <div
+                              key={course.id}
+                              className="rounded-2xl border border-border/70 bg-background/40 px-3 py-2"
+                            >
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div className="font-semibold text-foreground">{course.title}</div>
+                                {completion ? (
+                                  <Badge className="bg-[rgba(88,167,255,0.10)]">Concluído</Badge>
+                                ) : (
+                                  <Badge className="opacity-70">Pendente</Badge>
+                                )}
+                              </div>
+                              {completion ? (
+                                <div className="mt-1 text-xs text-muted-foreground">
+                                  {toDateInput(completion.completedAt)} •{" "}
+                                  {courseCompletionSourceLabels[completion.source]}
+                                </div>
+                              ) : canWrite ? (
+                                <form action={recordCourseCompletion} className="mt-2 space-y-2">
+                                  <input type="hidden" name="courseId" value={course.id} />
+                                  <input type="hidden" name="memberId" value={journey.memberId} />
+                                  <Input name="completedAt" type="date" required />
+                                  <select
+                                    name="source"
+                                    className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm"
+                                    defaultValue="VIVA_CHURCH"
+                                    required
+                                  >
+                                    <option value="VIVA_CHURCH">Viva Church</option>
+                                    <option value="PREVIOUS">Anterior</option>
+                                    <option value="OTHER_CHURCH">Outra igreja</option>
+                                  </select>
+                                  <Input name="notes" placeholder="Observação" />
+                                  <Button type="submit" size="sm" className="w-full">
+                                    Marcar concluído
+                                  </Button>
+                                </form>
+                              ) : (
+                                <div className="mt-1 text-xs">pendente</div>
+                              )}
+                            </div>
+                          );
+                        })}
                         <div className="rounded-2xl border border-border/70 bg-background/40 px-3 py-2">
-                          Ide e Fazer Discípulos:{" "}
-                          {journey.ideDiscipleCompletedAt
-                            ? toDateInput(journey.ideDiscipleCompletedAt)
-                            : "pendente"}
-                        </div>
-                        <div className="rounded-2xl border border-border/70 bg-background/40 px-3 py-2">
-                          Lealdade e Honra:{" "}
-                          {journey.loyaltyHonorCompletedAt
-                            ? toDateInput(journey.loyaltyHonorCompletedAt)
-                            : "pendente"}
-                        </div>
-                        <div className="rounded-2xl border border-border/70 bg-background/40 px-3 py-2">
-                          Chamados Para Servir:{" "}
-                          {journey.calledToServeCompletedAt
-                            ? toDateInput(journey.calledToServeCompletedAt)
-                            : "pendente"}
-                        </div>
-                        <div className="rounded-2xl border border-border/70 bg-background/40 px-3 py-2">
-                          Resgate:{" "}
-                          {journey.rescueEventCompletedAt
-                            ? toDateInput(journey.rescueEventCompletedAt)
-                            : "pendente"}
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="font-semibold text-foreground">{requiredEventTitle}</div>
+                            {journey.rescueEventCompletedAt ? (
+                              <Badge className="bg-[rgba(88,167,255,0.10)]">Concluído</Badge>
+                            ) : (
+                              <Badge className="opacity-70">Pendente</Badge>
+                            )}
+                          </div>
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            {journey.rescueEventCompletedAt
+                              ? toDateInput(journey.rescueEventCompletedAt)
+                              : "pendente"}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -767,7 +883,9 @@ export default async function AcompanhamentoPage() {
                         <div className="mt-1">Primeira visita: {toDateInput(journey.firstVisitAt) || "—"}</div>
                         <div className="mt-1">Último contato: {toDateInput(journey.lastContactAt) || "—"}</div>
                         <div className="mt-1">Próximo contato: {toDateInput(journey.nextContactAt) || "—"}</div>
-                        <div className="mt-1">Progresso dos requisitos: {progress}/4</div>
+                        <div className="mt-1">
+                          Progresso dos requisitos: {progress}/{totalRequirements}
+                        </div>
                         <div className="mt-3">
                           <Link
                             href={`/admin/members?edit=${journey.member.id}`}
@@ -785,6 +903,47 @@ export default async function AcompanhamentoPage() {
                       {journey.notes}
                     </div>
                   ) : null}
+
+                  <div className="mt-4 rounded-2xl border border-border/70 bg-background/40 p-3">
+                    <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      Histórico de Cursos
+                    </div>
+                    {memberCompletionMap && memberCompletionMap.size > 0 ? (
+                      <div className="mt-3 space-y-2">
+                        {Array.from(memberCompletionMap.values()).map((completion) => (
+                          <div
+                            key={completion.id}
+                            className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border/60 bg-muted/10 px-3 py-2"
+                          >
+                            <div>
+                              <div className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+                                {completion.course.title}
+                                {completion.course.isRequired ? <Badge>Obrigatório</Badge> : null}
+                              </div>
+                              <div className="mt-1 text-xs text-muted-foreground">
+                                Conclusão: {toDateInput(completion.completedAt)} • Origem:{" "}
+                                {courseCompletionSourceLabels[completion.source]}
+                                {completion.notes ? ` • ${completion.notes}` : ""}
+                              </div>
+                            </div>
+                            {canWrite ? (
+                              <form action={revokeCourseCompletion}>
+                                <input type="hidden" name="courseId" value={completion.courseId} />
+                                <input type="hidden" name="memberId" value={journey.memberId} />
+                                <Button type="submit" variant="outline" size="sm">
+                                  Cancelar
+                                </Button>
+                              </form>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="mt-3 text-sm text-muted-foreground">
+                        Nenhum curso registrado.
+                      </div>
+                    )}
+                  </div>
 
                   <div className="mt-4">
                     {canWrite ? (
@@ -850,39 +1009,6 @@ export default async function AcompanhamentoPage() {
                             />
                           </div>
                           <div className="space-y-2">
-                            <div className="text-xs font-medium text-muted-foreground">
-                              Ide e Fazer Discípulos
-                            </div>
-                            <Input
-                              name="ideDiscipleCompletedAt"
-                              type="date"
-                              defaultValue={toDateInput(journey.ideDiscipleCompletedAt)}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <div className="text-xs font-medium text-muted-foreground">
-                              Lealdade e Honra
-                            </div>
-                            <Input
-                              name="loyaltyHonorCompletedAt"
-                              type="date"
-                              defaultValue={toDateInput(journey.loyaltyHonorCompletedAt)}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <div className="text-xs font-medium text-muted-foreground">
-                              Chamados Para Servir
-                            </div>
-                            <Input
-                              name="calledToServeCompletedAt"
-                              type="date"
-                              defaultValue={toDateInput(journey.calledToServeCompletedAt)}
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-                          <div className="space-y-2">
                             <div className="text-xs font-medium text-muted-foreground">Evento Resgate</div>
                             <Input
                               name="rescueEventCompletedAt"
@@ -890,7 +1016,7 @@ export default async function AcompanhamentoPage() {
                               defaultValue={toDateInput(journey.rescueEventCompletedAt)}
                             />
                           </div>
-                          <div className="space-y-2 xl:col-span-3">
+                          <div className="space-y-2 xl:col-span-2">
                             <div className="text-xs font-medium text-muted-foreground">
                               Observação da atualização
                             </div>

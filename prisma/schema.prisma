@@ -221,6 +221,7 @@ model User {
   notificationDeliveries NotificationDelivery[]
   scheduleSubstitutionApproved ScheduleSubstitutionRequest[]
   pushDevices PushDevice[]
+  courseCompletionsCreated  CourseCompletion[] @relation("CourseCompletionCreatedBy")
 }
 
 model UserRole {
@@ -306,6 +307,7 @@ model Member {
   followUpJourney            FollowUpJourney? @relation("FollowUpJourneyMember")
   assignedFollowUpJourneys   FollowUpJourney[] @relation("FollowUpJourneyAssignedTo")
   childGuardians             ChildGuardian[]
+  courseCompletions          CourseCompletion[]
 
   @@index([fullName])
   @@index([email])
@@ -533,6 +535,8 @@ model Course {
   bannerImageUrl    String?
   audience          CourseAudience @default(BOTH)
   agendaVisible     Boolean        @default(true)
+  isRequired        Boolean        @default(false)
+  trackOrder        Int?
   notifyAdmins      Boolean        @default(false)
   notifyMembers     Boolean        @default(false)
   notifyVolunteers  Boolean        @default(false)
@@ -541,11 +545,40 @@ model Course {
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
 
-  createdBy User? @relation("CourseCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy      User?             @relation("CourseCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  completions    CourseCompletion[]
 
   @@index([startsAt])
   @@index([audience])
   @@index([agendaVisible])
+  @@index([isRequired])
+}
+
+enum CourseCompletionSource {
+  VIVA_CHURCH
+  PREVIOUS
+  OTHER_CHURCH
+}
+
+model CourseCompletion {
+  id           String                  @id @default(cuid())
+  courseId     String
+  memberId     String
+  completedAt  DateTime
+  source       CourseCompletionSource  @default(VIVA_CHURCH)
+  notes        String?
+  createdById  String?
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+
+  course      Course      @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  member      Member      @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  createdBy   User?       @relation("CourseCompletionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([courseId, memberId])
+  @@index([memberId])
+  @@index([courseId])
+  @@index([completedAt])
 }
 
 model Cell {
