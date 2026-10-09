@@ -8,14 +8,18 @@ import { prisma } from "@/server/db";
 export const REQUIRED_COURSES = [
   { title: "Ide e Fazer Discípulos", trackOrder: 1 },
   { title: "Lealdade e Honra", trackOrder: 2 },
-  { title: "Chamados Para Servir", trackOrder: 3 },
+  { title: "Resgate", trackOrder: 3 },
+  { title: "Chamados Para Servir", trackOrder: 4 },
 ] as const;
 
-/**
- * Nome do evento obrigatório da trilha.
- * Resgate é um evento, não um curso — permanece em FollowUpJourney.
- */
-export const REQUIRED_EVENT_TITLE = "Resgate";
+function slugifyTitle(title: string) {
+  return title
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
 
 /**
  * Garante que os cursos predefinidos da trilha obrigatória existam no banco.
@@ -25,12 +29,7 @@ export async function ensureRequiredCourses(): Promise<void> {
   const now = new Date();
 
   for (const { title, trackOrder } of REQUIRED_COURSES) {
-    const slug = title
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "");
+    const slug = slugifyTitle(title);
 
     const existing = await prisma.course.findUnique({ where: { slug } });
 
@@ -54,6 +53,39 @@ export async function ensureRequiredCourses(): Promise<void> {
       });
     }
   }
+
+  await backfillRescueEventCompletions();
+}
+
+/**
+ * Migra conclusões do antigo "Evento Resgate" (FollowUpJourney.rescueEventCompletedAt)
+ * para CourseCompletion do curso Resgate, preservando o progresso já registrado.
+ * Idempotente: a unique (courseId, memberId) impede duplicidades.
+ * Não apaga o campo original em FollowUpJourney.
+ */
+async function backfillRescueEventCompletions(): Promise<void> {
+  const rescueCourse = await prisma.course.findUnique({
+    where: { slug: slugifyTitle("Resgate") },
+    select: { id: true },
+  });
+  if (!rescueCourse) return;
+
+  const journeysWithRescue = await prisma.followUpJourney.findMany({
+    where: { rescueEventCompletedAt: { not: null } },
+    select: { memberId: true, rescueEventCompletedAt: true },
+  });
+  if (!journeysWithRescue.length) return;
+
+  await prisma.courseCompletion.createMany({
+    data: journeysWithRescue.map((journey) => ({
+      courseId: rescueCourse.id,
+      memberId: journey.memberId,
+      completedAt: journey.rescueEventCompletedAt as Date,
+      source: "VIVA_CHURCH" as const,
+      notes: "Registrado a partir do evento Resgate (migração automática).",
+    })),
+    skipDuplicates: true,
+  });
 }
 
 /**

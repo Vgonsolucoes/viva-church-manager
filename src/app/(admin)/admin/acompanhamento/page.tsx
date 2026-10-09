@@ -50,8 +50,6 @@ const memberTypeLabels: Record<MemberType, string> = {
   PASTOR: "Pastor",
 };
 
-const requiredEventTitle = "Resgate";
-
 const courseCompletionSourceLabels: Record<CourseCompletionSource, string> = {
   VIVA_CHURCH: "Viva Church",
   PREVIOUS: "Anterior",
@@ -82,7 +80,6 @@ const createJourneySchema = z.object({
 
 const updateJourneySchema = createJourneySchema.extend({
   journeyId: z.string().min(1),
-  rescueEventCompletedAt: optionalTextField,
   historyNote: optionalTextField,
   promoteToMember: z.boolean().optional(),
   promoteToVolunteer: z.boolean().optional(),
@@ -116,24 +113,21 @@ function getPrimaryType(types: MemberType[]) {
 function countCompletedRequirements(params: {
   requiredCourseIds: string[];
   memberCompletionMap: Map<string, { id: string }> | undefined;
-  rescueEventCompletedAt: Date | null;
 }) {
-  const { requiredCourseIds, memberCompletionMap, rescueEventCompletedAt } = params;
+  const { requiredCourseIds, memberCompletionMap } = params;
   let count = 0;
   for (const courseId of requiredCourseIds) {
     if (memberCompletionMap?.has(courseId)) count += 1;
   }
-  if (rescueEventCompletedAt) count += 1;
   return count;
 }
 
 function isReadyToServe(params: {
   requiredCourseIds: string[];
   memberCompletionMap: Map<string, { id: string }> | undefined;
-  rescueEventCompletedAt: Date | null;
 }) {
   const { requiredCourseIds } = params;
-  return countCompletedRequirements(params) === requiredCourseIds.length + 1;
+  return requiredCourseIds.length > 0 && countCompletedRequirements(params) === requiredCourseIds.length;
 }
 
 async function createJourney(formData: FormData) {
@@ -238,7 +232,6 @@ async function updateJourney(formData: FormData) {
     wantsMembership: formData.get("wantsMembership") === "on",
     wantsToServe: formData.get("wantsToServe") === "on",
     notes: formData.get("notes"),
-    rescueEventCompletedAt: formData.get("rescueEventCompletedAt"),
     historyNote: formData.get("historyNote"),
     promoteToMember: formData.get("promoteToMember") === "on",
     promoteToVolunteer: formData.get("promoteToVolunteer") === "on",
@@ -315,7 +308,6 @@ async function updateJourney(formData: FormData) {
         nextContactAt: parseOptionalDate(parsed.data.nextContactAt),
         wantsMembership: Boolean(parsed.data.wantsMembership),
         wantsToServe: Boolean(parsed.data.wantsToServe),
-        rescueEventCompletedAt: parseOptionalDate(parsed.data.rescueEventCompletedAt),
         notes: nextNotes,
       },
       include: {
@@ -481,7 +473,7 @@ export default async function AcompanhamentoPage(props: {
 
   const requiredCourses = await getRequiredCourses();
   const requiredCourseIds = requiredCourses.map((course) => course.id);
-  const totalRequirements = requiredCourseIds.length + 1;
+  const totalRequirements = requiredCourseIds.length;
 
   const buildListHref = (overrides: Record<string, string | null> = {}, pageForHref?: number) => {
     const effectivePage = pageForHref ?? page;
@@ -581,12 +573,10 @@ export default async function AcompanhamentoPage(props: {
     const progress = countCompletedRequirements({
       requiredCourseIds,
       memberCompletionMap,
-      rescueEventCompletedAt: journey.rescueEventCompletedAt,
     });
     const readyToServe = isReadyToServe({
       requiredCourseIds,
       memberCompletionMap,
-      rescueEventCompletedAt: journey.rescueEventCompletedAt,
     });
     const progressPct = totalRequirements > 0 ? Math.round((progress / totalRequirements) * 100) : 0;
 
@@ -697,21 +687,6 @@ export default async function AcompanhamentoPage(props: {
                     </div>
                   );
                 })}
-                <div className="rounded-2xl border border-border/70 bg-background/40 px-3 py-2">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="font-semibold text-foreground">{requiredEventTitle}</div>
-                    {journey.rescueEventCompletedAt ? (
-                      <Badge className="bg-[rgba(88,167,255,0.10)]">Concluído</Badge>
-                    ) : (
-                      <Badge className="opacity-70">Pendente</Badge>
-                    )}
-                  </div>
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    {journey.rescueEventCompletedAt
-                      ? toDateInput(journey.rescueEventCompletedAt)
-                      : "pendente"}
-                  </div>
-                </div>
               </div>
             </div>
 
@@ -841,14 +816,6 @@ export default async function AcompanhamentoPage(props: {
                       defaultValue={toDateInput(journey.firstVisitAt)}
                     />
                   </div>
-                  <div className="space-y-2">
-                    <div className="text-xs font-medium text-muted-foreground">Evento Resgate</div>
-                    <Input
-                      name="rescueEventCompletedAt"
-                      type="date"
-                      defaultValue={toDateInput(journey.rescueEventCompletedAt)}
-                    />
-                  </div>
                   <div className="space-y-2 xl:col-span-2">
                     <div className="text-xs font-medium text-muted-foreground">
                       Observação da atualização
@@ -967,12 +934,11 @@ export default async function AcompanhamentoPage(props: {
     ? { AND: andConditions }
     : {};
 
-  const readyConditions: Prisma.FollowUpJourneyWhereInput[] = [
-    { rescueEventCompletedAt: { not: null } },
-    ...requiredCourseIds.map((courseId) => ({
+  const readyConditions: Prisma.FollowUpJourneyWhereInput[] = requiredCourseIds.map(
+    (courseId) => ({
       member: { courseCompletions: { some: { courseId } } },
-    })),
-  ];
+    }),
+  );
 
   const [totalFiltered, totalAll, inProgressCount, completedCount, pendingCount] =
     await Promise.all([
@@ -988,7 +954,7 @@ export default async function AcompanhamentoPage(props: {
   const totalPages = Math.max(1, Math.ceil(totalFiltered / take));
   const currentPage = Math.min(page, totalPages);
 
-  const [journeys, eligibleMembers, teamMembers, allJourneyMemberIds, rescueEvent] =
+  const [journeys, eligibleMembers, teamMembers, allJourneyMemberIds] =
     await Promise.all([
       prisma.followUpJourney.findMany({
         where,
@@ -1038,16 +1004,6 @@ export default async function AcompanhamentoPage(props: {
       }),
       prisma.followUpJourney.findMany({
         select: { memberId: true },
-      }),
-      prisma.event.findFirst({
-        where: {
-          name: { equals: requiredEventTitle, mode: "insensitive" },
-        },
-        select: {
-          id: true,
-          name: true,
-          startsAt: true,
-        },
       }),
     ]);
 
@@ -1141,17 +1097,6 @@ export default async function AcompanhamentoPage(props: {
                 </div>
               </div>
             ))}
-            <div className="rounded-2xl border border-border/70 bg-muted/10 px-3 py-3">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <div className="text-sm font-semibold">{requiredEventTitle}</div>
-                  <div className="text-xs text-muted-foreground">Evento obrigatório</div>
-                </div>
-                <Badge className={rescueEvent ? "bg-[rgba(88,167,255,0.10)]" : "opacity-70"}>
-                  {rescueEvent ? "Cadastrado" : "Cadastrar em Eventos"}
-                </Badge>
-              </div>
-            </div>
           </div>
         </Card>
 
@@ -1304,8 +1249,7 @@ export default async function AcompanhamentoPage(props: {
                   <tbody>
                     {journeys.map((journey) => {
                       const done =
-                        (completedCourseIdsByMember.get(journey.memberId)?.size ?? 0) +
-                        (journey.rescueEventCompletedAt ? 1 : 0);
+                        completedCourseIdsByMember.get(journey.memberId)?.size ?? 0;
                       return (
                         <tr key={journey.id} className="border-t border-border/60">
                           <td className="py-3 pr-4">
@@ -1338,8 +1282,7 @@ export default async function AcompanhamentoPage(props: {
               <div className="space-y-3 md:hidden">
                 {journeys.map((journey) => {
                   const done =
-                    (completedCourseIdsByMember.get(journey.memberId)?.size ?? 0) +
-                    (journey.rescueEventCompletedAt ? 1 : 0);
+                    completedCourseIdsByMember.get(journey.memberId)?.size ?? 0;
                   return (
                     <div
                       key={journey.id}
