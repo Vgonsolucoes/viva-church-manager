@@ -1,12 +1,17 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import type { Prisma } from "@/generated/prisma/client";
 import {
+  ArrowLeft,
   ArrowRightLeft,
   CalendarClock,
   ChartColumn,
+  ChevronLeft,
+  ChevronRight,
   CircleGauge,
+  Eye,
   GitBranchPlus,
   History,
   NotebookPen,
@@ -25,9 +30,10 @@ import { StatCard } from "@/components/ui/StatCard";
 import { cn } from "@/lib/cn";
 import { authOptions } from "@/server/auth";
 import { logAudit } from "@/server/audit";
-import { decryptString } from "@/server/crypto";
+import { hasPermission } from "@/server/rbac";
 import { prisma } from "@/server/db";
-import { DiscipleshipNetworkClient } from "./DiscipleshipNetworkClient";
+import { DiscipleshipsListControls } from "./DiscipleshipsListControls";
+import { EndDiscipleshipDialog } from "./EndDiscipleshipDialog";
 
 export const dynamic = "force-dynamic";
 
@@ -66,6 +72,12 @@ const transferSchema = z.object({
   nextMeetingAt: z.string().optional().or(z.literal("")),
 });
 
+const endSchema = z.object({
+  id: z.string().min(1),
+  reason: z.string().min(1),
+  note: z.string().optional().or(z.literal("")),
+});
+
 const statusLabels: Record<(typeof discipleshipStatuses)[number], string> = {
   ACTIVE: "Ativo",
   PAUSED: "Pausado",
@@ -88,7 +100,7 @@ const historyActionLabels = {
 } as const;
 
 type SearchParamsInput = Promise<Record<string, string | string[] | undefined>>;
-type PageView = "overview" | "network" | "meetings" | "reports" | "settings";
+type PageView = "overview" | "meetings" | "reports" | "settings";
 
 function getSearchValue(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
@@ -181,6 +193,7 @@ async function createDiscipleship(formData: FormData) {
   "use server";
 
   const session = await getServerSession(authOptions);
+  if (!session || !hasPermission(session.roles ?? [], "discipleships:write")) return;
   const parsed = createSchema.safeParse({
     discipleId: formData.get("discipleId"),
     disciplerId: formData.get("disciplerId"),
@@ -256,6 +269,7 @@ async function updateStatus(formData: FormData) {
   "use server";
 
   const session = await getServerSession(authOptions);
+  if (!session || !hasPermission(session.roles ?? [], "discipleships:write")) return;
   const parsed = statusSchema.safeParse({
     id: formData.get("id"),
     status: formData.get("status"),
@@ -336,6 +350,7 @@ async function registerMeeting(formData: FormData) {
   "use server";
 
   const session = await getServerSession(authOptions);
+  if (!session || !hasPermission(session.roles ?? [], "discipleships:write")) return;
   const parsed = meetingSchema.safeParse({
     discipleshipId: formData.get("discipleshipId"),
     meetingAt: formData.get("meetingAt"),
@@ -418,6 +433,7 @@ async function transferDisciple(formData: FormData) {
   "use server";
 
   const session = await getServerSession(authOptions);
+  if (!session || !hasPermission(session.roles ?? [], "discipleships:write")) return;
   const parsed = transferSchema.safeParse({
     discipleshipId: formData.get("discipleshipId"),
     newDisciplerId: formData.get("newDisciplerId"),
@@ -498,6 +514,62 @@ async function transferDisciple(formData: FormData) {
   revalidatePath("/admin/discipleships");
 }
 
+async function endDiscipleship(formData: FormData) {
+  "use server";
+
+  const session = await getServerSession(authOptions);
+  if (!session || !hasPermission(session.roles ?? [], "discipleships:write")) return;
+  const parsed = endSchema.safeParse({
+    id: formData.get("id"),
+    reason: formData.get("reason"),
+    note: formData.get("note"),
+  });
+  if (!parsed.success) return;
+
+  const before = await prisma.discipleship.findUnique({ where: { id: parsed.data.id } });
+  if (!before) return;
+  if (before.status !== "ACTIVE" && before.status !== "PAUSED") return;
+
+  const reason = parsed.data.reason.trim();
+  const extraNote = parsed.data.note?.trim() ?? "";
+  const historyNote = `Vínculo encerrado via Excluir Vínculo. Motivo: ${reason}.${extraNote ? ` Observação: ${extraNote}` : ""}`;
+
+  const after = await prisma.$transaction(async (tx) => {
+    const updated = await tx.discipleship.update({
+      where: { id: before.id },
+      data: {
+        status: "FINISHED",
+        concludedAt: new Date(),
+        nextMeetingAt: null,
+        notes: extraNote ? `${reason} — ${extraNote}` : reason,
+      },
+    });
+
+    await createHistoryEntry(tx, {
+      discipleshipId: updated.id,
+      memberId: updated.discipleId,
+      action: "STATUS_CHANGED",
+      previousDisciplerId: updated.disciplerId,
+      newDisciplerId: updated.disciplerId,
+      note: historyNote,
+      createdById: session.uid ?? null,
+    });
+
+    return updated;
+  });
+
+  await logAudit({
+    actorUserId: session.uid ?? null,
+    action: "END",
+    entityType: "Discipleship",
+    entityId: after.id,
+    before: { status: before.status, disciplerId: before.disciplerId },
+    after: { status: after.status, concludedAt: after.concludedAt, reason },
+  });
+
+  revalidatePath("/admin/discipleships");
+}
+
 function getDescendantCounter(activeRows: Array<{ disciplerId: string; discipleId: string }>) {
   const childrenMap = new Map<string, string[]>();
   for (const row of activeRows) {
@@ -517,10 +589,16 @@ function getDescendantCounter(activeRows: Array<{ disciplerId: string; discipleI
 }
 
 export default async function DiscipleshipsPage(props: { searchParams?: SearchParamsInput }) {
+  const session = await getServerSession(authOptions);
+  if (!session || !hasPermission(session.roles ?? [], "discipleships:read")) {
+    redirect("/admin");
+  }
+  const canWrite = hasPermission(session.roles ?? [], "discipleships:write");
+
   const searchParams = props.searchParams ? await props.searchParams : {};
   const viewParam = getSearchValue(searchParams?.view);
+  if (viewParam === "network") redirect("/admin/discipleships/network");
   const view: PageView =
-    viewParam === "network" ||
     viewParam === "meetings" ||
     viewParam === "reports" ||
     viewParam === "settings"
@@ -529,7 +607,70 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
   const preselectedDisciplerId = getSearchValue(searchParams?.discipler) ?? "";
   const selectedMemberId = getSearchValue(searchParams?.member) ?? "";
 
-  const [members, rows, meetings, history, pastoralNotes] = await Promise.all([
+  const q = (getSearchValue(searchParams?.q) ?? "").trim();
+  const statusParam = getSearchValue(searchParams?.status) ?? "active";
+  const listStatus: "active" | "paused" | "ended" | "all" =
+    statusParam === "paused" || statusParam === "ended" || statusParam === "all"
+      ? statusParam
+      : "active";
+  const disciplerFilter = (getSearchValue(searchParams?.discipulador) ?? "").trim();
+  const takeRaw = Number.parseInt(getSearchValue(searchParams?.take) || "20", 10);
+  const take = [10, 20, 50].includes(takeRaw) ? takeRaw : 20;
+  const requestedPage = Math.max(
+    1,
+    Number.parseInt(getSearchValue(searchParams?.page) || "1", 10) || 1,
+  );
+  const selectedBondId = (getSearchValue(searchParams?.vinculo) ?? "").trim();
+
+  const memberRelationSelect = {
+    id: true,
+    fullName: true,
+    photoUrl: true,
+    phone: true,
+    email: true,
+    type: true,
+  } as const;
+
+  const searchOr: Prisma.DiscipleshipWhereInput[] = q
+    ? (["disciple", "discipler"] as const).flatMap((rel) => {
+        const filters: Prisma.DiscipleshipWhereInput[] = [
+          { [rel]: { fullName: { contains: q, mode: "insensitive" } } },
+          { [rel]: { email: { contains: q, mode: "insensitive" } } },
+          { [rel]: { phone: { contains: q, mode: "insensitive" } } },
+        ];
+        const digits = q.replace(/\D/g, "");
+        if (digits && digits !== q) {
+          filters.push({ [rel]: { phone: { contains: digits } } });
+        }
+        return filters;
+      })
+    : [];
+
+  const listWhere: Prisma.DiscipleshipWhereInput = {
+    AND: [
+      listStatus === "active"
+        ? { status: "ACTIVE" }
+        : listStatus === "paused"
+          ? { status: "PAUSED" }
+          : listStatus === "ended"
+            ? { status: { in: ["FINISHED", "TRANSFERRED"] } }
+            : {},
+      disciplerFilter ? { disciplerId: disciplerFilter } : {},
+      ...(searchOr.length ? [{ OR: searchOr }] : []),
+    ],
+  };
+
+  const [
+    members,
+    rows,
+    meetings,
+    activeGraphRows,
+    totalFiltered,
+    totalActive,
+    totalPaused,
+    totalFinished,
+    activeDisciplerIds,
+  ] = await Promise.all([
     prisma.member.findMany({
       orderBy: { fullName: "asc" },
       take: 500,
@@ -548,26 +689,8 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
       orderBy: { updatedAt: "desc" },
       take: 250,
       include: {
-        disciple: {
-          select: {
-            id: true,
-            fullName: true,
-            photoUrl: true,
-            phone: true,
-            email: true,
-            type: true,
-          },
-        },
-        discipler: {
-          select: {
-            id: true,
-            fullName: true,
-            photoUrl: true,
-            phone: true,
-            email: true,
-            type: true,
-          },
-        },
+        disciple: { select: memberRelationSelect },
+        discipler: { select: memberRelationSelect },
       },
     }),
     prisma.discipleshipMeeting.findMany({
@@ -586,46 +709,98 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
         },
       },
     }),
-    prisma.discipleshipHistory.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 200,
-      include: {
-        member: {
-          select: { id: true, fullName: true },
-        },
-        previousDiscipler: {
-          select: { id: true, fullName: true },
-        },
-        newDiscipler: {
-          select: { id: true, fullName: true },
-        },
-      },
+    prisma.discipleship.findMany({
+      where: { status: "ACTIVE" },
+      select: { disciplerId: true, discipleId: true },
     }),
-    prisma.pastoralNote.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 150,
-      select: {
-        id: true,
-        memberId: true,
-        title: true,
-        contentEnc: true,
-        createdAt: true,
-      },
+    prisma.discipleship.count({ where: listWhere }),
+    prisma.discipleship.count({ where: { status: "ACTIVE" } }),
+    prisma.discipleship.count({ where: { status: "PAUSED" } }),
+    prisma.discipleship.count({ where: { status: "FINISHED" } }),
+    prisma.discipleship.findMany({
+      where: { status: "ACTIVE" },
+      select: { disciplerId: true },
+      distinct: ["disciplerId"],
     }),
   ]);
+
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / take));
+  const page = Math.min(requestedPage, totalPages);
+
+  const listRows = await prisma.discipleship.findMany({
+    where: listWhere,
+    orderBy: { updatedAt: "desc" },
+    skip: (page - 1) * take,
+    take,
+    include: {
+      disciple: { select: memberRelationSelect },
+      discipler: { select: memberRelationSelect },
+    },
+  });
+
+  const detailRow = selectedBondId
+    ? await prisma.discipleship.findUnique({
+        where: { id: selectedBondId },
+        include: {
+          disciple: { select: memberRelationSelect },
+          discipler: { select: memberRelationSelect },
+        },
+      })
+    : null;
+
+  const detailMeetings = detailRow
+    ? await prisma.discipleshipMeeting.findMany({
+        where: { discipleshipId: detailRow.id },
+        orderBy: { meetingAt: "desc" },
+        take: 10,
+      })
+    : [];
+
+  const detailHistory = detailRow
+    ? await prisma.discipleshipHistory.findMany({
+        where: { discipleshipId: detailRow.id },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+        include: {
+          previousDiscipler: { select: { id: true, fullName: true } },
+          newDiscipler: { select: { id: true, fullName: true } },
+        },
+      })
+    : [];
+
+  const disciplerOptions = Array.from(
+    new Map(rows.map((row) => [row.disciplerId, row.discipler.fullName])).entries(),
+  )
+    .map(([value, label]) => ({ value, label }))
+    .sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
+
+  const buildListHref = (overrides: Record<string, string | null> = {}) => {
+    const params = new URLSearchParams();
+    params.set("view", "overview");
+    if (q) params.set("q", q);
+    if (listStatus !== "active") params.set("status", listStatus);
+    if (disciplerFilter) params.set("discipulador", disciplerFilter);
+    if (take !== 20) params.set("take", String(take));
+    if (page > 1) params.set("page", String(page));
+    if (selectedBondId) params.set("vinculo", selectedBondId);
+    for (const [key, value] of Object.entries(overrides)) {
+      if (value === null || value === "") params.delete(key);
+      else params.set(key, value);
+    }
+    const qs = params.toString();
+    return `/admin/discipleships?${qs}`;
+  };
 
   const activeRows = rows.filter((row) => row.status === "ACTIVE");
   const pausedRows = rows.filter((row) => row.status === "PAUSED");
   const finishedRows = rows.filter((row) => row.status === "FINISHED");
   const transferredRows = rows.filter((row) => row.status === "TRANSFERRED");
 
-  const activeDisciplersCount = new Set(activeRows.map((row) => row.disciplerId)).size;
+  const activeDisciplersCount = activeDisciplerIds.length;
   const averageDisciplesByDiscipler =
-    activeDisciplersCount > 0 ? activeRows.length / activeDisciplersCount : 0;
+    activeDisciplersCount > 0 ? totalActive / activeDisciplersCount : 0;
 
-  const { count: countDescendants } = getDescendantCounter(
-    activeRows.map((row) => ({ disciplerId: row.disciplerId, discipleId: row.discipleId })),
-  );
+  const { count: countDescendants } = getDescendantCounter(activeGraphRows);
 
   const latestReferenceTime =
     meetings[0]?.meetingAt.getTime() ??
@@ -636,11 +811,10 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
   const staleMeetingCutoff = latestReferenceTime - 1000 * 60 * 60 * 24 * 30;
 
   const directCountByMember = new Map<string, number>();
-  for (const row of activeRows) {
+  for (const row of activeGraphRows) {
     directCountByMember.set(row.disciplerId, (directCountByMember.get(row.disciplerId) ?? 0) + 1);
   }
 
-  const activeByDisciple = new Map(activeRows.map((row) => [row.discipleId, row]));
   const latestMeetingByDiscipleship = new Map<string, (typeof meetings)[number]>();
   for (const meeting of meetings) {
     if (!latestMeetingByDiscipleship.has(meeting.discipleshipId)) {
@@ -648,104 +822,9 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
     }
   }
 
-  const memberNetworkData = members.map((member) => {
-    const active = activeByDisciple.get(member.id) ?? null;
-    const directCount = directCountByMember.get(member.id) ?? 0;
-    const descendants = countDescendants(member.id);
-
-    return {
-      id: member.id,
-      fullName: member.fullName,
-      photoUrl: member.photoUrl,
-      email: member.email,
-      phone: member.phone,
-      type: (member.types.length ? member.types : [member.type]).join(", "),
-      activeStatus: active?.status ?? null,
-      activeStartedAt: active?.startedAt.toISOString() ?? null,
-      nextMeetingAt: active?.nextMeetingAt?.toISOString() ?? null,
-      level: active?.level ?? 1,
-      progress: active?.progress ?? 0,
-      directCount,
-      indirectCount: Math.max(descendants - directCount, 0),
-      growthScore: descendants,
-    };
-  });
-
-  const networkRelationships = rows.map((row) => ({
-    id: row.id,
-    disciplerId: row.disciplerId,
-    discipleId: row.discipleId,
-    status: row.status,
-    level: row.level,
-    progress: row.progress,
-    startedAt: row.startedAt.toISOString(),
-    nextMeetingAt: row.nextMeetingAt?.toISOString() ?? null,
-  }));
-
-  const networkMeetings = meetings.map((meeting) => ({
-    id: meeting.id,
-    discipleshipId: meeting.discipleshipId,
-    meetingAt: meeting.meetingAt.toISOString(),
-    theme: meeting.theme,
-    notes: meeting.notes,
-    nextMeetingAt: meeting.nextMeetingAt?.toISOString() ?? null,
-    status: meetingStatusLabels[meeting.status],
-    discipleId: meeting.discipleship.disciple.id,
-    disciplerId: meeting.discipleship.discipler.id,
-    discipleName: meeting.discipleship.disciple.fullName,
-    disciplerName: meeting.discipleship.discipler.fullName,
-  }));
-
-  const networkHistory = history.map((item) => ({
-    id: item.id,
-    memberId: item.memberId,
-    action: historyActionLabels[item.action],
-    note: item.note,
-    createdAt: item.createdAt.toISOString(),
-    previousDisciplerName: item.previousDiscipler?.fullName ?? null,
-    newDisciplerName: item.newDiscipler?.fullName ?? null,
-  }));
-
-  let decryptedPastoralNotes: Array<{
-    id: string;
-    memberId: string;
-    title: string | null;
-    content: string | null;
-    createdAt: string;
-  }> = [];
-  try {
-    decryptedPastoralNotes = pastoralNotes.map((note) => {
-      try {
-        const decrypted = decryptString(note.contentEnc ?? "");
-        return {
-          id: note.id,
-          memberId: note.memberId,
-          title: note.title ?? null,
-          content: decrypted ?? null,
-          createdAt: note.createdAt.toISOString(),
-        };
-      } catch (err) {
-        return {
-          id: note.id,
-          memberId: note.memberId,
-          title: note.title ?? null,
-          content: "[Não foi possível descriptografar este anotação]",
-          createdAt: note.createdAt.toISOString(),
-        };
-      }
-    });
-  } catch (err) {
-    decryptedPastoralNotes = pastoralNotes.map((note) => ({
-      id: note.id,
-      memberId: note.memberId,
-      title: note.title ?? null,
-      content: "[Não foi possível descriptografar as anotações pastorais. Verifique a variável de ambiente APP_ENCRYPTION_KEY.]",
-      createdAt: note.createdAt.toISOString(),
-    }));
-    console.error("[discipleships] Falha ao descriptografar pastoralNotes:", err);
-  }
-
-  const networksGrowing = activeRows.filter((row) => countDescendants(row.disciplerId) >= 2).length;
+  const networksGrowing = Array.from(
+    new Set(activeGraphRows.map((row) => row.disciplerId)),
+  ).filter((memberId) => countDescendants(memberId) >= 2).length;
 
   const months = Array.from({ length: 6 }, (_, index) => {
     const date = new Date();
@@ -827,12 +906,12 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
   const defaultTransferRelationshipId = transferCandidates[0]?.id ?? activeRows[0]?.id ?? "";
 
   const internalMenu = [
-    { key: "overview", label: "Visão Geral", icon: <Waypoints className="size-4" /> },
-    { key: "network", label: "Rede de Discipulado", icon: <GitBranchPlus className="size-4" /> },
-    { key: "meetings", label: "Encontros", icon: <CalendarClock className="size-4" /> },
-    { key: "reports", label: "Relatórios", icon: <ChartColumn className="size-4" /> },
-    { key: "settings", label: "Configurações", icon: <Settings className="size-4" /> },
-  ] satisfies Array<{ key: PageView; label: string; icon: React.ReactNode }>;
+    { key: "overview", label: "Visão Geral", icon: <Waypoints className="size-4" />, href: "/admin/discipleships?view=overview" },
+    { key: "network", label: "Rede de Discipulado", icon: <GitBranchPlus className="size-4" />, href: "/admin/discipleships/network" },
+    { key: "meetings", label: "Encontros", icon: <CalendarClock className="size-4" />, href: "/admin/discipleships?view=meetings" },
+    { key: "reports", label: "Relatórios", icon: <ChartColumn className="size-4" />, href: "/admin/discipleships?view=reports" },
+    { key: "settings", label: "Configurações", icon: <Settings className="size-4" />, href: "/admin/discipleships?view=settings" },
+  ] satisfies Array<{ key: string; label: string; icon: React.ReactNode; href: string }>;
 
   return (
     <div className="space-y-6">
@@ -860,7 +939,7 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
         />
         <StatCard
           title="Discípulos ativos"
-          value={activeRows.length}
+          value={totalActive}
           subtitle="Vínculos ativos em andamento"
           tone="purple"
           icon={<UserRoundPlus className="size-5" />}
@@ -874,14 +953,14 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
         />
         <StatCard
           title="Discipulados concluídos"
-          value={finishedRows.length}
+          value={totalFinished}
           subtitle="Histórico preservado"
           tone="orange"
           icon={<NotebookPen className="size-5" />}
         />
         <StatCard
           title="Discipulados pausados"
-          value={pausedRows.length}
+          value={totalPaused}
           subtitle="Aguardam retomada"
           tone="red"
           icon={<History className="size-5" />}
@@ -907,7 +986,7 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
               return (
                 <Link
                   key={item.key}
-                  href={`/admin/discipleships?view=${item.key}`}
+                  href={item.href}
                   className={cn(
                     "flex items-center gap-3 rounded-2xl border px-3 py-3 text-sm transition-[background,color,border-color,box-shadow]",
                     active
@@ -938,118 +1017,303 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
         <div className="min-w-0">
           {view === "overview" ? (
             <div className="grid grid-cols-1 gap-4 2xl:grid-cols-[minmax(0,1fr)_400px]">
-              <Card className="p-5">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <div className="text-sm font-semibold">Visão geral dos discipulados</div>
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      Relações ativas e históricas com progresso, encontros, nível de rede e próxima reunião.
+              {detailRow ? (
+                <Card className="p-5">
+                  <Link
+                    href={buildListHref({ vinculo: null })}
+                    className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    <ArrowLeft className="size-4" />
+                    Voltar para Visão Geral
+                  </Link>
+
+                  <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="truncate text-base font-semibold">
+                        {detailRow.discipler.fullName} <span className="text-muted-foreground">→</span> {detailRow.disciple.fullName}
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Início {formatDate(detailRow.startedAt)} • Nível {detailRow.level} • Encontros {detailRow.meetingsDone}
+                        {detailRow.concludedAt ? ` • Encerrado em ${formatDate(detailRow.concludedAt)}` : ""}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Badge>{statusLabels[detailRow.status]}</Badge>
+                      <Badge className="bg-muted/10">{directCountByMember.get(detailRow.discipleId) ?? 0} diretos</Badge>
+                      <Badge className="bg-muted/10">
+                        {Math.max(
+                          countDescendants(detailRow.discipleId) -
+                            (directCountByMember.get(detailRow.discipleId) ?? 0),
+                          0,
+                        )}{" "}
+                        indiretos
+                      </Badge>
                     </div>
                   </div>
-                  <div className="text-xs text-muted-foreground">{rows.length} vínculos exibidos</div>
-                </div>
 
-                <div className="mt-4 space-y-3">
-                  {rows.length ? (
-                    rows.map((row) => {
-                      const direct = directCountByMember.get(row.discipleId) ?? 0;
-                      const indirect = Math.max(countDescendants(row.discipleId) - direct, 0);
-                      const latestMeeting = latestMeetingByDiscipleship.get(row.id);
+                  <div className="mt-4 grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                    <div className="rounded-2xl border border-border/70 bg-muted/10 p-3">
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>Progresso do discipulado</span>
+                        <span>{detailRow.progress}%</span>
+                      </div>
+                      <div className="mt-2 h-2 rounded-full bg-muted/30">
+                        <div
+                          className="h-2 rounded-full bg-gradient-to-r from-[#58a7ff] via-[#2b8cff] to-[#a269ff]"
+                          style={{ width: `${clampProgress(detailRow.progress)}%` }}
+                        />
+                      </div>
+                      <div className="mt-3 text-xs text-muted-foreground">
+                        Último encontro: {detailMeetings[0] ? formatDate(detailMeetings[0].meetingAt, true) : "Ainda não registrado"}
+                        {detailRow.nextMeetingAt ? ` • Próximo ${formatDate(detailRow.nextMeetingAt)}` : ""}
+                      </div>
+                    </div>
 
-                      return (
-                        <div key={row.id} className="rounded-3xl border border-border/70 bg-muted/10 p-4">
-                          <div className="flex flex-wrap items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="truncate text-sm font-semibold">
-                                {row.discipler.fullName} <span className="text-muted-foreground">→</span> {row.disciple.fullName}
-                              </div>
+                    <div className="rounded-2xl border border-border/70 bg-muted/10 p-3">
+                      <div className="text-xs text-muted-foreground">Observações</div>
+                      <div className="mt-2 text-sm text-muted-foreground">
+                        {detailRow.notes || "Sem observações registradas para este discipulado."}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Link href={`/admin/discipleships/network?member=${detailRow.discipleId}`}>
+                      <Button type="button">
+                        <Waypoints className="mr-2 size-4" />
+                        Ver na rede
+                      </Button>
+                    </Link>
+                    <Link href={`?view=meetings&member=${detailRow.discipleId}#discipleship-meetings`}>
+                      <Button type="button" variant="secondary">
+                        <CalendarClock className="mr-2 size-4" />
+                        Ver histórico
+                      </Button>
+                    </Link>
+                    {canWrite ? (
+                      <Link href={`?view=overview&member=${detailRow.discipleId}#discipleship-transfer-form`}>
+                        <Button type="button" variant="outline">
+                          <ArrowRightLeft className="mr-2 size-4" />
+                          Transferir discípulo
+                        </Button>
+                      </Link>
+                    ) : null}
+                    {canWrite && (detailRow.status === "ACTIVE" || detailRow.status === "PAUSED") ? (
+                      <EndDiscipleshipDialog
+                        discipleshipId={detailRow.id}
+                        disciplerName={detailRow.discipler.fullName}
+                        discipleName={detailRow.disciple.fullName}
+                        action={endDiscipleship}
+                      />
+                    ) : null}
+                  </div>
+
+                  {canWrite ? (
+                    <form action={updateStatus} className="mt-4 space-y-3 rounded-2xl border border-border/70 bg-background/50 p-3">
+                      <input type="hidden" name="id" value={detailRow.id} />
+                      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                        <select
+                          name="status"
+                          defaultValue={detailRow.status}
+                          className="h-11 rounded-2xl border border-border/80 bg-background px-3 text-sm"
+                        >
+                          <option value="ACTIVE">Ativo</option>
+                          <option value="PAUSED">Pausado</option>
+                          <option value="FINISHED">Concluído</option>
+                          <option value="TRANSFERRED">Transferido</option>
+                        </select>
+                        <Input name="progress" type="number" min="0" max="100" defaultValue={detailRow.progress} placeholder="Progresso %" />
+                        <Button type="submit" variant="secondary">Salvar status</Button>
+                      </div>
+                      <Input name="notes" defaultValue={detailRow.notes ?? ""} placeholder="Observações ou contexto pastoral" />
+                    </form>
+                  ) : null}
+
+                  <div className="mt-4 grid grid-cols-1 gap-3 xl:grid-cols-2">
+                    <div className="rounded-2xl border border-border/70 bg-muted/10 p-3">
+                      <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        Encontros do vínculo
+                      </div>
+                      <div className="mt-3 space-y-2">
+                        {detailMeetings.length ? (
+                          detailMeetings.map((meeting) => (
+                            <div key={meeting.id} className="rounded-2xl border border-border/70 bg-background/50 p-3">
+                              <div className="text-sm font-semibold">{meeting.theme || "Encontro de discipulado"}</div>
                               <div className="mt-1 text-xs text-muted-foreground">
-                                Início {formatDate(row.startedAt)} • Nível {row.level} • Encontros {row.meetingsDone}
-                                {row.nextMeetingAt ? ` • Próximo ${formatDate(row.nextMeetingAt)}` : ""}
+                                {formatDate(meeting.meetingAt, true)} • {meetingStatusLabels[meeting.status]}
                               </div>
+                              {meeting.notes ? (
+                                <div className="mt-2 text-sm text-muted-foreground">{meeting.notes}</div>
+                              ) : null}
                             </div>
-                            <div className="flex flex-wrap gap-2">
-                              <Badge>{statusLabels[row.status]}</Badge>
-                              <Badge className="bg-muted/10">{direct} diretos</Badge>
-                              <Badge className="bg-muted/10">{indirect} indiretos</Badge>
-                            </div>
-                          </div>
+                          ))
+                        ) : (
+                          <div className="text-sm text-muted-foreground">Nenhum encontro registrado neste vínculo.</div>
+                        )}
+                      </div>
+                    </div>
 
-                          <div className="mt-4 grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-                            <div className="rounded-2xl border border-border/70 bg-[rgba(6,14,28,0.55)] p-3">
-                              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                <span>Progresso do discipulado</span>
-                                <span>{row.progress}%</span>
+                    <div className="rounded-2xl border border-border/70 bg-muted/10 p-3">
+                      <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        Histórico do vínculo
+                      </div>
+                      <div className="mt-3 space-y-2">
+                        {detailHistory.length ? (
+                          detailHistory.map((item) => (
+                            <div key={item.id} className="rounded-2xl border border-border/70 bg-background/50 p-3">
+                              <div className="text-sm font-semibold">{historyActionLabels[item.action]}</div>
+                              <div className="mt-1 text-xs text-muted-foreground">
+                                {formatDate(item.createdAt, true)}
                               </div>
-                              <div className="mt-2 h-2 rounded-full bg-muted/30">
-                                <div
-                                  className="h-2 rounded-full bg-gradient-to-r from-[#58a7ff] via-[#2b8cff] to-[#a269ff]"
-                                  style={{ width: `${clampProgress(row.progress)}%` }}
-                                />
-                              </div>
-                              <div className="mt-3 text-xs text-muted-foreground">
-                                Último encontro: {latestMeeting ? formatDate(latestMeeting.meetingAt, true) : "Ainda não registrado"}
-                              </div>
-                            </div>
-
-                            <div className="rounded-2xl border border-border/70 bg-[rgba(6,14,28,0.55)] p-3">
-                              <div className="text-xs text-muted-foreground">Observações</div>
                               <div className="mt-2 text-sm text-muted-foreground">
-                                {row.notes || "Sem observações registradas para este discipulado."}
+                                {item.previousDiscipler || item.newDiscipler
+                                  ? `${item.previousDiscipler?.fullName ?? "—"} → ${item.newDiscipler?.fullName ?? "—"}`
+                                  : ""}
+                                {item.note ? `${item.previousDiscipler || item.newDiscipler ? " • " : ""}${item.note}` : ""}
                               </div>
                             </div>
-                          </div>
+                          ))
+                        ) : (
+                          <div className="text-sm text-muted-foreground">Nenhum histórico registrado.</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              ) : (
+                <Card className="p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <div className="text-sm font-semibold">Visão geral dos discipulados</div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Lista compacta com pesquisa, filtros e paginação. Abra um vínculo para ver os detalhes.
+                      </div>
+                    </div>
+                    <div className="text-xs text-muted-foreground">{totalFiltered} vínculos</div>
+                  </div>
 
-                          <div className="mt-4 grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-                            <form action={updateStatus} className="space-y-3 rounded-2xl border border-border/70 bg-background/50 p-3">
-                              <input type="hidden" name="id" value={row.id} />
-                              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                                <select
-                                  name="status"
-                                  defaultValue={row.status}
-                                  className="h-11 rounded-2xl border border-border/80 bg-background px-3 text-sm"
-                                >
-                                  <option value="ACTIVE">Ativo</option>
-                                  <option value="PAUSED">Pausado</option>
-                                  <option value="FINISHED">Concluído</option>
-                                  <option value="TRANSFERRED">Transferido</option>
-                                </select>
-                                <Input name="progress" type="number" min="0" max="100" defaultValue={row.progress} placeholder="Progresso %" />
-                                <Button type="submit" variant="secondary">Salvar status</Button>
+                  <div className="mt-4">
+                    <DiscipleshipsListControls disciplerOptions={disciplerOptions} />
+                  </div>
+
+                  <div className="mt-3 text-xs text-muted-foreground">
+                    Exibindo {totalFiltered === 0 ? 0 : (page - 1) * take + 1}–{Math.min(page * take, totalFiltered)} de {totalFiltered} vínculos
+                  </div>
+
+                  <div className="mt-3 hidden overflow-x-auto md:block">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border/70 text-left text-xs uppercase tracking-wider text-muted-foreground">
+                          <th className="py-3 pr-3 font-medium">Discípulo</th>
+                          <th className="py-3 pr-3 font-medium">Discipulador</th>
+                          <th className="py-3 pr-3 font-medium">Status</th>
+                          <th className="py-3 pr-3 font-medium">Nível</th>
+                          <th className="py-3 pr-3 font-medium">Progresso</th>
+                          <th className="py-3 pr-3 font-medium">Início</th>
+                          <th className="py-3 pr-3 font-medium">Próximo encontro</th>
+                          <th className="py-3 font-medium"><span className="sr-only">Ações</span></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {listRows.map((row) => (
+                          <tr key={row.id} className="border-b border-border/50 last:border-0">
+                            <td className="max-w-44 truncate py-3 pr-3 font-medium">{row.disciple.fullName}</td>
+                            <td className="max-w-44 truncate py-3 pr-3 text-muted-foreground">{row.discipler.fullName}</td>
+                            <td className="py-3 pr-3"><Badge>{statusLabels[row.status]}</Badge></td>
+                            <td className="py-3 pr-3 text-muted-foreground">{row.level}</td>
+                            <td className="py-3 pr-3">
+                              <div className="flex items-center gap-2">
+                                <div className="h-2 w-16 rounded-full bg-muted/30">
+                                  <div
+                                    className="h-2 rounded-full bg-gradient-to-r from-[#58a7ff] to-[#a269ff]"
+                                    style={{ width: `${clampProgress(row.progress)}%` }}
+                                  />
+                                </div>
+                                <span className="text-xs text-muted-foreground">{row.progress}%</span>
                               </div>
-                              <Input name="notes" defaultValue={row.notes ?? ""} placeholder="Observações ou contexto pastoral" />
-                            </form>
+                            </td>
+                            <td className="py-3 pr-3 text-muted-foreground">{formatDate(row.startedAt)}</td>
+                            <td className="py-3 pr-3 text-muted-foreground">{row.nextMeetingAt ? formatDate(row.nextMeetingAt) : "—"}</td>
+                            <td className="py-3 text-right">
+                              <Link href={buildListHref({ vinculo: row.id })}>
+                                <Button type="button" size="sm" variant="secondary">
+                                  <Eye className="mr-1.5 size-4" />
+                                  Abrir
+                                </Button>
+                              </Link>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {!listRows.length ? (
+                      <div className="py-8 text-center text-sm text-muted-foreground">
+                        Nenhum vínculo encontrado com os filtros atuais.
+                      </div>
+                    ) : null}
+                  </div>
 
-                            <div className="flex flex-wrap gap-2 rounded-2xl border border-border/70 bg-background/50 p-3">
-                              <Link href={`?view=network&member=${row.discipleId}`}>
-                                <Button type="button">
-                                  <Waypoints className="mr-2 size-4" />
-                                  Ver na rede
-                                </Button>
-                              </Link>
-                              <Link href={`?view=meetings&member=${row.discipleId}#discipleship-meetings`}>
-                                <Button type="button" variant="secondary">
-                                  <CalendarClock className="mr-2 size-4" />
-                                  Ver histórico
-                                </Button>
-                              </Link>
-                              <Link href={`?view=overview&member=${row.discipleId}#discipleship-transfer-form`}>
-                                <Button type="button" variant="outline">
-                                  <ArrowRightLeft className="mr-2 size-4" />
-                                  Transferir discípulo
-                                </Button>
-                              </Link>
+                  <div className="mt-3 space-y-3 md:hidden">
+                    {listRows.length ? (
+                      listRows.map((row) => (
+                        <div key={row.id} className="rounded-2xl border border-border/70 bg-muted/10 p-4">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="truncate text-sm font-semibold">{row.disciple.fullName}</div>
+                              <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                                Discipulador: {row.discipler.fullName}
+                              </div>
                             </div>
+                            <Badge>{statusLabels[row.status]}</Badge>
                           </div>
+                          <div className="mt-2 text-xs text-muted-foreground">
+                            Nível {row.level} • Progresso {row.progress}% • Início {formatDate(row.startedAt)}
+                            {row.nextMeetingAt ? ` • Próximo ${formatDate(row.nextMeetingAt)}` : ""}
+                          </div>
+                          <Link href={buildListHref({ vinculo: row.id })} className="mt-3 block">
+                            <Button type="button" size="sm" variant="secondary" className="w-full">
+                              <Eye className="mr-1.5 size-4" />
+                              Abrir
+                            </Button>
+                          </Link>
                         </div>
-                      );
-                    })
-                  ) : (
-                    <div className="text-sm text-muted-foreground">Nenhum discipulado cadastrado.</div>
-                  )}
-                </div>
-              </Card>
+                      ))
+                    ) : (
+                      <div className="py-8 text-center text-sm text-muted-foreground">
+                        Nenhum vínculo encontrado com os filtros atuais.
+                      </div>
+                    )}
+                  </div>
 
+                  <div className="mt-4 flex items-center justify-between gap-2">
+                    {page > 1 ? (
+                      <Link href={buildListHref({ page: String(page - 1) })}>
+                        <Button type="button" variant="outline" size="sm">
+                          <ChevronLeft className="mr-1 size-4" />
+                          Anterior
+                        </Button>
+                      </Link>
+                    ) : (
+                      <span />
+                    )}
+                    <span className="text-xs text-muted-foreground">
+                      Página {page} de {totalPages}
+                    </span>
+                    {page < totalPages ? (
+                      <Link href={buildListHref({ page: String(page + 1) })}>
+                        <Button type="button" variant="outline" size="sm">
+                          Próxima
+                          <ChevronRight className="ml-1 size-4" />
+                        </Button>
+                      </Link>
+                    ) : (
+                      <span />
+                    )}
+                  </div>
+                </Card>
+              )}
+
+              {canWrite ? (
               <div className="space-y-4">
                 <Card className="p-5" id="discipleship-create-form">
                   <div className="text-sm font-semibold">Novo discipulado</div>
@@ -1170,21 +1434,13 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
                   </form>
                 </Card>
               </div>
+              ) : null}
             </div>
           ) : null}
 
-          {view === "network" ? (
-            <DiscipleshipNetworkClient
-              members={memberNetworkData}
-              relationships={networkRelationships}
-              meetings={networkMeetings}
-              history={networkHistory}
-              pastoralNotes={decryptedPastoralNotes}
-            />
-          ) : null}
-
           {view === "meetings" ? (
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-[380px_minmax(0,1fr)]">
+            <div className={cn("grid grid-cols-1 gap-4", canWrite ? "xl:grid-cols-[380px_minmax(0,1fr)]" : "")}>
+              {canWrite ? (
               <Card className="p-5" id="discipleship-meetings">
                 <div className="text-sm font-semibold">Registrar encontro</div>
                 <div className="mt-1 text-xs text-muted-foreground">
@@ -1235,6 +1491,7 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
                   </Button>
                 </form>
               </Card>
+              ) : null}
 
               <Card className="p-5">
                 <div className="flex items-center justify-between">

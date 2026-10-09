@@ -32,7 +32,7 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -226,7 +226,7 @@ function NetworkNode(props: NodeProps<Node<FlowNodeData>>) {
   return (
     <div
       className={cn(
-        "w-[240px] rounded-3xl border bg-[rgba(11,23,48,0.88)] p-4 text-card-foreground shadow-[0_18px_70px_-42px_rgba(0,0,0,0.85)] backdrop-blur-xl transition-[transform,box-shadow,border-color]",
+        "w-[240px] rounded-3xl border bg-card p-4 text-card-foreground shadow-[0_18px_70px_-42px_rgba(0,0,0,0.85)] backdrop-blur-xl transition-[transform,box-shadow,border-color]",
         isSelected
           ? "border-[rgba(88,167,255,0.55)] shadow-[0_18px_70px_-32px_rgba(88,167,255,0.72)]"
           : "border-border/80",
@@ -325,7 +325,7 @@ const nodeTypes: NodeTypes = {
   memberNode: NetworkNode,
 };
 
-function NetworkToolbar() {
+function NetworkToolbar({ canCenter, onCenter }: { canCenter: boolean; onCenter: () => void }) {
   const flow = useReactFlow();
 
   return (
@@ -339,8 +339,23 @@ function NetworkToolbar() {
       <Button type="button" size="sm" variant="secondary" onClick={() => flow.fitView({ padding: 0.2 })}>
         Ajustar
       </Button>
+      <Button type="button" size="sm" variant="secondary" disabled={!canCenter} onClick={onCenter}>
+        Centralizar
+      </Button>
     </div>
   );
+}
+
+function FocusHandler({ target }: { target: { ts: number; x: number; y: number } | null }) {
+  const flow = useReactFlow();
+
+  useEffect(() => {
+    if (!target) return;
+    flow.setCenter(target.x, target.y, { zoom: 1.1, duration: 450 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target?.ts]);
+
+  return null;
 }
 
 function DiscipleshipNetworkCanvas(props: {
@@ -349,13 +364,16 @@ function DiscipleshipNetworkCanvas(props: {
   meetings: Meeting[];
   history: HistoryItem[];
   pastoralNotes: PastoralNote[];
+  initialMemberId?: string | null;
 }) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | Relationship["status"]>("ACTIVE");
   const [disciplerFilter, setDisciplerFilter] = useState("ALL");
   const [levelFilter, setLevelFilter] = useState("ALL");
+  const [showEnded, setShowEnded] = useState(false);
   const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set());
-  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(props.initialMemberId ?? null);
+  const [focusTarget, setFocusTarget] = useState<{ ts: number; x: number; y: number } | null>(null);
 
   const membersMap = useMemo(
     () => new Map(props.members.map((member) => [member.id, member])),
@@ -368,10 +386,13 @@ function DiscipleshipNetworkCanvas(props: {
   );
 
   const latestRelationships = useMemo(() => {
+    const statusFiltered = showEnded
+      ? props.relationships
+      : props.relationships.filter((relationship) => relationship.status === "ACTIVE");
     const filtered =
       statusFilter === "ALL"
-        ? props.relationships
-        : props.relationships.filter((relationship) => relationship.status === statusFilter);
+        ? statusFiltered
+        : statusFiltered.filter((relationship) => relationship.status === statusFilter);
 
     const latestByDisciple = new Map<string, Relationship>();
     const sorted = [...filtered].sort(
@@ -383,7 +404,7 @@ function DiscipleshipNetworkCanvas(props: {
       }
     }
     return Array.from(latestByDisciple.values());
-  }, [props.relationships, statusFilter]);
+  }, [props.relationships, showEnded, statusFilter]);
 
   const filteredRelationships = useMemo(() => {
     let current = latestRelationships;
@@ -470,19 +491,24 @@ function DiscipleshipNetworkCanvas(props: {
       });
     }
 
-    const edges: Edge[] = visibleRelationships.map((relationship) => ({
-      id: relationship.id,
-      source: relationship.disciplerId,
-      target: relationship.discipleId,
-      type: "smoothstep",
-      animated: relationship.status === "ACTIVE",
-      markerEnd: { type: MarkerType.ArrowClosed, color: getLevelColor(relationship.level) },
-      style: {
-        stroke: getLevelColor(relationship.level),
-        strokeOpacity: relationship.status === "ACTIVE" ? 0.9 : 0.45,
-        strokeWidth: relationship.status === "ACTIVE" ? 2.4 : 1.4,
-      },
-    }));
+    const edges: Edge[] = visibleRelationships.map((relationship) => {
+      const isEnded =
+        relationship.status === "FINISHED" || relationship.status === "TRANSFERRED";
+      return {
+        id: relationship.id,
+        source: relationship.disciplerId,
+        target: relationship.discipleId,
+        type: "smoothstep",
+        animated: relationship.status === "ACTIVE",
+        markerEnd: { type: MarkerType.ArrowClosed, color: getLevelColor(relationship.level) },
+        style: {
+          stroke: getLevelColor(relationship.level),
+          strokeOpacity: relationship.status === "ACTIVE" ? 0.9 : isEnded ? 0.4 : 0.45,
+          strokeWidth: relationship.status === "ACTIVE" ? 2.4 : 1.4,
+          ...(isEnded ? { strokeDasharray: "6 5" } : {}),
+        },
+      };
+    });
 
     return { nodes, edges };
   }, [
@@ -494,6 +520,30 @@ function DiscipleshipNetworkCanvas(props: {
   ]);
 
   const selectedMember = selectedMemberId ? membersMap.get(selectedMemberId) ?? null : null;
+
+  useEffect(() => {
+    const term = search.trim().toLowerCase();
+    if (term.length < 2) return;
+    const matches = props.members.filter((member) =>
+      member.fullName.toLowerCase().includes(term),
+    );
+    if (matches.length !== 1) return;
+    const match = matches[0];
+    setSelectedMemberId(match.id);
+    const node = positioned.nodes.find((item) => item.id === match.id);
+    if (node) {
+      setFocusTarget({ ts: Date.now(), x: node.position.x + 120, y: node.position.y + 90 });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
+
+  function centerOnSelected() {
+    if (!selectedMemberId) return;
+    const node = positioned.nodes.find((item) => item.id === selectedMemberId);
+    if (node) {
+      setFocusTarget({ ts: Date.now(), x: node.position.x + 120, y: node.position.y + 90 });
+    }
+  }
 
   const selectedDirectDisciples = useMemo(
     () =>
@@ -612,9 +662,22 @@ function DiscipleshipNetworkCanvas(props: {
           </select>
         </div>
 
-        <div className="mt-4 rounded-3xl border border-border/80 bg-[rgba(6,14,28,0.72)] p-3">
-          <div className="h-[720px] overflow-hidden rounded-3xl border border-border/70 bg-[radial-gradient(circle_at_top,rgba(88,167,255,0.10),transparent_38%),rgba(7,17,31,0.92)]">
+        <div className="mt-3 flex items-center gap-2">
+          <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={showEnded}
+              onChange={(event) => setShowEnded(event.target.checked)}
+              className="size-4 rounded border-border"
+            />
+            Mostrar vínculos encerrados
+          </label>
+        </div>
+
+        <div className="mt-3 rounded-3xl border border-border/80 bg-background p-3">
+          <div className="h-[720px] overflow-hidden rounded-3xl border border-border/70 bg-[radial-gradient(circle_at_top,var(--primary,rgba(88,167,255,0.10)),transparent_38%),var(--card,rgba(255,255,255,0.92))]">
             <ReactFlowProvider>
+              <FocusHandler target={focusTarget} />
               <ReactFlow
                 nodes={positioned.nodes}
                 edges={positioned.edges}
@@ -628,7 +691,7 @@ function DiscipleshipNetworkCanvas(props: {
                 onNodeClick={(_, node) => setSelectedMemberId(node.id)}
                 defaultEdgeOptions={{ type: "smoothstep" }}
               >
-                <NetworkToolbar />
+                <NetworkToolbar canCenter={Boolean(selectedMemberId)} onCenter={centerOnSelected} />
                 <Controls showInteractive={false} />
                 <MiniMap
                   pannable
@@ -638,11 +701,11 @@ function DiscipleshipNetworkCanvas(props: {
                     return data ? getLevelColor(data.member.level) : "rgba(88,167,255,1)";
                   }}
                   style={{
-                    backgroundColor: "rgba(11,23,48,0.88)",
-                    border: "1px solid rgba(234,241,255,0.10)",
+                    backgroundColor: "var(--card, rgba(255,255,255,0.88))",
+                    border: "1px solid var(--border, rgba(0,0,0,0.10))",
                   }}
                 />
-                <Background gap={18} size={1} color="rgba(234,241,255,0.06)" />
+                <Background gap={18} size={1} color="var(--border, rgba(0,0,0,0.06))" />
               </ReactFlow>
             </ReactFlowProvider>
           </div>
@@ -904,6 +967,7 @@ export function DiscipleshipNetworkClient(props: {
   meetings: Meeting[];
   history: HistoryItem[];
   pastoralNotes: PastoralNote[];
+  initialMemberId?: string | null;
 }) {
   return <DiscipleshipNetworkCanvas {...props} />;
 }
