@@ -134,8 +134,7 @@ export default async function AdminDashboardPage() {
   });
 
   const cellsForming = Math.max(0, cellsTotal - cellsActive - cellsNew);
-  const greetingName =
-    session?.user?.name?.split(" ")?.[0] ? `Pastor ${session.user.name.split(" ")[0]}` : "Pastor";
+  const greetingName = session?.user?.name?.split(" ")?.[0] ?? "";
   const alertsCount = schedulesPending + lostFoundPending + kidsActive;
 
   const fundraising = fundraisingPublic.map((p) => {
