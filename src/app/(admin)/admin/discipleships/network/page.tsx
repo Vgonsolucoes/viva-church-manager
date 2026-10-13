@@ -50,12 +50,25 @@ function getDescendantCounter(activeRows: Array<{ disciplerId: string; discipleI
 
 export default async function DiscipleshipsNetworkPage(props: { searchParams?: SearchParamsInput }) {
   const session = await getServerSession(authOptions);
-  if (!session || !hasPermission(session.roles ?? [], "discipleships:read")) {
-    redirect("/admin");
-  }
+  if (!session) redirect("/admin");
+  const roles = session.roles ?? [];
+  const canViewAll = hasPermission(roles, "discipleships:read");
+  const canViewMine = hasPermission(roles, "discipleship:my:read");
+  if (!canViewAll && !canViewMine) redirect("/admin");
+
+  // O membro do usuário autenticado é sempre resolvido no backend (nunca vem do navegador).
+  const currentUser = await prisma.user.findUnique({
+    where: { id: session.uid },
+    select: { memberId: true },
+  });
+  const currentMemberId = currentUser?.memberId ?? null;
 
   const searchParams = props.searchParams ? await props.searchParams : {};
   const initialMemberId = getSearchValue(searchParams?.member) ?? null;
+  const rootParam = (getSearchValue(searchParams?.root) ?? "").trim();
+
+  // Sem permissão administrativa, a visualização é sempre restrita à própria rede.
+  const rootId = canViewAll ? rootParam || null : currentMemberId;
 
   const [members, rows, meetings, history, pastoralNotes] = await Promise.all([
     prisma.member.findMany({
@@ -109,6 +122,41 @@ export default async function DiscipleshipsNetworkPage(props: { searchParams?: S
 
   const activeRows = rows.filter((row) => row.status === "ACTIVE");
 
+  // Escopo server-side: sem permissão administrativa, apenas a subárvore do próprio usuário
+  // é serializada para o client (filtrar a interface não substitui autorização).
+  let memberScope: Set<string> | null = null;
+  if (!canViewAll && currentMemberId) {
+    const childrenMap = new Map<string, string[]>();
+    for (const row of activeRows) {
+      childrenMap.set(row.disciplerId, [...(childrenMap.get(row.disciplerId) ?? []), row.discipleId]);
+    }
+    memberScope = new Set([currentMemberId]);
+    const queue = [currentMemberId];
+    while (queue.length) {
+      const current = queue.shift() as string;
+      for (const child of childrenMap.get(current) ?? []) {
+        if (!memberScope.has(child)) {
+          memberScope.add(child);
+          queue.push(child);
+        }
+      }
+    }
+  }
+  const inScope = (id: string) => (memberScope ? memberScope.has(id) : true);
+
+  const scopedMembers = members.filter((member) => inScope(member.id));
+  const scopedRows = rows.filter((row) => inScope(row.disciplerId) && inScope(row.discipleId));
+  const scopedMeetings = meetings.filter(
+    (meeting) =>
+      inScope(meeting.discipleship.discipler.id) && inScope(meeting.discipleship.disciple.id),
+  );
+  const scopedHistory = history.filter((item) => inScope(item.memberId));
+  const scopedPastoralNotes = pastoralNotes.filter((note) => inScope(note.memberId));
+
+  const networkIsEmpty =
+    !canViewAll &&
+    (!currentMemberId || !activeRows.some((row) => row.disciplerId === currentMemberId));
+
   const { count: countDescendants } = getDescendantCounter(
     activeRows.map((row) => ({ disciplerId: row.disciplerId, discipleId: row.discipleId })),
   );
@@ -120,7 +168,7 @@ export default async function DiscipleshipsNetworkPage(props: { searchParams?: S
 
   const activeByDisciple = new Map(activeRows.map((row) => [row.discipleId, row]));
 
-  const memberNetworkData = members.map((member) => {
+  const memberNetworkData = scopedMembers.map((member) => {
     const active = activeByDisciple.get(member.id) ?? null;
     const directCount = directCountByMember.get(member.id) ?? 0;
     const descendants = countDescendants(member.id);
@@ -143,7 +191,7 @@ export default async function DiscipleshipsNetworkPage(props: { searchParams?: S
     };
   });
 
-  const networkRelationships = rows.map((row) => ({
+  const networkRelationships = scopedRows.map((row) => ({
     id: row.id,
     disciplerId: row.disciplerId,
     discipleId: row.discipleId,
@@ -154,7 +202,7 @@ export default async function DiscipleshipsNetworkPage(props: { searchParams?: S
     nextMeetingAt: row.nextMeetingAt?.toISOString() ?? null,
   }));
 
-  const networkMeetings = meetings.map((meeting) => ({
+  const networkMeetings = scopedMeetings.map((meeting) => ({
     id: meeting.id,
     discipleshipId: meeting.discipleshipId,
     meetingAt: meeting.meetingAt.toISOString(),
@@ -168,7 +216,7 @@ export default async function DiscipleshipsNetworkPage(props: { searchParams?: S
     disciplerName: meeting.discipleship.discipler.fullName,
   }));
 
-  const networkHistory = history.map((item) => ({
+  const networkHistory = scopedHistory.map((item) => ({
     id: item.id,
     memberId: item.memberId,
     action: historyActionLabels[item.action] ?? item.action,
@@ -186,7 +234,7 @@ export default async function DiscipleshipsNetworkPage(props: { searchParams?: S
     createdAt: string;
   }> = [];
   try {
-    decryptedPastoralNotes = pastoralNotes.map((note) => {
+    decryptedPastoralNotes = scopedPastoralNotes.map((note) => {
       try {
         const decrypted = decryptString(note.contentEnc ?? "");
         return {
@@ -207,7 +255,7 @@ export default async function DiscipleshipsNetworkPage(props: { searchParams?: S
       }
     });
   } catch (err) {
-    decryptedPastoralNotes = pastoralNotes.map((note) => ({
+    decryptedPastoralNotes = scopedPastoralNotes.map((note) => ({
       id: note.id,
       memberId: note.memberId,
       title: note.title ?? null,
@@ -235,22 +283,29 @@ export default async function DiscipleshipsNetworkPage(props: { searchParams?: S
         </div>
         <div className="flex flex-wrap gap-2 text-xs">
           <span className="inline-flex items-center rounded-full border border-border/70 bg-muted/10 px-3 py-1 text-muted-foreground">
-            {members.length} membros
+            {scopedMembers.length} membros
           </span>
           <span className="inline-flex items-center rounded-full border border-border/70 bg-muted/10 px-3 py-1 text-muted-foreground">
-            {rows.length} vínculos
+            {scopedRows.length} vínculos
           </span>
         </div>
       </div>
 
-      <DiscipleshipNetworkClient
-        members={memberNetworkData}
-        relationships={networkRelationships}
-        meetings={networkMeetings}
-        history={networkHistory}
-        pastoralNotes={decryptedPastoralNotes}
-        initialMemberId={initialMemberId}
-      />
+      {networkIsEmpty ? (
+        <div className="rounded-3xl border border-border/70 bg-card p-8 text-center text-sm text-muted-foreground">
+          Você ainda não possui discípulos vinculados à sua rede.
+        </div>
+      ) : (
+        <DiscipleshipNetworkClient
+          members={memberNetworkData}
+          relationships={networkRelationships}
+          meetings={networkMeetings}
+          history={networkHistory}
+          pastoralNotes={decryptedPastoralNotes}
+          initialMemberId={initialMemberId}
+          initialDisciplerFilter={rootId}
+        />
+      )}
     </div>
   );
 }

@@ -365,10 +365,11 @@ function DiscipleshipNetworkCanvas(props: {
   history: HistoryItem[];
   pastoralNotes: PastoralNote[];
   initialMemberId?: string | null;
+  initialDisciplerFilter?: string | null;
 }) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | Relationship["status"]>("ACTIVE");
-  const [disciplerFilter, setDisciplerFilter] = useState("ALL");
+  const [disciplerFilter, setDisciplerFilter] = useState(props.initialDisciplerFilter ?? "ALL");
   const [levelFilter, setLevelFilter] = useState("ALL");
   const [showEnded, setShowEnded] = useState(false);
   const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set());
@@ -968,6 +969,7 @@ export function DiscipleshipNetworkClient(props: {
   history: HistoryItem[];
   pastoralNotes: PastoralNote[];
   initialMemberId?: string | null;
+  initialDisciplerFilter?: string | null;
 }) {
   return <DiscipleshipNetworkCanvas {...props} />;
 }

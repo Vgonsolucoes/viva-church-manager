@@ -17,6 +17,7 @@ import {
   NotebookPen,
   Settings,
   TrendingUp,
+  TriangleAlert,
   Users,
   UserRoundPlus,
   Waypoints,
@@ -34,6 +35,7 @@ import { hasPermission } from "@/server/rbac";
 import { prisma } from "@/server/db";
 import { DiscipleshipsListControls } from "./DiscipleshipsListControls";
 import { EndDiscipleshipDialog } from "./EndDiscipleshipDialog";
+import { NetworkScopeControls } from "./NetworkScopeControls";
 
 export const dynamic = "force-dynamic";
 
@@ -63,6 +65,7 @@ const meetingSchema = z.object({
   nextMeetingAt: z.string().optional().or(z.literal("")),
   status: z.enum(meetingStatuses),
   progress: z.string().optional().or(z.literal("")),
+  attendance: z.enum(["present", "absent", "unknown"]).optional(),
 });
 
 const transferSchema = z.object({
@@ -350,7 +353,10 @@ async function registerMeeting(formData: FormData) {
   "use server";
 
   const session = await getServerSession(authOptions);
-  if (!session || !hasPermission(session.roles ?? [], "discipleships:write")) return;
+  if (!session) return;
+  const canWriteAll = hasPermission(session.roles ?? [], "discipleships:write");
+  const canWriteMine = hasPermission(session.roles ?? [], "discipleship:my:write");
+  if (!canWriteAll && !canWriteMine) return;
   const parsed = meetingSchema.safeParse({
     discipleshipId: formData.get("discipleshipId"),
     meetingAt: formData.get("meetingAt"),
@@ -359,11 +365,31 @@ async function registerMeeting(formData: FormData) {
     nextMeetingAt: formData.get("nextMeetingAt"),
     status: formData.get("status"),
     progress: formData.get("progress"),
+    attendance: formData.get("attendance"),
   });
   if (!parsed.success) return;
 
   const before = await prisma.discipleship.findUnique({ where: { id: parsed.data.discipleshipId } });
   if (!before) return;
+
+  // Sem permissão administrativa, o discipulador só registra encontros dos próprios discípulos diretos.
+  if (!canWriteAll) {
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.uid },
+      select: { memberId: true },
+    });
+    if (!currentUser?.memberId || before.disciplerId !== currentUser.memberId) return;
+  }
+
+  // Presença individual só faz sentido em encontros efetivamente realizados.
+  const attendance =
+    parsed.data.status === "COMPLETED"
+      ? parsed.data.attendance === "absent"
+        ? false
+        : parsed.data.attendance === "unknown"
+          ? null
+          : true
+      : null;
 
   const progress = parseProgress(parsed.data.progress) ?? before.progress;
 
@@ -376,6 +402,7 @@ async function registerMeeting(formData: FormData) {
         notes: parsed.data.notes?.trim() || null,
         nextMeetingAt: toOptionalDate(parsed.data.nextMeetingAt),
         status: parsed.data.status,
+        attendance,
         createdById: session?.uid ?? null,
       },
     });
@@ -398,7 +425,7 @@ async function registerMeeting(formData: FormData) {
       action: "MEETING_RECORDED",
       previousDisciplerId: after.disciplerId,
       newDisciplerId: after.disciplerId,
-      note: `${meetingStatusLabels[parsed.data.status]}: ${parsed.data.theme?.trim() || "Encontro de discipulado"}`,
+      note: `${meetingStatusLabels[parsed.data.status]}: ${parsed.data.theme?.trim() || "Encontro de discipulado"}${attendance === false ? " • Ausência registrada" : ""}`,
       createdById: session?.uid ?? null,
     });
 
@@ -588,12 +615,59 @@ function getDescendantCounter(activeRows: Array<{ disciplerId: string; discipleI
   return { count: visit };
 }
 
+function buildChildrenMap(activeRows: Array<{ disciplerId: string; discipleId: string }>) {
+  const map = new Map<string, string[]>();
+  for (const row of activeRows) {
+    map.set(row.disciplerId, [...(map.get(row.disciplerId) ?? []), row.discipleId]);
+  }
+  return map;
+}
+
+function presenceBadge(absences: number) {
+  if (absences >= 3) {
+    return {
+      label: `Crítico — ${absences}`,
+      className: "bg-[rgba(244,63,94,0.15)] text-[rgb(244,63,94)]",
+    };
+  }
+  if (absences === 2) {
+    return {
+      label: "Atenção — 2",
+      className: "bg-[rgba(249,115,22,0.15)] text-[rgb(249,115,22)]",
+    };
+  }
+  return { label: "Regular", className: "bg-muted/10 text-muted-foreground" };
+}
+
+function MeetingPresenceBadge(props: { status: string; attendance: boolean | null }) {
+  if (props.status !== "COMPLETED") {
+    return <span className="text-xs text-muted-foreground">—</span>;
+  }
+  if (props.attendance === true) {
+    return <Badge className="bg-[rgba(34,197,94,0.15)] text-[rgb(34,197,94)]">Presente</Badge>;
+  }
+  if (props.attendance === false) {
+    return <Badge className="bg-[rgba(244,63,94,0.15)] text-[rgb(244,63,94)]">Ausente</Badge>;
+  }
+  return <Badge className="bg-muted/10 text-muted-foreground">Não informado</Badge>;
+}
+
 export default async function DiscipleshipsPage(props: { searchParams?: SearchParamsInput }) {
   const session = await getServerSession(authOptions);
-  if (!session || !hasPermission(session.roles ?? [], "discipleships:read")) {
-    redirect("/admin");
-  }
-  const canWrite = hasPermission(session.roles ?? [], "discipleships:write");
+  if (!session) redirect("/admin");
+  const roles = session.roles ?? [];
+  const canViewAll = hasPermission(roles, "discipleships:read");
+  const canViewMine = hasPermission(roles, "discipleship:my:read");
+  if (!canViewAll && !canViewMine) redirect("/admin");
+  const canWrite = hasPermission(roles, "discipleships:write");
+  const canRegisterMeeting = canWrite || hasPermission(roles, "discipleship:my:write");
+
+  // O membro do usuário autenticado é sempre resolvido no backend (nunca vem do navegador).
+  const currentUser = await prisma.user.findUnique({
+    where: { id: session.uid },
+    select: { memberId: true },
+  });
+  const currentMemberId = currentUser?.memberId ?? null;
 
   const searchParams = props.searchParams ? await props.searchParams : {};
   const viewParam = getSearchValue(searchParams?.view);
@@ -621,6 +695,122 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
     Number.parseInt(getSearchValue(searchParams?.page) || "1", 10) || 1,
   );
   const selectedBondId = (getSearchValue(searchParams?.vinculo) ?? "").trim();
+  const redeParam = (getSearchValue(searchParams?.rede) ?? "").trim();
+  const abrangencia: "direta" | "completa" =
+    getSearchValue(searchParams?.abrangencia) === "direta" ? "direta" : "completa";
+  const presencaParam = (getSearchValue(searchParams?.presenca) ?? "").trim();
+  const presencaFilter: "todos" | "regular" | "atencao" | "critico" =
+    presencaParam === "regular" || presencaParam === "atencao" || presencaParam === "critico"
+      ? presencaParam
+      : "todos";
+
+  // Grafo global de vínculos ativos: base para subárvore, escopo e contagens estruturais.
+  const activeGraphRows = await prisma.discipleship.findMany({
+    where: { status: "ACTIVE" },
+    select: { disciplerId: true, discipleId: true },
+  });
+  const childrenByDiscipler = buildChildrenMap(activeGraphRows);
+  const hasOwnNetwork = currentMemberId
+    ? (childrenByDiscipler.get(currentMemberId)?.length ?? 0) > 0
+    : false;
+
+  // Resolve a rede efetiva respeitando permissões (a interface nunca substitui autorização).
+  let effectiveRede: string;
+  if (canViewAll) {
+    if (redeParam === "todas" || redeParam === "minha") effectiveRede = redeParam;
+    else if (redeParam) effectiveRede = redeParam;
+    else effectiveRede = hasOwnNetwork ? "minha" : "todas";
+  } else {
+    effectiveRede = "minha";
+  }
+  const scopeRootId =
+    effectiveRede === "todas" ? null : effectiveRede === "minha" ? currentMemberId : effectiveRede;
+
+  // Discipuladores cujos vínculos pertencem ao escopo (raiz + descendentes quando "completa").
+  let scopeDisciplerIds: string[] | null = null;
+  if (scopeRootId) {
+    if (abrangencia === "direta") {
+      scopeDisciplerIds = [scopeRootId];
+    } else {
+      const visited = new Set<string>([scopeRootId]);
+      const queue = [scopeRootId];
+      while (queue.length) {
+        const current = queue.shift() as string;
+        for (const child of childrenByDiscipler.get(current) ?? []) {
+          if (!visited.has(child)) {
+            visited.add(child);
+            queue.push(child);
+          }
+        }
+      }
+      scopeDisciplerIds = Array.from(visited);
+    }
+  } else if (effectiveRede !== "todas") {
+    // Usuário sem membro vinculado em "Minha Rede": escopo vazio (sem fallback para outras redes).
+    scopeDisciplerIds = [];
+  }
+  const scopeWhere: Prisma.DiscipleshipWhereInput =
+    scopeDisciplerIds === null ? {} : { disciplerId: { in: scopeDisciplerIds } };
+  const meetingScopeWhere: Prisma.DiscipleshipMeetingWhereInput =
+    scopeDisciplerIds === null
+      ? {}
+      : { discipleship: { disciplerId: { in: scopeDisciplerIds } } };
+
+  // Ausências consecutivas por vínculo ativo: somente encontros concluídos com presença informada.
+  const [attendanceRows, activeBondIds] = await Promise.all([
+    prisma.discipleshipMeeting.findMany({
+      where: {
+        status: "COMPLETED",
+        attendance: { not: null },
+        discipleship: { status: "ACTIVE", ...scopeWhere },
+      },
+      orderBy: { meetingAt: "desc" },
+      select: { discipleshipId: true, attendance: true, meetingAt: true },
+    }),
+    prisma.discipleship.findMany({
+      where: { status: "ACTIVE", ...scopeWhere },
+      select: { id: true },
+    }),
+  ]);
+
+  const consecutiveAbsences = new Map<string, number>();
+  const lastPresenceByBond = new Map<string, Date>();
+  {
+    const stopped = new Set<string>();
+    for (const row of attendanceRows) {
+      if (row.attendance === true) {
+        if (!lastPresenceByBond.has(row.discipleshipId)) {
+          lastPresenceByBond.set(row.discipleshipId, row.meetingAt);
+        }
+        stopped.add(row.discipleshipId);
+        continue;
+      }
+      if (!stopped.has(row.discipleshipId)) {
+        consecutiveAbsences.set(
+          row.discipleshipId,
+          (consecutiveAbsences.get(row.discipleshipId) ?? 0) + 1,
+        );
+      }
+    }
+  }
+
+  const regularBondIds: string[] = [];
+  const attentionBondIds: string[] = [];
+  const criticalBondIds: string[] = [];
+  for (const bond of activeBondIds) {
+    const absences = consecutiveAbsences.get(bond.id) ?? 0;
+    if (absences >= 3) criticalBondIds.push(bond.id);
+    else if (absences === 2) attentionBondIds.push(bond.id);
+    else regularBondIds.push(bond.id);
+  }
+  const presencaBondIds =
+    presencaFilter === "regular"
+      ? regularBondIds
+      : presencaFilter === "atencao"
+        ? attentionBondIds
+        : presencaFilter === "critico"
+          ? criticalBondIds
+          : null;
 
   const memberRelationSelect = {
     id: true,
@@ -648,6 +838,7 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
 
   const listWhere: Prisma.DiscipleshipWhereInput = {
     AND: [
+      scopeWhere,
       listStatus === "active"
         ? { status: "ACTIVE" }
         : listStatus === "paused"
@@ -656,6 +847,7 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
             ? { status: { in: ["FINISHED", "TRANSFERRED"] } }
             : {},
       disciplerFilter ? { disciplerId: disciplerFilter } : {},
+      presencaBondIds ? { id: { in: presencaBondIds } } : {},
       ...(searchOr.length ? [{ OR: searchOr }] : []),
     ],
   };
@@ -664,12 +856,12 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
     members,
     rows,
     meetings,
-    activeGraphRows,
     totalFiltered,
     totalActive,
     totalPaused,
     totalFinished,
     activeDisciplerIds,
+    totalMeetingsCompleted,
   ] = await Promise.all([
     prisma.member.findMany({
       orderBy: { fullName: "asc" },
@@ -686,6 +878,7 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
       },
     }),
     prisma.discipleship.findMany({
+      where: scopeWhere,
       orderBy: { updatedAt: "desc" },
       take: 250,
       include: {
@@ -694,6 +887,7 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
       },
     }),
     prisma.discipleshipMeeting.findMany({
+      where: meetingScopeWhere,
       orderBy: { meetingAt: "desc" },
       take: 200,
       include: {
@@ -709,18 +903,17 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
         },
       },
     }),
-    prisma.discipleship.findMany({
-      where: { status: "ACTIVE" },
-      select: { disciplerId: true, discipleId: true },
-    }),
     prisma.discipleship.count({ where: listWhere }),
-    prisma.discipleship.count({ where: { status: "ACTIVE" } }),
-    prisma.discipleship.count({ where: { status: "PAUSED" } }),
-    prisma.discipleship.count({ where: { status: "FINISHED" } }),
+    prisma.discipleship.count({ where: { AND: [{ status: "ACTIVE" }, scopeWhere] } }),
+    prisma.discipleship.count({ where: { AND: [{ status: "PAUSED" }, scopeWhere] } }),
+    prisma.discipleship.count({ where: { AND: [{ status: "FINISHED" }, scopeWhere] } }),
     prisma.discipleship.findMany({
-      where: { status: "ACTIVE" },
+      where: { AND: [{ status: "ACTIVE" }, scopeWhere] },
       select: { disciplerId: true },
       distinct: ["disciplerId"],
+    }),
+    prisma.discipleshipMeeting.count({
+      where: { AND: [{ status: "COMPLETED" }, meetingScopeWhere] },
     }),
   ]);
 
@@ -738,7 +931,7 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
     },
   });
 
-  const detailRow = selectedBondId
+  const detailRowRaw = selectedBondId
     ? await prisma.discipleship.findUnique({
         where: { id: selectedBondId },
         include: {
@@ -747,6 +940,12 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
         },
       })
     : null;
+  // Um vínculo fora da rede selecionada (ou fora da rede do usuário) não pode ser aberto.
+  const detailRow =
+    detailRowRaw &&
+    (scopeDisciplerIds === null || scopeDisciplerIds.includes(detailRowRaw.disciplerId))
+      ? detailRowRaw
+      : null;
 
   const detailMeetings = detailRow
     ? await prisma.discipleshipMeeting.findMany({
@@ -774,12 +973,23 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
     .map(([value, label]) => ({ value, label }))
     .sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
 
+  // Opções do seletor "Visualizar Rede": todos os discipuladores com vínculos ativos (uso administrativo).
+  const memberNameById = new Map(members.map((member) => [member.id, member.fullName]));
+  const scopeDisciplerOptions = Array.from(
+    new Set(activeGraphRows.map((row) => row.disciplerId)),
+  )
+    .map((id) => ({ value: id, label: memberNameById.get(id) ?? "Membro" }))
+    .sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
+
   const buildListHref = (overrides: Record<string, string | null> = {}) => {
     const params = new URLSearchParams();
     params.set("view", "overview");
     if (q) params.set("q", q);
     if (listStatus !== "active") params.set("status", listStatus);
     if (disciplerFilter) params.set("discipulador", disciplerFilter);
+    if (presencaFilter !== "todos") params.set("presenca", presencaFilter);
+    if (redeParam) params.set("rede", redeParam);
+    if (abrangencia === "direta") params.set("abrangencia", "direta");
     if (take !== 20) params.set("take", String(take));
     if (page > 1) params.set("page", String(page));
     if (selectedBondId) params.set("vinculo", selectedBondId);
@@ -822,8 +1032,12 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
     }
   }
 
+  const scopeDisciplerSet = scopeDisciplerIds ? new Set(scopeDisciplerIds) : null;
+  const scopedGraphRows = scopeDisciplerSet
+    ? activeGraphRows.filter((row) => scopeDisciplerSet.has(row.disciplerId))
+    : activeGraphRows;
   const networksGrowing = Array.from(
-    new Set(activeGraphRows.map((row) => row.disciplerId)),
+    new Set(scopedGraphRows.map((row) => row.disciplerId)),
   ).filter((memberId) => countDescendants(memberId) >= 2).length;
 
   const months = Array.from({ length: 6 }, (_, index) => {
@@ -905,12 +1119,58 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
   );
   const defaultTransferRelationshipId = transferCandidates[0]?.id ?? activeRows[0]?.id ?? "";
 
+  // Participantes autorizados no registro de encontro: sempre os discípulos diretos da rede em foco.
+  const registerRows = canWrite
+    ? scopeRootId
+      ? activeRows.filter((row) => row.disciplerId === scopeRootId)
+      : activeRows
+    : activeRows.filter((row) => row.disciplerId === currentMemberId);
+
+  const scopeIsEmpty = scopeDisciplerIds !== null && activeBondIds.length === 0;
+  const emptyNetworkMessage =
+    effectiveRede === "minha"
+      ? "Você ainda não possui discípulos vinculados à sua rede."
+      : "Este discipulador ainda não possui discípulos vinculados à rede.";
+  const showEmptyNetworkState =
+    scopeIsEmpty &&
+    listStatus === "active" &&
+    !q &&
+    !disciplerFilter &&
+    presencaFilter === "todos";
+
+  // Situação de presença do vínculo em detalhe.
+  const detailAbsences = detailRow ? (consecutiveAbsences.get(detailRow.id) ?? 0) : 0;
+  const detailPresence = {
+    absences: detailAbsences,
+    ...(detailAbsences >= 3
+      ? {
+          statusLabel: "CRÍTICO — VERMELHO",
+          className: "bg-[rgba(244,63,94,0.15)] text-[rgb(244,63,94)]",
+        }
+      : detailAbsences === 2
+        ? {
+            statusLabel: "ATENÇÃO — AMARELO",
+            className: "bg-[rgba(249,115,22,0.15)] text-[rgb(249,115,22)]",
+          }
+        : { statusLabel: "REGULAR", className: "bg-muted/10 text-muted-foreground" }),
+  };
+
+  const scopeParams = new URLSearchParams();
+  if (redeParam) scopeParams.set("rede", redeParam);
+  if (abrangencia === "direta") scopeParams.set("abrangencia", "direta");
+  const scopeQuery = scopeParams.toString();
+  const withScope = (href: string) =>
+    scopeQuery ? `${href}${href.includes("?") ? "&" : "?"}${scopeQuery}` : href;
+  const networkHref = scopeRootId
+    ? `/admin/discipleships/network?root=${scopeRootId}`
+    : "/admin/discipleships/network";
+
   const internalMenu = [
-    { key: "overview", label: "Visão Geral", icon: <Waypoints className="size-4" />, href: "/admin/discipleships?view=overview" },
-    { key: "network", label: "Rede de Discipulado", icon: <GitBranchPlus className="size-4" />, href: "/admin/discipleships/network" },
-    { key: "meetings", label: "Encontros", icon: <CalendarClock className="size-4" />, href: "/admin/discipleships?view=meetings" },
-    { key: "reports", label: "Relatórios", icon: <ChartColumn className="size-4" />, href: "/admin/discipleships?view=reports" },
-    { key: "settings", label: "Configurações", icon: <Settings className="size-4" />, href: "/admin/discipleships?view=settings" },
+    { key: "overview", label: "Visão Geral", icon: <Waypoints className="size-4" />, href: withScope("/admin/discipleships?view=overview") },
+    { key: "network", label: "Rede de Discipulado", icon: <GitBranchPlus className="size-4" />, href: networkHref },
+    { key: "meetings", label: "Encontros", icon: <CalendarClock className="size-4" />, href: withScope("/admin/discipleships?view=meetings") },
+    { key: "reports", label: "Relatórios", icon: <ChartColumn className="size-4" />, href: withScope("/admin/discipleships?view=reports") },
+    { key: "settings", label: "Configurações", icon: <Settings className="size-4" />, href: withScope("/admin/discipleships?view=settings") },
   ] satisfies Array<{ key: string; label: string; icon: React.ReactNode; href: string }>;
 
   return (
@@ -928,6 +1188,20 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
           <Badge className="bg-[rgba(34,197,94,0.12)]">Transferência com histórico</Badge>
         </div>
       </div>
+
+      <Card className="p-4">
+        <NetworkScopeControls
+          canViewAll={canViewAll}
+          disciplerOptions={canViewAll ? scopeDisciplerOptions : []}
+          effectiveRede={effectiveRede}
+          effectiveAbrangencia={abrangencia}
+        />
+        {showEmptyNetworkState ? (
+          <div className="mt-3 rounded-2xl border border-[rgba(249,115,22,0.35)] bg-[rgba(249,115,22,0.08)] px-4 py-3 text-sm text-muted-foreground">
+            {emptyNetworkMessage}
+          </div>
+        ) : null}
+      </Card>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         <StatCard
@@ -971,6 +1245,27 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
           subtitle="Discípulos ativos por base"
           tone="blue"
           icon={<CircleGauge className="size-5" />}
+        />
+        <StatCard
+          title="Encontros realizados"
+          value={totalMeetingsCompleted}
+          subtitle="Encontros concluídos na rede"
+          tone="emerald"
+          icon={<CalendarClock className="size-5" />}
+        />
+        <StatCard
+          title="Atenção — 2 ausências"
+          value={attentionBondIds.length}
+          subtitle="Discípulos com 2 ausências consecutivas"
+          tone="orange"
+          icon={<TriangleAlert className="size-5" />}
+        />
+        <StatCard
+          title="Crítico — 3+ ausências"
+          value={criticalBondIds.length}
+          subtitle="Discípulos que precisam de atenção"
+          tone="red"
+          icon={<TriangleAlert className="size-5" />}
         />
       </div>
 
@@ -1077,21 +1372,90 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
                     </div>
                   </div>
 
+                  <div className="mt-4 rounded-2xl border border-border/70 bg-muted/10 p-4">
+                    <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Participação nos Encontros
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <span className="text-xs text-muted-foreground">Status:</span>
+                      <Badge className={detailPresence.className}>{detailPresence.statusLabel}</Badge>
+                      <span className="text-sm text-muted-foreground">
+                        {detailPresence.absences >= 2
+                          ? `${detailPresence.absences} ausências consecutivas`
+                          : detailPresence.absences === 1
+                            ? "1 ausência consecutiva"
+                            : "Nenhuma ausência consecutiva"}
+                      </span>
+                    </div>
+                    {detailPresence.absences >= 3 ? (
+                      <div className="mt-2 text-sm font-medium text-[rgb(244,63,94)]">
+                        {detailPresence.absences} ausências consecutivas. Este discípulo precisa de atenção.
+                      </div>
+                    ) : null}
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      Última participação:{" "}
+                      {lastPresenceByBond.get(detailRow.id)
+                        ? formatDate(lastPresenceByBond.get(detailRow.id))
+                        : "—"}
+                    </div>
+
+                    <div className="mt-3 overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-border/70 text-left text-xs uppercase tracking-wider text-muted-foreground">
+                            <th className="py-2 pr-3 font-medium">Data</th>
+                            <th className="py-2 pr-3 font-medium">Encontro</th>
+                            <th className="py-2 font-medium">Presença</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {detailMeetings.map((meeting) => (
+                            <tr key={meeting.id} className="border-b border-border/50 last:border-0">
+                              <td className="py-2 pr-3 text-muted-foreground">
+                                {formatDate(meeting.meetingAt)}
+                              </td>
+                              <td className="max-w-56 truncate py-2 pr-3">
+                                {meeting.theme || "Encontro de discipulado"}
+                              </td>
+                              <td className="py-2">
+                                <MeetingPresenceBadge
+                                  status={meeting.status}
+                                  attendance={meeting.attendance}
+                                />
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {!detailMeetings.length ? (
+                        <div className="py-4 text-center text-sm text-muted-foreground">
+                          Nenhum encontro registrado neste vínculo.
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+
                   <div className="mt-4 flex flex-wrap gap-2">
-                    <Link href={`/admin/discipleships/network?member=${detailRow.discipleId}`}>
+                    <Link
+                      href={`/admin/discipleships/network?member=${detailRow.discipleId}${scopeRootId ? `&root=${scopeRootId}` : ""}`}
+                    >
                       <Button type="button">
                         <Waypoints className="mr-2 size-4" />
                         Ver na rede
                       </Button>
                     </Link>
-                    <Link href={`?view=meetings&member=${detailRow.discipleId}#discipleship-meetings`}>
+                    <Link
+                      href={`?view=meetings&member=${detailRow.discipleId}${scopeQuery ? `&${scopeQuery}` : ""}#discipleship-meetings`}
+                    >
                       <Button type="button" variant="secondary">
                         <CalendarClock className="mr-2 size-4" />
                         Ver histórico
                       </Button>
                     </Link>
                     {canWrite ? (
-                      <Link href={`?view=overview&member=${detailRow.discipleId}#discipleship-transfer-form`}>
+                      <Link
+                        href={`?view=overview&member=${detailRow.discipleId}${scopeQuery ? `&${scopeQuery}` : ""}#discipleship-transfer-form`}
+                      >
                         <Button type="button" variant="outline">
                           <ArrowRightLeft className="mr-2 size-4" />
                           Transferir discípulo
@@ -1206,6 +1570,7 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
                         <tr className="border-b border-border/70 text-left text-xs uppercase tracking-wider text-muted-foreground">
                           <th className="py-3 pr-3 font-medium">Discípulo</th>
                           <th className="py-3 pr-3 font-medium">Discipulador</th>
+                          <th className="py-3 pr-3 font-medium">Presença</th>
                           <th className="py-3 pr-3 font-medium">Status</th>
                           <th className="py-3 pr-3 font-medium">Nível</th>
                           <th className="py-3 pr-3 font-medium">Progresso</th>
@@ -1219,6 +1584,20 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
                           <tr key={row.id} className="border-b border-border/50 last:border-0">
                             <td className="max-w-44 truncate py-3 pr-3 font-medium">{row.disciple.fullName}</td>
                             <td className="max-w-44 truncate py-3 pr-3 text-muted-foreground">{row.discipler.fullName}</td>
+                            <td className="py-3 pr-3">
+                              {row.status === "ACTIVE" ? (
+                                (() => {
+                                  const presence = presenceBadge(
+                                    consecutiveAbsences.get(row.id) ?? 0,
+                                  );
+                                  return (
+                                    <Badge className={presence.className}>{presence.label}</Badge>
+                                  );
+                                })()
+                              ) : (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              )}
+                            </td>
                             <td className="py-3 pr-3"><Badge>{statusLabels[row.status]}</Badge></td>
                             <td className="py-3 pr-3 text-muted-foreground">{row.level}</td>
                             <td className="py-3 pr-3">
@@ -1248,7 +1627,9 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
                     </table>
                     {!listRows.length ? (
                       <div className="py-8 text-center text-sm text-muted-foreground">
-                        Nenhum vínculo encontrado com os filtros atuais.
+                        {showEmptyNetworkState
+                          ? emptyNetworkMessage
+                          : "Nenhum vínculo encontrado com os filtros atuais."}
                       </div>
                     ) : null}
                   </div>
@@ -1270,6 +1651,18 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
                             Nível {row.level} • Progresso {row.progress}% • Início {formatDate(row.startedAt)}
                             {row.nextMeetingAt ? ` • Próximo ${formatDate(row.nextMeetingAt)}` : ""}
                           </div>
+                          {row.status === "ACTIVE" ? (
+                            <div className="mt-2">
+                              {(() => {
+                                const presence = presenceBadge(
+                                  consecutiveAbsences.get(row.id) ?? 0,
+                                );
+                                return (
+                                  <Badge className={presence.className}>{presence.label}</Badge>
+                                );
+                              })()}
+                            </div>
+                          ) : null}
                           <Link href={buildListHref({ vinculo: row.id })} className="mt-3 block">
                             <Button type="button" size="sm" variant="secondary" className="w-full">
                               <Eye className="mr-1.5 size-4" />
@@ -1280,7 +1673,9 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
                       ))
                     ) : (
                       <div className="py-8 text-center text-sm text-muted-foreground">
-                        Nenhum vínculo encontrado com os filtros atuais.
+                        {showEmptyNetworkState
+                          ? emptyNetworkMessage
+                          : "Nenhum vínculo encontrado com os filtros atuais."}
                       </div>
                     )}
                   </div>
@@ -1439,12 +1834,12 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
           ) : null}
 
           {view === "meetings" ? (
-            <div className={cn("grid grid-cols-1 gap-4", canWrite ? "xl:grid-cols-[380px_minmax(0,1fr)]" : "")}>
-              {canWrite ? (
+            <div className={cn("grid grid-cols-1 gap-4", canRegisterMeeting ? "xl:grid-cols-[380px_minmax(0,1fr)]" : "")}>
+              {canRegisterMeeting ? (
               <Card className="p-5" id="discipleship-meetings">
                 <div className="text-sm font-semibold">Registrar encontro</div>
                 <div className="mt-1 text-xs text-muted-foreground">
-                  Atualize histórico, próxima reunião e evolução do discipulado.
+                  Atualize histórico, próxima reunião e evolução do discipulado — somente discípulos diretos da rede em foco.
                 </div>
                 <form action={registerMeeting} className="mt-4 space-y-3">
                   <div className="space-y-2">
@@ -1454,15 +1849,19 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
                       className="h-11 w-full rounded-2xl border border-border/80 bg-background px-3 text-sm"
                       defaultValue={
                         selectedMemberId
-                          ? rows.find((row) => row.discipleId === selectedMemberId)?.id ?? rows[0]?.id ?? ""
-                          : rows[0]?.id ?? ""
+                          ? registerRows.find((row) => row.discipleId === selectedMemberId)?.id ?? registerRows[0]?.id ?? ""
+                          : registerRows[0]?.id ?? ""
                       }
                     >
-                      {rows.map((row) => (
-                        <option key={row.id} value={row.id}>
-                          {row.discipler.fullName} → {row.disciple.fullName}
-                        </option>
-                      ))}
+                      {registerRows.length ? (
+                        registerRows.map((row) => (
+                          <option key={row.id} value={row.id}>
+                            {row.discipler.fullName} → {row.disciple.fullName}
+                          </option>
+                        ))
+                      ) : (
+                        <option value="">Nenhum discípulo direto disponível nesta rede</option>
+                      )}
                     </select>
                   </div>
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -1470,15 +1869,27 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
                     <Input name="nextMeetingAt" type="date" />
                   </div>
                   <Input name="theme" placeholder="Tema do encontro" />
-                  <select
-                    name="status"
-                    className="h-11 w-full rounded-2xl border border-border/80 bg-background px-3 text-sm"
-                    defaultValue="COMPLETED"
-                  >
-                    <option value="COMPLETED">Concluído</option>
-                    <option value="SCHEDULED">Agendado</option>
-                    <option value="MISSED">Não realizado</option>
-                  </select>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <select
+                      name="status"
+                      className="h-11 w-full rounded-2xl border border-border/80 bg-background px-3 text-sm"
+                      defaultValue="COMPLETED"
+                    >
+                      <option value="COMPLETED">Concluído</option>
+                      <option value="SCHEDULED">Agendado</option>
+                      <option value="MISSED">Não realizado</option>
+                    </select>
+                    <select
+                      name="attendance"
+                      className="h-11 w-full rounded-2xl border border-border/80 bg-background px-3 text-sm"
+                      defaultValue="present"
+                      aria-label="Presença do discípulo no encontro"
+                    >
+                      <option value="present">Presença: Presente</option>
+                      <option value="absent">Presença: Ausente</option>
+                      <option value="unknown">Presença: Não informado</option>
+                    </select>
+                  </div>
                   <Input name="progress" type="number" min="0" max="100" placeholder="Progresso atualizado %" />
                   <textarea
                     name="notes"
@@ -1518,7 +1929,20 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
                               {meeting.nextMeetingAt ? ` • Próximo ${formatDate(meeting.nextMeetingAt)}` : ""}
                             </div>
                           </div>
-                          <Badge>{meetingStatusLabels[meeting.status]}</Badge>
+                          <div className="flex flex-wrap gap-2">
+                            <Badge>{meetingStatusLabels[meeting.status]}</Badge>
+                            {meeting.status === "COMPLETED" && meeting.attendance !== null ? (
+                              <Badge
+                                className={
+                                  meeting.attendance
+                                    ? "bg-[rgba(34,197,94,0.15)] text-[rgb(34,197,94)]"
+                                    : "bg-[rgba(244,63,94,0.15)] text-[rgb(244,63,94)]"
+                                }
+                              >
+                                {meeting.attendance ? "Presente" : "Ausente"}
+                              </Badge>
+                            ) : null}
+                          </div>
                         </div>
                         <div className="mt-3 text-sm font-semibold">{meeting.theme || "Encontro de discipulado"}</div>
                         {meeting.notes ? (

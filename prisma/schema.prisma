@@ -667,6 +667,7 @@ model DiscipleshipMeeting {
   notes          String?
   nextMeetingAt  DateTime?
   status         DiscipleshipMeetingStatus @default(COMPLETED)
+  attendance     Boolean?
   createdById    String?
   createdAt      DateTime                 @default(now())
 

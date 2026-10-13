@@ -48,13 +48,14 @@ export function DiscipleshipsListControls({
 
   const status = searchParams.get("status") ?? "active";
   const discipler = searchParams.get("discipulador") ?? "all";
+  const presenca = searchParams.get("presenca") ?? "todos";
   const take = searchParams.get("take") ?? "20";
 
   const selectClass =
     "h-10 w-full rounded-xl border border-border bg-background px-3 text-sm";
 
   return (
-    <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_170px_210px_110px]">
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_150px_190px_170px_110px]">
       <input
         value={query}
         onChange={(event) => handleQueryChange(event.target.value)}
@@ -95,6 +96,22 @@ export function DiscipleshipsListControls({
             {option.label}
           </option>
         ))}
+      </select>
+      <select
+        value={presenca}
+        onChange={(event) =>
+          replaceWith({
+            presenca: event.target.value === "todos" ? null : event.target.value,
+            page: null,
+          })
+        }
+        className={selectClass}
+        aria-label="Filtrar por situação de presença"
+      >
+        <option value="todos">Presença: Todos</option>
+        <option value="regular">Regular</option>
+        <option value="atencao">Atenção (2 faltas)</option>
+        <option value="critico">Crítico (3+ faltas)</option>
       </select>
       <select
         value={take}

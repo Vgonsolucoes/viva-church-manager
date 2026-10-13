@@ -37,8 +37,16 @@ type NavItem = {
   href: string;
   label: string;
   icon: React.ReactNode;
-  permission: Parameters<typeof hasPermission>[1];
+  permission:
+    | Parameters<typeof hasPermission>[1]
+    | Array<Parameters<typeof hasPermission>[1]>;
 };
+
+function allowsItem(roles: RoleKey[], permission: NavItem["permission"]) {
+  return Array.isArray(permission)
+    ? permission.some((p) => hasPermission(roles, p))
+    : hasPermission(roles, permission);
+}
 
 const navItems: NavItem[] = [
   {
@@ -150,7 +158,7 @@ const extraItems: NavItem[] = [
     href: "/admin/discipleships",
     label: "Discipulados",
     icon: <Waypoints className="size-4" />,
-    permission: "discipleships:read",
+    permission: ["discipleships:read", "discipleship:my:read"],
   },
   {
     href: "/admin/budget",
@@ -181,8 +189,8 @@ export function AdminShell(props: {
   const [query, setQuery] = useState("");
   const [range, setRange] = useState<"today" | "week" | "month">("today");
 
-  const allowed = navItems.filter((i) => hasPermission(props.user.roles, i.permission));
-  const allowedExtra = extraItems.filter((i) => hasPermission(props.user.roles, i.permission));
+  const allowed = navItems.filter((i) => allowsItem(props.user.roles, i.permission));
+  const allowedExtra = extraItems.filter((i) => allowsItem(props.user.roles, i.permission));
 
   const initials = useMemo(() => {
     const name = props.user.name?.trim() || props.user.email?.trim() || "U";
