@@ -106,7 +106,12 @@ async function main() {
     checkInIds: [] as string[],
     projectionMessageIds: [] as string[],
   };
-  let savedPrintConfig: { enabled: boolean; labelWidthMm: number; copies: number } | null = null;
+  let savedPrintConfig: {
+    enabled: boolean;
+    labelWidthMm: number;
+    labelHeightMm: number;
+    copies: number;
+  } | null = null;
 
   try {
     console.log("\n[1] Regras puras de horário/data (fuso America/Sao_Paulo)");
@@ -193,7 +198,7 @@ async function main() {
 
     console.log("\n[5] Impressão — fila desacoplada (spec passos 10–11)");
     savedPrintConfig = await getKidsPrintConfig();
-    await setKidsPrintConfig({ enabled: true, labelWidthMm: 62, copies: 1 });
+    await setKidsPrintConfig({ enabled: true, labelWidthMm: 100, labelHeightMm: 50, copies: 1 });
 
     const enqueued = await enqueueKidsPrintJobsForCheckin(checkIn.id);
     check("Duas etiquetas enfileiradas", enqueued === 2, `enfileiradas: ${enqueued}`);

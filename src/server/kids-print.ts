@@ -7,6 +7,7 @@ import { prisma } from "@/server/db";
 
 export const KIDS_PRINT_ENABLED_KEY = "kidsPrintEnabled";
 export const KIDS_PRINT_LABEL_WIDTH_KEY = "kidsPrintLabelWidthMm";
+export const KIDS_PRINT_LABEL_HEIGHT_KEY = "kidsPrintLabelHeightMm";
 export const KIDS_PRINT_COPIES_KEY = "kidsPrintCopies";
 
 export const KIDS_LABEL_TYPES = ["CHILD", "GUARDIAN"] as const;
@@ -24,12 +25,14 @@ export type KidsPrintJobStatus =
 export type KidsPrintConfig = {
   enabled: boolean;
   labelWidthMm: number;
+  labelHeightMm: number;
   copies: number;
 };
 
 const DEFAULT_CONFIG: KidsPrintConfig = {
   enabled: true,
-  labelWidthMm: 62,
+  labelWidthMm: 100,
+  labelHeightMm: 50,
   copies: 1,
 };
 
@@ -51,7 +54,14 @@ export async function getKidsPrintConfig(): Promise<KidsPrintConfig> {
   try {
     const rows = await prisma.appSetting.findMany({
       where: {
-        key: { in: [KIDS_PRINT_ENABLED_KEY, KIDS_PRINT_LABEL_WIDTH_KEY, KIDS_PRINT_COPIES_KEY] },
+        key: {
+          in: [
+            KIDS_PRINT_ENABLED_KEY,
+            KIDS_PRINT_LABEL_WIDTH_KEY,
+            KIDS_PRINT_LABEL_HEIGHT_KEY,
+            KIDS_PRINT_COPIES_KEY,
+          ],
+        },
       },
       select: { key: true, value: true },
     });
@@ -61,6 +71,8 @@ export async function getKidsPrintConfig(): Promise<KidsPrintConfig> {
       map.get(KIDS_PRINT_ENABLED_KEY) ?? process.env.KIDS_PRINT_ENABLED ?? null;
     const widthRaw =
       map.get(KIDS_PRINT_LABEL_WIDTH_KEY) ?? process.env.KIDS_PRINT_LABEL_WIDTH_MM ?? null;
+    const heightRaw =
+      map.get(KIDS_PRINT_LABEL_HEIGHT_KEY) ?? process.env.KIDS_PRINT_LABEL_HEIGHT_MM ?? null;
     const copiesRaw =
       map.get(KIDS_PRINT_COPIES_KEY) ?? process.env.KIDS_PRINT_COPIES ?? null;
 
@@ -71,6 +83,12 @@ export async function getKidsPrintConfig(): Promise<KidsPrintConfig> {
         30,
         120,
         DEFAULT_CONFIG.labelWidthMm,
+      ),
+      labelHeightMm: clampInt(
+        Number(heightRaw),
+        20,
+        100,
+        DEFAULT_CONFIG.labelHeightMm,
       ),
       copies: clampInt(Number(copiesRaw), 1, 4, DEFAULT_CONFIG.copies),
     };
@@ -83,6 +101,7 @@ export async function setKidsPrintConfig(config: KidsPrintConfig): Promise<void>
   const entries: Array<[string, string]> = [
     [KIDS_PRINT_ENABLED_KEY, config.enabled ? "true" : "false"],
     [KIDS_PRINT_LABEL_WIDTH_KEY, String(config.labelWidthMm)],
+    [KIDS_PRINT_LABEL_HEIGHT_KEY, String(config.labelHeightMm)],
     [KIDS_PRINT_COPIES_KEY, String(config.copies)],
   ];
   await prisma.$transaction(

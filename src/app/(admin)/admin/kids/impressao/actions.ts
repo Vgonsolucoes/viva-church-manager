@@ -30,6 +30,7 @@ async function requireKidsWrite() {
 const configSchema = z.object({
   enabled: z.enum(["on", "off"]).default("off"),
   labelWidthMm: z.coerce.number().int().min(30).max(120),
+  labelHeightMm: z.coerce.number().int().min(20).max(100),
   copies: z.coerce.number().int().min(1).max(4),
 });
 
@@ -43,6 +44,7 @@ export async function saveKidsPrintConfig(
   const parsed = configSchema.safeParse({
     enabled: formData.get("enabled") === "on" ? "on" : "off",
     labelWidthMm: formData.get("labelWidthMm"),
+    labelHeightMm: formData.get("labelHeightMm"),
     copies: formData.get("copies"),
   });
   if (!parsed.success) {
@@ -52,6 +54,7 @@ export async function saveKidsPrintConfig(
   const config = {
     enabled: parsed.data.enabled === "on",
     labelWidthMm: parsed.data.labelWidthMm,
+    labelHeightMm: parsed.data.labelHeightMm,
     copies: parsed.data.copies,
   };
 

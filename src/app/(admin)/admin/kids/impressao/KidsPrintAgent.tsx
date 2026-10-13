@@ -22,7 +22,7 @@ type PendingJob = {
 };
 
 type PendingResponse = {
-  config: { labelWidthMm: number; enabled: boolean };
+  config: { labelWidthMm: number; labelHeightMm: number; enabled: boolean };
   jobs: PendingJob[];
 };
 
@@ -42,7 +42,8 @@ export function KidsPrintAgent() {
   const [active, setActive] = useState(false);
   const [status, setStatus] = useState<AgentStatus>("idle");
   const [jobs, setJobs] = useState<PendingJob[]>([]);
-  const [labelWidthMm, setLabelWidthMm] = useState(62);
+  const [labelWidthMm, setLabelWidthMm] = useState(100);
+  const [labelHeightMm, setLabelHeightMm] = useState(50);
   const [lastError, setLastError] = useState<string | null>(null);
   const [lastPollAt, setLastPollAt] = useState<Date | null>(null);
   const printingRef = useRef(false);
@@ -129,6 +130,7 @@ export function KidsPrintAgent() {
         setLastPollAt(new Date());
         setLastError(null);
         setLabelWidthMm(data.config.labelWidthMm);
+        setLabelHeightMm(data.config.labelHeightMm);
         if (data.jobs.length > 0) {
           printingRef.current = true;
           setJobs(data.jobs);
@@ -239,13 +241,18 @@ export function KidsPrintAgent() {
         </div>
       ) : null}
 
-      {/* Área exclusiva de impressão — invisível em tela, visível no @media print */}
+      {/* Área exclusiva de impressão — invisível em tela, visível no @media print.
+          Cada etiqueta é uma página lógica de largura × altura exatos (padrão 100 × 50 mm):
+          a quebra de página faz a impressora avançar exatamente uma etiqueta adesiva.
+          A última etiqueta não força quebra, evitando página/etiqueta em branco no final.
+          O corte físico (guilhotina) é responsabilidade do driver/equipamento — o
+          navegador não envia comandos de corte. */}
       <style>{`
         @media screen {
           .kids-print-area { display: none !important; }
         }
         @media print {
-          @page { size: ${labelWidthMm}mm auto; margin: 0; }
+          @page { size: ${labelWidthMm}mm ${labelHeightMm}mm; margin: 0; }
           html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; }
           body * { visibility: hidden !important; }
           .kids-print-area, .kids-print-area * { visibility: visible !important; }
@@ -258,14 +265,20 @@ export function KidsPrintAgent() {
           }
           .kids-label {
             width: ${labelWidthMm}mm;
+            height: ${labelHeightMm}mm;
             box-sizing: border-box;
-            padding: 3mm 2mm;
+            padding: 2mm 3mm;
             page-break-after: always;
             break-after: page;
             break-inside: avoid;
+            overflow: hidden;
             text-align: center;
             font-family: Arial, Helvetica, sans-serif;
             color: #000;
+          }
+          .kids-label:last-child {
+            page-break-after: auto;
+            break-after: auto;
           }
           .kids-label-header {
             font-size: 3mm;
@@ -276,10 +289,10 @@ export function KidsPrintAgent() {
             padding: 1mm 0;
           }
           .kids-label-child {
-            font-size: 6.5mm;
+            font-size: 6mm;
             font-weight: 800;
             line-height: 1.1;
-            margin-top: 2mm;
+            margin-top: 1.5mm;
             text-transform: uppercase;
             word-break: break-word;
           }
@@ -287,14 +300,14 @@ export function KidsPrintAgent() {
             font-size: 4.5mm;
             font-weight: 700;
             line-height: 1.15;
-            margin-top: 2mm;
+            margin-top: 1.5mm;
             word-break: break-word;
           }
-          .kids-label-meta { font-size: 3mm; margin-top: 2mm; }
+          .kids-label-meta { font-size: 3mm; margin-top: 1.5mm; }
           .kids-label-meta strong { font-size: 3.8mm; font-weight: 700; }
-          .kids-label-code-label { font-size: 3mm; margin-top: 2mm; }
+          .kids-label-code-label { font-size: 3mm; margin-top: 1.5mm; }
           .kids-label-code {
-            font-size: 8mm;
+            font-size: 7.5mm;
             font-weight: 800;
             letter-spacing: 1mm;
             line-height: 1;

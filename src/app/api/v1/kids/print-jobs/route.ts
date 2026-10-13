@@ -24,7 +24,11 @@ export async function GET(req: Request) {
   ]);
 
   return NextResponse.json({
-    config: { labelWidthMm: config.labelWidthMm, enabled: config.enabled },
+    config: {
+      labelWidthMm: config.labelWidthMm,
+      labelHeightMm: config.labelHeightMm,
+      enabled: config.enabled,
+    },
     jobs: jobs.map((j) => ({
       id: j.id,
       labelType: j.labelType,

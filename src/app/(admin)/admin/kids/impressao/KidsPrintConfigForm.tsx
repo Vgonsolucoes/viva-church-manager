@@ -36,7 +36,7 @@ export function KidsPrintConfigForm({ config }: { config: KidsPrintConfig }) {
           </span>
         </label>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-3">
           <label className="block">
             <span className="text-xs font-medium text-muted-foreground">
               Largura da etiqueta (mm)
@@ -51,7 +51,25 @@ export function KidsPrintConfigForm({ config }: { config: KidsPrintConfig }) {
               className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-[#58a7ff]/60"
             />
             <span className="mt-1 block text-[11px] text-muted-foreground">
-              Ex.: 62 para bobinas Brother QL de 62mm.
+              Padrão: 100 mm.
+            </span>
+          </label>
+
+          <label className="block">
+            <span className="text-xs font-medium text-muted-foreground">
+              Altura da etiqueta (mm)
+            </span>
+            <input
+              type="number"
+              name="labelHeightMm"
+              min={20}
+              max={100}
+              step={1}
+              defaultValue={config.labelHeightMm}
+              className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-[#58a7ff]/60"
+            />
+            <span className="mt-1 block text-[11px] text-muted-foreground">
+              Padrão: 50 mm (etiqueta 100 × 50 mm).
             </span>
           </label>
 
@@ -69,9 +87,35 @@ export function KidsPrintConfigForm({ config }: { config: KidsPrintConfig }) {
               className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-[#58a7ff]/60"
             />
             <span className="mt-1 block text-[11px] text-muted-foreground">
-              Quantidade de vias de cada etiqueta (criança e responsável).
+              Vias de cada etiqueta (criança e responsável).
             </span>
           </label>
+        </div>
+
+        <div className="rounded-2xl border border-border bg-muted/10 p-4">
+          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Separação e corte das etiquetas
+          </div>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-muted-foreground">
+            <li>
+              <strong className="text-foreground">Separação por página/etiqueta:</strong>{" "}
+              cada etiqueta é impressa como uma página lógica de exatamente{" "}
+              {config.labelWidthMm} × {config.labelHeightMm} mm. A impressora avança a
+              mídia até a próxima etiqueta adesiva entre uma impressão e outra,
+              permitindo destacá-las individualmente.
+            </li>
+            <li>
+              <strong className="text-foreground">Corte automático (guilhotina):</strong>{" "}
+              depende do equipamento e é ativado no <em>driver da impressora no Windows</em>{" "}
+              (ex.: “Cut at end of page/document”). A impressão via navegador não envia
+              comandos de corte — por isso esta opção não é controlada aqui.
+            </li>
+            <li>
+              No driver, configure o tamanho da mídia para {config.labelWidthMm} ×{" "}
+              {config.labelHeightMm} mm, margens 0 e, se houver guilhotina, o corte ao
+              final de cada página.
+            </li>
+          </ul>
         </div>
       </div>
 
