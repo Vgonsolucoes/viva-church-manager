@@ -17,6 +17,11 @@ export function KidsPrintConfigForm({ config }: { config: KidsPrintConfig }) {
         Ajustes aplicados às próximas etiquetas geradas. Sem necessidade de
         redeploy.
       </p>
+      <div className="mt-3 rounded-2xl border border-border bg-muted/10 px-4 py-3 text-xs text-muted-foreground">
+        <span className="font-semibold text-foreground">Modelo de referência:</span>{" "}
+        Epson TM-T20X · bobina térmica de 80 mm · corte automático via driver
+        (quando suportado) · impressão automática pelo agente local desta página.
+      </div>
 
       <div className="mt-4 space-y-4">
         <label className="flex items-start gap-3">
@@ -51,7 +56,7 @@ export function KidsPrintConfigForm({ config }: { config: KidsPrintConfig }) {
               className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-[#58a7ff]/60"
             />
             <span className="mt-1 block text-[11px] text-muted-foreground">
-              Padrão: 100 mm.
+              Padrão: 80 mm (bobina da Epson TM-T20X).
             </span>
           </label>
 
@@ -69,7 +74,7 @@ export function KidsPrintConfigForm({ config }: { config: KidsPrintConfig }) {
               className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-[#58a7ff]/60"
             />
             <span className="mt-1 block text-[11px] text-muted-foreground">
-              Padrão: 50 mm (etiqueta 100 × 50 mm).
+              Padrão: 50 mm por etiqueta.
             </span>
           </label>
 
@@ -100,20 +105,25 @@ export function KidsPrintConfigForm({ config }: { config: KidsPrintConfig }) {
             <li>
               <strong className="text-foreground">Separação por página/etiqueta:</strong>{" "}
               cada etiqueta é impressa como uma página lógica de exatamente{" "}
-              {config.labelWidthMm} × {config.labelHeightMm} mm. A impressora avança a
-              mídia até a próxima etiqueta adesiva entre uma impressão e outra,
-              permitindo destacá-las individualmente.
+              {config.labelWidthMm} × {config.labelHeightMm} mm. A TM-T20X avança a
+              bobina entre uma etiqueta e outra, permitindo separá-las individualmente.
             </li>
             <li>
-              <strong className="text-foreground">Corte automático (guilhotina):</strong>{" "}
-              depende do equipamento e é ativado no <em>driver da impressora no Windows</em>{" "}
-              (ex.: “Cut at end of page/document”). A impressão via navegador não envia
-              comandos de corte — por isso esta opção não é controlada aqui.
+              <strong className="text-foreground">Corte entre criança e responsável:</strong>{" "}
+              ativado quando suportado pelo método de impressão — na TM-T20X é
+              configurado no <em>driver Epson no Windows</em> (opção “Cut at end of
+              page”). A impressão via navegador não envia comandos ESC/POS de corte —
+              por isso esta opção não é controlada aqui.
             </li>
             <li>
-              No driver, configure o tamanho da mídia para {config.labelWidthMm} ×{" "}
-              {config.labelHeightMm} mm, margens 0 e, se houver guilhotina, o corte ao
-              final de cada página.
+              <strong className="text-foreground">Corte após o responsável:</strong>{" "}
+              ativado quando suportado — mesma configuração do driver; a última
+              etiqueta não gera avanço nem papel em branco adicional.
+            </li>
+            <li>
+              No driver Epson, configure o tamanho do papel para {config.labelWidthMm} ×{" "}
+              {config.labelHeightMm} mm, margens 0, sem cabeçalho/rodapé do navegador
+              e o corte ao final de cada página.
             </li>
           </ul>
         </div>

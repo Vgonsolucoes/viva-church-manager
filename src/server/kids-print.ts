@@ -29,9 +29,11 @@ export type KidsPrintConfig = {
   copies: number;
 };
 
+// Padrão: Epson TM-T20X (bobina térmica de 80 mm), etiqueta de ~50 mm de altura
+// (uma página lógica por etiqueta — o avanço até o corte fica consistente).
 const DEFAULT_CONFIG: KidsPrintConfig = {
   enabled: true,
-  labelWidthMm: 100,
+  labelWidthMm: 80,
   labelHeightMm: 50,
   copies: 1,
 };

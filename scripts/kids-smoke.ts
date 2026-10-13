@@ -198,7 +198,7 @@ async function main() {
 
     console.log("\n[5] Impressão — fila desacoplada (spec passos 10–11)");
     savedPrintConfig = await getKidsPrintConfig();
-    await setKidsPrintConfig({ enabled: true, labelWidthMm: 100, labelHeightMm: 50, copies: 1 });
+    await setKidsPrintConfig({ enabled: true, labelWidthMm: 80, labelHeightMm: 50, copies: 1 });
 
     const enqueued = await enqueueKidsPrintJobsForCheckin(checkIn.id);
     check("Duas etiquetas enfileiradas", enqueued === 2, `enfileiradas: ${enqueued}`);

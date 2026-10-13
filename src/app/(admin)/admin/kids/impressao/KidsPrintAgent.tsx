@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 
@@ -42,11 +43,14 @@ export function KidsPrintAgent() {
   const [active, setActive] = useState(false);
   const [status, setStatus] = useState<AgentStatus>("idle");
   const [jobs, setJobs] = useState<PendingJob[]>([]);
-  const [labelWidthMm, setLabelWidthMm] = useState(100);
+  const [labelWidthMm, setLabelWidthMm] = useState(80);
   const [labelHeightMm, setLabelHeightMm] = useState(50);
   const [lastError, setLastError] = useState<string | null>(null);
   const [lastPollAt, setLastPollAt] = useState<Date | null>(null);
   const printingRef = useRef(false);
+  // O portal da área de impressão só pode ser criado após montar (SSR não tem document).
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   // Restaura a escolha do operador: o agente continua ativo após F5.
   useEffect(() => {
@@ -75,13 +79,16 @@ export function KidsPrintAgent() {
       setStatus("finishing");
       const current = jobs;
       await Promise.all(
-        current.map((job) =>
-          fetch(`/api/v1/kids/print-jobs/${job.id}/complete`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ outcome, error }),
-          }).catch(() => null),
-        ),
+        // Jobs "test-*" são do botão Testar Impressão Kids — não existem na fila.
+        current
+          .filter((job) => !job.id.startsWith("test-"))
+          .map((job) =>
+            fetch(`/api/v1/kids/print-jobs/${job.id}/complete`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ outcome, error }),
+            }).catch(() => null),
+          ),
       );
       printingRef.current = false;
       setJobs([]);
@@ -90,6 +97,37 @@ export function KidsPrintAgent() {
     },
     [jobs, router],
   );
+
+  /** Imprime 1 etiqueta da criança + 1 do responsável (mesmo código), sem gravar na fila. */
+  const runTestPrint = useCallback(() => {
+    if (printingRef.current) return;
+    const now = new Date().toISOString();
+    const basePayload: Omit<LabelPayload, "labelType"> = {
+      childName: "Criança Exemplo",
+      guardianName: "Responsável Exemplo",
+      pickupCode: "0000",
+      serviceName: "Teste de impressão",
+      checkInAt: now,
+    };
+    printingRef.current = true;
+    setJobs([
+      {
+        id: "test-child",
+        labelType: "CHILD",
+        copies: 1,
+        payload: { ...basePayload, labelType: "CHILD" },
+        createdAt: now,
+      },
+      {
+        id: "test-guardian",
+        labelType: "GUARDIAN",
+        copies: 1,
+        payload: { ...basePayload, labelType: "GUARDIAN" },
+        createdAt: now,
+      },
+    ]);
+    setStatus("printing");
+  }, []);
 
   // Confirmação automática após o diálogo de impressão fechar (imprimir ou
   // cancelar — no cancelamento o operador pode reenviar pela lista abaixo).
@@ -205,6 +243,22 @@ export function KidsPrintAgent() {
         ) : null}
       </div>
 
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={runTestPrint}
+          disabled={status !== "idle"}
+        >
+          Testar Impressão Kids
+        </Button>
+        <span className="text-xs text-muted-foreground">
+          Imprime 1 etiqueta da criança + 1 do responsável com código de exemplo
+          (não grava na fila).
+        </span>
+      </div>
+
       {status === "printing" || status === "finishing" ? (
         <div className="mt-4 rounded-2xl border border-[#58a7ff]/40 bg-[#58a7ff]/10 p-4">
           <div className="text-sm font-semibold">
@@ -241,108 +295,119 @@ export function KidsPrintAgent() {
         </div>
       ) : null}
 
-      {/* Área exclusiva de impressão — invisível em tela, visível no @media print.
-          Cada etiqueta é uma página lógica de largura × altura exatos (padrão 100 × 50 mm):
-          a quebra de página faz a impressora avançar exatamente uma etiqueta adesiva.
-          A última etiqueta não força quebra, evitando página/etiqueta em branco no final.
-          O corte físico (guilhotina) é responsabilidade do driver/equipamento — o
-          navegador não envia comandos de corte. */}
-      <style>{`
-        @media screen {
-          .kids-print-area { display: none !important; }
-        }
-        @media print {
-          @page { size: ${labelWidthMm}mm ${labelHeightMm}mm; margin: 0; }
-          html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; }
-          body * { visibility: hidden !important; }
-          .kids-print-area, .kids-print-area * { visibility: visible !important; }
-          .kids-print-area {
-            display: block !important;
-            position: absolute !important;
-            left: 0; top: 0;
-            width: ${labelWidthMm}mm;
-            background: #fff;
-          }
-          .kids-label {
-            width: ${labelWidthMm}mm;
-            height: ${labelHeightMm}mm;
-            box-sizing: border-box;
-            padding: 2mm 3mm;
-            page-break-after: always;
-            break-after: page;
-            break-inside: avoid;
-            overflow: hidden;
-            text-align: center;
-            font-family: Arial, Helvetica, sans-serif;
-            color: #000;
-          }
-          .kids-label:last-child {
-            page-break-after: auto;
-            break-after: auto;
-          }
-          .kids-label-header {
-            font-size: 3mm;
-            font-weight: 700;
-            letter-spacing: 0.4mm;
-            border-top: 0.5mm solid #000;
-            border-bottom: 0.5mm solid #000;
-            padding: 1mm 0;
-          }
-          .kids-label-child {
-            font-size: 6mm;
-            font-weight: 800;
-            line-height: 1.1;
-            margin-top: 1.5mm;
-            text-transform: uppercase;
-            word-break: break-word;
-          }
-          .kids-label-child-sm {
-            font-size: 4.5mm;
-            font-weight: 700;
-            line-height: 1.15;
-            margin-top: 1.5mm;
-            word-break: break-word;
-          }
-          .kids-label-meta { font-size: 3mm; margin-top: 1.5mm; }
-          .kids-label-meta strong { font-size: 3.8mm; font-weight: 700; }
-          .kids-label-code-label { font-size: 3mm; margin-top: 1.5mm; }
-          .kids-label-code {
-            font-size: 7.5mm;
-            font-weight: 800;
-            letter-spacing: 1mm;
-            line-height: 1;
-          }
-        }
-      `}</style>
-      <div className="kids-print-area" aria-hidden="true">
-        {jobs.flatMap((job) =>
-          Array.from({ length: Math.max(1, job.copies) }, (_, copyIndex) => (
-            <div key={`${job.id}-${copyIndex}`} className="kids-label">
-              <div className="kids-label-header">
-                VIVA CHURCH KIDS{job.payload.labelType === "GUARDIAN" ? " — RESPONSÁVEL" : ""}
+      {/* Área exclusiva de impressão (Epson TM-T20X, bobina térmica de 80 mm).
+          Renderizada em portal DIRETO no <body>: no @media print, todos os demais
+          filhos do body recebem display:none, o que REMOVE o restante da página
+          admin do fluxo de impressão. (A abordagem anterior com visibility:hidden
+          mantinha o layout da página ocupando altura — origem das partes em branco.)
+          Cada etiqueta é uma página lógica de largura × altura exatos (padrão
+          80 × 50 mm): a quebra de página faz a TM-T20X avançar e cortar cada
+          etiqueta (corte configurado no driver Epson — "cut at end of page").
+          A última etiqueta não força quebra, evitando papel em branco no final.
+          O navegador não envia comandos ESC/POS; o corte físico é responsabilidade
+          do driver/equipamento. */}
+      {mounted
+        ? createPortal(
+            <>
+              <style>{`
+                @media screen {
+                  .kids-print-area { display: none !important; }
+                }
+                @media print {
+                  @page { size: ${labelWidthMm}mm ${labelHeightMm}mm; margin: 0; }
+                  html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; }
+                  body > *:not(.kids-print-area) { display: none !important; }
+                  .kids-print-area {
+                    display: block !important;
+                    width: ${labelWidthMm}mm;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    background: #fff;
+                  }
+                  .kids-label {
+                    width: ${labelWidthMm}mm;
+                    height: ${labelHeightMm}mm;
+                    box-sizing: border-box;
+                    padding: 2mm 3mm;
+                    page-break-after: always;
+                    break-after: page;
+                    break-inside: avoid;
+                    overflow: hidden;
+                    text-align: center;
+                    font-family: Arial, Helvetica, sans-serif;
+                    color: #000;
+                  }
+                  .kids-label:last-child {
+                    page-break-after: auto;
+                    break-after: auto;
+                  }
+                  .kids-label-header {
+                    font-size: 3mm;
+                    font-weight: 700;
+                    letter-spacing: 0.4mm;
+                    border-top: 0.5mm solid #000;
+                    border-bottom: 0.5mm solid #000;
+                    padding: 1mm 0;
+                  }
+                  .kids-label-child {
+                    font-size: 5.5mm;
+                    font-weight: 800;
+                    line-height: 1.1;
+                    margin-top: 1.5mm;
+                    text-transform: uppercase;
+                    word-break: break-word;
+                  }
+                  .kids-label-child-sm {
+                    font-size: 4.2mm;
+                    font-weight: 700;
+                    line-height: 1.15;
+                    margin-top: 1.5mm;
+                    word-break: break-word;
+                  }
+                  .kids-label-meta { font-size: 3mm; margin-top: 1.5mm; }
+                  .kids-label-meta strong { font-size: 3.6mm; font-weight: 700; }
+                  .kids-label-code-label { font-size: 3mm; margin-top: 1.5mm; }
+                  .kids-label-code {
+                    font-size: 7mm;
+                    font-weight: 800;
+                    letter-spacing: 1mm;
+                    line-height: 1;
+                  }
+                }
+              `}</style>
+              <div className="kids-print-area" aria-hidden="true">
+                {jobs.flatMap((job) =>
+                  Array.from({ length: Math.max(1, job.copies) }, (_, copyIndex) => (
+                    <div key={`${job.id}-${copyIndex}`} className="kids-label">
+                      <div className="kids-label-header">
+                        VIVA CHURCH KIDS{job.payload.labelType === "GUARDIAN" ? " — RESPONSÁVEL" : ""}
+                      </div>
+                      {job.payload.labelType === "CHILD" ? (
+                        <>
+                          <div className="kids-label-child">{job.payload.childName}</div>
+                          <div className="kids-label-meta">
+                            Responsável:
+                            <br />
+                            <strong>{job.payload.guardianName ?? "Não informado"}</strong>
+                          </div>
+                          <div className="kids-label-code-label">Código:</div>
+                          <div className="kids-label-code">{job.payload.pickupCode}</div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="kids-label-child-sm">{job.payload.childName}</div>
+                          <div className="kids-label-code-label">Código:</div>
+                          <div className="kids-label-code">{job.payload.pickupCode}</div>
+                        </>
+                      )}
+                    </div>
+                  )),
+                )}
               </div>
-              {job.payload.labelType === "CHILD" ? (
-                <>
-                  <div className="kids-label-child">{job.payload.childName}</div>
-                  <div className="kids-label-meta">
-                    Responsável:
-                    <br />
-                    <strong>{job.payload.guardianName ?? "Não informado"}</strong>
-                  </div>
-                  <div className="kids-label-code-label">Código:</div>
-                  <div className="kids-label-code">{job.payload.pickupCode}</div>
-                </>
-              ) : (
-                <>
-                  <div className="kids-label-child-sm">{job.payload.childName}</div>
-                  <div className="kids-label-code-label">Código:</div>
-                  <div className="kids-label-code">{job.payload.pickupCode}</div>
-                </>
-              )}
-            </div>
-          )),
-        )}
-      </div>
+            </>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }
