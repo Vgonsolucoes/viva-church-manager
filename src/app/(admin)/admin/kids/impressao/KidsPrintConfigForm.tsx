@@ -103,6 +103,17 @@ export function KidsPrintConfigForm({ config }: { config: KidsPrintConfig }) {
           </div>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-muted-foreground">
             <li>
+              <strong className="text-foreground">Orientação retrato (sem rotação):</strong>{" "}
+              as etiquetas são geradas com o texto correndo na largura da bobina
+              (80 mm) e avanço de {config.labelHeightMm} mm por etiqueta — sem
+              rotação de 90°. Para o Windows não rotacionar o documento, crie no
+              computador do quiosque um <em>formulário de papel personalizado</em>{" "}
+              de {config.labelWidthMm} × {config.labelHeightMm} mm (Painel de
+              Controle → Dispositivos e Impressoras → Servidor de Impressão →
+              Formulários → “Criar novo formulário”) e selecione-o como papel
+              padrão da TM-T20X nas Preferências de Impressão.
+            </li>
+            <li>
               <strong className="text-foreground">Separação por página/etiqueta:</strong>{" "}
               cada etiqueta é impressa como uma página lógica de exatamente{" "}
               {config.labelWidthMm} × {config.labelHeightMm} mm. A TM-T20X avança a
@@ -121,9 +132,10 @@ export function KidsPrintConfigForm({ config }: { config: KidsPrintConfig }) {
               etiqueta não gera avanço nem papel em branco adicional.
             </li>
             <li>
-              No driver Epson, configure o tamanho do papel para {config.labelWidthMm} ×{" "}
-              {config.labelHeightMm} mm, margens 0, sem cabeçalho/rodapé do navegador
-              e o corte ao final de cada página.
+              No driver Epson, configure margens 0, sem cabeçalho/rodapé do
+              navegador e o corte ao final de cada página. No Chrome do quiosque,
+              mantenha o modo <code>--kiosk-printing</code> (usa a impressora e o
+              papel padrão sem diálogo).
             </li>
           </ul>
         </div>

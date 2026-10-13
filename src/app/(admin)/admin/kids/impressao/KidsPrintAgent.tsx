@@ -191,6 +191,10 @@ export function KidsPrintAgent() {
   }, [active, status]);
 
   const totalLabels = jobs.reduce((sum, job) => sum + Math.max(1, job.copies), 0);
+  // Área útil da TM-T20X: da bobina de 80 mm aprox. 72 mm são imprimíveis
+  // (margens físicas do cabeçote). A altura mínima deixa folga para o corte.
+  const printableWidthMm = Math.max(40, labelWidthMm - 8);
+  const printableMinHeightMm = Math.max(20, labelHeightMm - 5);
 
   return (
     <div className="rounded-3xl border border-border bg-card p-5">
@@ -298,14 +302,17 @@ export function KidsPrintAgent() {
       {/* Área exclusiva de impressão (Epson TM-T20X, bobina térmica de 80 mm).
           Renderizada em portal DIRETO no <body>: no @media print, todos os demais
           filhos do body recebem display:none, o que REMOVE o restante da página
-          admin do fluxo de impressão. (A abordagem anterior com visibility:hidden
-          mantinha o layout da página ocupando altura — origem das partes em branco.)
-          Cada etiqueta é uma página lógica de largura × altura exatos (padrão
-          80 × 50 mm): a quebra de página faz a TM-T20X avançar e cortar cada
-          etiqueta (corte configurado no driver Epson — "cut at end of page").
-          A última etiqueta não força quebra, evitando papel em branco no final.
-          O navegador não envia comandos ESC/POS; o corte físico é responsabilidade
-          do driver/equipamento. */}
+          admin do fluxo de impressão (elimina as partes em branco).
+          ORIENTAÇÃO: retrato no sentido de saída da bobina — as linhas de texto
+          correm na largura de 80 mm e o papel avança ~50 mm por etiqueta. Sem
+          rotate(), sem writing-mode vertical e sem keyword "landscape": o
+          conteúdo nunca sai deitado. O tamanho 80 × 50 mm também deve existir
+          como formulário de papel no driver Epson do Windows; caso contrário o
+          spooler rotaciona o documento para encaixar no papel portrait padrão.
+          Cada etiqueta é uma página lógica (quebra após a etiqueta = avanço +
+          corte configurado no driver, "cut at end of page"). A última não força
+          quebra, evitando papel em branco no final. O navegador não envia
+          comandos ESC/POS; o corte físico é responsabilidade do driver. */}
       {mounted
         ? createPortal(
             <>
@@ -315,7 +322,12 @@ export function KidsPrintAgent() {
                 }
                 @media print {
                   @page { size: ${labelWidthMm}mm ${labelHeightMm}mm; margin: 0; }
-                  html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; }
+                  html, body {
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    width: ${labelWidthMm}mm;
+                    background: #fff !important;
+                  }
                   body > *:not(.kids-print-area) { display: none !important; }
                   .kids-print-area {
                     display: block !important;
@@ -325,14 +337,17 @@ export function KidsPrintAgent() {
                     background: #fff;
                   }
                   .kids-label {
-                    width: ${labelWidthMm}mm;
-                    height: ${labelHeightMm}mm;
+                    width: ${printableWidthMm}mm;
+                    min-height: ${printableMinHeightMm}mm;
                     box-sizing: border-box;
-                    padding: 2mm 3mm;
+                    margin: 0 auto;
+                    padding: 2mm;
                     page-break-after: always;
                     break-after: page;
                     break-inside: avoid;
                     overflow: hidden;
+                    transform: none !important;
+                    writing-mode: horizontal-tb;
                     text-align: center;
                     font-family: Arial, Helvetica, sans-serif;
                     color: #000;
