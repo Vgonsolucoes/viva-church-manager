@@ -98,6 +98,17 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 
 ## Scripts uteis
 
+### Fotos dos membros
+
+Novas fotos de membros são armazenadas no PostgreSQL (`MemberAvatar`) e servidas
+por `/uploads/avatar_*`, mantendo a URL usada pelo cadastro e pelo perfil web.
+A migration `20261029180000_member_avatar_storage` deve ser aplicada antes de
+executar esta versão (o Docker já executa `prisma migrate deploy` ao iniciar).
+Fotos antigas continuam sendo lidas do diretório `UPLOADS_DIR` ou `public/uploads`;
+esses arquivos precisam de volume persistente no Easypanel. Fotos antigas já
+perdidas precisam ser enviadas novamente. Banners e fotos Kids mantêm o
+armazenamento em arquivos e também precisam desse volume.
+
 - `npm run dev`
 - `npm run build`
 - `npm run start`

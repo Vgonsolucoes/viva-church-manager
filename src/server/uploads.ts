@@ -4,6 +4,7 @@ import crypto from "crypto";
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import { resolveUploadsDir } from "@/server/uploads-dir";
+import { prisma } from "@/server/db";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
@@ -48,12 +49,18 @@ async function saveUploadedFile(
     const buffer = Buffer.from(await (file as File).arrayBuffer());
     if (!buffer.length) return { ok: false, error: "Arquivo não pôde ser lido." };
 
-    const uploadsDir = resolveUploadsDir();
-    await mkdir(uploadsDir, { recursive: true });
-
     const name = `${prefix}_${Date.now()}_${crypto
       .randomBytes(10)
       .toString("hex")}.${ext}`;
+    if (prefix === "avatar") {
+      await prisma.memberAvatar.create({
+        data: { name, contentType: type, data: buffer },
+      });
+      return { ok: true, url: `/uploads/${name}` };
+    }
+
+    const uploadsDir = resolveUploadsDir();
+    await mkdir(uploadsDir, { recursive: true });
     const fullPath = path.join(uploadsDir, name);
     await writeFile(fullPath, buffer);
 

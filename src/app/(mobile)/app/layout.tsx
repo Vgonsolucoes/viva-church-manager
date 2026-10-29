@@ -11,7 +11,7 @@ export default async function AppLayout(props: { children: React.ReactNode }) {
   if (!session) redirect("/login");
 
   let resolvedAvatar: string | undefined = session.user?.image ?? undefined;
-  if (session.uid && !resolvedAvatar) {
+  if (session.uid) {
     const linked = await prisma.user.findUnique({
       where: { id: session.uid },
       select: {
@@ -19,7 +19,7 @@ export default async function AppLayout(props: { children: React.ReactNode }) {
         member: { select: { photoUrl: true } },
       },
     });
-    resolvedAvatar = linked?.imageUrl ?? linked?.member?.photoUrl ?? undefined;
+    resolvedAvatar = linked?.member?.photoUrl ?? linked?.imageUrl ?? undefined;
   }
 
   return (

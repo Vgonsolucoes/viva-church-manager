@@ -512,11 +512,15 @@ export async function createMember(
       });
       if (!superAdminResult.ok) {
         revalidatePath("/admin/members");
+        revalidatePath("/admin", "layout");
+        revalidatePath("/app", "layout");
         return { ok: false, error: superAdminResult.error };
       }
     }
 
     revalidatePath("/admin/members");
+    revalidatePath("/admin", "layout");
+    revalidatePath("/app", "layout");
     return {
       ok: true,
       message: wantsSuperAdmin
@@ -818,10 +822,14 @@ export async function updateMember(
     });
     if (!superAdminResult.ok) {
       revalidatePath("/admin/members");
+      revalidatePath("/admin", "layout");
+      revalidatePath("/app", "layout");
       return { ok: false, error: superAdminResult.error };
     }
 
     revalidatePath("/admin/members");
+    revalidatePath("/admin", "layout");
+    revalidatePath("/app", "layout");
     return {
       ok: true,
       message: "Cadastro atualizado com sucesso.",

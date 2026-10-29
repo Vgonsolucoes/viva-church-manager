@@ -3,6 +3,7 @@ import { stat } from "fs/promises";
 import path from "path";
 import { Readable } from "stream";
 import { resolveUploadsDir } from "@/server/uploads-dir";
+import { prisma } from "@/server/db";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +39,22 @@ export async function GET(
     const contentType = contentTypes[path.extname(fullPath).toLowerCase()];
     if (!contentType) {
       return new Response("Not found", { status: 404 });
+    }
+
+    if (segments.length === 1 && segments[0].startsWith("avatar_")) {
+      const avatar = await prisma.memberAvatar.findUnique({
+        where: { name: segments[0] },
+      });
+      if (avatar) {
+        return new Response(new Uint8Array(avatar.data), {
+          headers: {
+            "Content-Type": avatar.contentType,
+            "Content-Length": String(avatar.data.length),
+            "Cache-Control": "public, max-age=31536000, immutable",
+            "X-Content-Type-Options": "nosniff",
+          },
+        });
+      }
     }
 
     const fileStat = await stat(fullPath).catch(() => null);

@@ -7,6 +7,14 @@ datasource db {
   provider = "postgresql"
 }
 
+// Fotos de membros persistem junto ao banco, independentemente do container.
+model MemberAvatar {
+  name        String   @id
+  contentType String
+  data        Bytes
+  createdAt   DateTime @default(now())
+}
+
 enum RoleKey {
   SUPER_ADMIN
   PASTOR_PRESIDENTE

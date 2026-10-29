@@ -266,6 +266,8 @@ export function MembersFormClient(props: {
                 photoUrlHiddenRef.current.value = uploadRes.url;
               }
               formData.set("photoUrl", uploadRes.url);
+              // O arquivo já foi enviado pela API; a action recebe só a URL.
+              formData.delete("photoFile");
               if (photoFileInputRef.current) {
                 try {
                   const dt = new DataTransfer();
