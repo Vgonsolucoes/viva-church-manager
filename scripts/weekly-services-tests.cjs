@@ -7,9 +7,9 @@ function load(file, deps={}) {
 }
 const recurrence=load('src/lib/weekly-services.ts');
 const configs=recurrence.WEEKLY_SERVICES.map(service=>({key:service.key,name:service.name,location:null,bannerImageUrl:null}));
-test('Sunday 18h and Wednesday 20h repeat across years without depending on server timezone',()=>{
+test('Both Sunday services at 09h and 18h and Wednesday at 20h repeat across years',()=>{
  const events=recurrence.weeklyOccurrences(new Date('2026-12-27T00:00:00Z'),new Date('2027-01-08T00:00:00Z'),configs);
- assert.deepEqual(Array.from(events,e=>e.startsAt.toISOString()),['2026-12-27T21:00:00.000Z','2026-12-30T23:00:00.000Z','2027-01-03T21:00:00.000Z','2027-01-06T23:00:00.000Z']);
+ assert.deepEqual(Array.from(events,e=>e.startsAt.toISOString()),['2026-12-27T12:00:00.000Z','2026-12-27T21:00:00.000Z','2026-12-30T23:00:00.000Z','2027-01-03T12:00:00.000Z','2027-01-03T21:00:00.000Z','2027-01-06T23:00:00.000Z']);
  assert.equal(new Set(events.map(e=>e.id)).size,events.length);
  const future=recurrence.weeklyOccurrences(new Date('2035-01-01T00:00:00Z'),new Date('2035-02-01T00:00:00Z'),configs);assert.ok(future.length>=8);
 });
@@ -25,6 +25,8 @@ test('Materialization is idempotent across processes and respects a previously r
  await fresh().ensureWeeklyServices(new Date('2026-10-30T18:00:00Z'));const count=events.length;
  await fresh().ensureWeeklyServices(new Date('2026-10-30T18:00:00Z'));assert.equal(events.length,count);
  assert.equal(events.filter(e=>e.startsAt.toISOString()==='2026-11-01T21:00:00.000Z').length,1);
+ assert.equal(events.filter(e=>e.startsAt.toISOString()==='2026-11-01T12:00:00.000Z').length,1);
+ assert.ok(events.some(e=>e.id==='viva-weekly-sundayMorning-2026-11-01'));
 });
 test('Agenda defaults and event payload parse with the real mobile schema, including artwork',async()=>{
  const {AgendaItemSchema}=load('apps/mobile/src/types/index.ts',{'zod':require('zod')});
