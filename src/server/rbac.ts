@@ -46,6 +46,8 @@ export type PermissionKey =
   | "kids:manage"
   | "kids:projection:send"
   | "kids:projection:view"
+  | "parking:read"
+  | "parking:projection:view"
   | "assets:read"
   | "assets:write"
   | "lostfound:read"
@@ -68,6 +70,8 @@ export type PermissionKey =
 
 export const rolePermissions: Record<RoleKey, PermissionKey[]> = {
   SUPER_ADMIN: [
+    "parking:read",
+    "parking:projection:view",
     "admin:access",
     "dashboard:view",
     "members:read",
@@ -323,10 +327,13 @@ export const rolePermissions: Record<RoleKey, PermissionKey[]> = {
   // Perfil dedicado do operador da tela de projeção (seção 22 da spec Kids):
   // acesso somente à tela /kids/projecao, sem dados sensíveis do ministério.
   PROJECTION: [
+    "parking:projection:view",
     "dashboard:view",
     "kids:projection:view",
   ],
   PARKING: [
+    "parking:read",
+    "parking:projection:view",
     "admin:access",
     "dashboard:view",
     "schedules:read",

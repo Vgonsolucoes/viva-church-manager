@@ -9,6 +9,8 @@ import {
   HeartPulse,
   QrCode,
   Baby,
+  Car,
+  Megaphone,
   CalendarRange,
   type LucideIcon,
 } from "lucide-react-native";
@@ -23,7 +25,9 @@ export type MinistryKey =
   | "prayer"
   | "qr"
   | "kids"
-  | "notifications";
+  | "notifications"
+  | "parking"
+  | "kidsProjection";
 
 const MAP: Record<MinistryKey, { label: string; Icon: LucideIcon; bgTint: string; bgTintAlpha: string; labelColor: string }> = {
   events: {
@@ -82,6 +86,8 @@ const MAP: Record<MinistryKey, { label: string; Icon: LucideIcon; bgTint: string
     bgTintAlpha: "rgba(243,134,170,0.14)",
     labelColor: "#FFFFFF",
   },
+  parking: { label: "Estacionamento", Icon: Car, bgTint: theme.colors.orange500, bgTintAlpha: "rgba(243,155,66,0.14)", labelColor: "#FFFFFF" },
+  kidsProjection: { label: "Avisos Kids", Icon: Megaphone, bgTint: theme.colors.pink400, bgTintAlpha: "rgba(243,134,170,0.14)", labelColor: "#FFFFFF" },
   notifications: {
     label: "Notificações",
     Icon: CalendarRange,

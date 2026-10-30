@@ -98,6 +98,16 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 
 ## Scripts uteis
 
+### Avisos de Kids e Estacionamento
+
+- Web: **Estacionamento** (`/admin/parking`) envia placa, modelo/cor, local e mensagem à equipe de projeção, com histórico e confirmação de visualização.
+- Tela do operador: `/projecao` recebe os dois canais. O endereço anterior `/kids/projecao` continua disponível. Perfis Projeção e Super Administrador acompanham os dois canais; perfis Kids/Estacionamento visualizam o canal autorizado.
+- Em **Ministérios**, selecione **Equipe de avisos à projeção**: Kids ou Estacionamento. Ministérios com nomes usuais são classificados pela migration; confira a configuração dos demais.
+- O usuário precisa estar vinculado a um membro, associado ao ministério ativo pelo cadastro de membros, de voluntários ou como líder. Somente esse vínculo autoriza enviar, tanto na web quanto no app. Um papel administrativo isolado não libera envio. Remover o vínculo ou desativar o ministério bloqueia novas solicitações no servidor.
+- No aplicativo, os atalhos **Avisos Kids** e **Estacionamento** aparecem em **Igreja** somente para a respectiva equipe. O Infantil também tem um atalho de envio para a equipe Kids. O cadastro e check-in dos próprios filhos permanecem disponíveis aos responsáveis.
+- É necessário aplicar a migration `20261030180000_parking_projection`, publicar o backend e gerar/distribuir uma nova versão do aplicativo Expo. Apenas o deploy web não atualiza um APK já instalado.
+- Testes de autorização e validação: `npm run test:projection`. Usam banco e sessão simulados, sem acessar dados da igreja.
+
 ### Fotos dos membros
 
 Novas fotos de membros são armazenadas no PostgreSQL (`MemberAvatar`) e servidas

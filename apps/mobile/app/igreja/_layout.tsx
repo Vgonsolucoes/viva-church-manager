@@ -21,6 +21,7 @@ export default function IgrejaLayout() {
         contentStyle: { backgroundColor: theme.colors.background },
       }}
     >
+      <Stack.Screen name="avisos-projecao" options={{ headerShown: false }} />
       <Stack.Screen
         name="eventos"
         options={{ title: "Eventos" }}

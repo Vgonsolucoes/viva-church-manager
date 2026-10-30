@@ -5,6 +5,7 @@ import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
 import { hasPermission } from "@/server/rbac";
 import { safeImageSrcOrUndefined } from "@/lib/safe-image-src";
+import { getProjectionAccess } from "@/server/projection-access";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +47,7 @@ export default async function AdminLayout(props: { children: React.ReactNode }) 
           image: resolvedAvatar ?? undefined,
           roles,
           unreadNotifications,
+          projectionAccess: session.uid ? await getProjectionAccess(session.uid) : undefined,
         }}
       >
         {props.children}

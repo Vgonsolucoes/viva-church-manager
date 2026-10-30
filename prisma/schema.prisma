@@ -27,6 +27,7 @@ enum RoleKey {
   SECRETARY
   RECEPTION
   KIDS_MINISTRY
+  PROJECTION
   PARKING
 }
 
@@ -218,6 +219,8 @@ model User {
   kidsProjectionMessagesSent   KidsProjectionMessage[] @relation("KidsProjectionMessageSentBy")
   kidsProjectionMessagesViewed KidsProjectionMessage[] @relation("KidsProjectionMessageViewedBy")
   parkingFlowsCreated  ParkingFlow[]     @relation("ParkingFlowCreatedBy")
+  parkingProjectionSent ParkingProjectionMessage[] @relation("ParkingProjectionSent")
+  parkingProjectionViewed ParkingProjectionMessage[] @relation("ParkingProjectionViewed")
   notificationsCreated Notification[]    @relation("NotificationCreatedBy")
   coursesCreated       Course[]          @relation("CourseCreatedBy")
   eventSalesCreated    EventSale[]       @relation("EventSaleCreatedBy")
@@ -249,6 +252,7 @@ model Ministry {
   name        String
   description String?
   active      Boolean  @default(true)
+  projectionChannel ProjectionChannel?
   leaderId    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -1007,6 +1011,28 @@ model KidsProjectionMessage {
 
   @@index([status, sentAt])
   @@index([childId])
+}
+
+enum ProjectionChannel {
+  KIDS
+  PARKING
+}
+
+model ParkingProjectionMessage {
+  id         String   @id @default(cuid())
+  plate      String
+  vehicle    String?
+  color      String?
+  location   String
+  message    String
+  status     String   @default("PENDING")
+  sentById   String?
+  viewedById String?
+  sentAt     DateTime @default(now())
+  viewedAt   DateTime?
+  sentBy   User? @relation("ParkingProjectionSent", fields: [sentById], references: [id], onDelete: SetNull)
+  viewedBy User? @relation("ParkingProjectionViewed", fields: [viewedById], references: [id], onDelete: SetNull)
+  @@index([status, sentAt])
 }
 
 model ParkingFlow {

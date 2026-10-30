@@ -9,7 +9,7 @@ const initialState: KidsProjectionFormState = { ok: false, message: "", error: "
 
 type ChildOption = { id: string; fullName: string };
 
-export function CallGuardianForm({ children }: { children: ChildOption[] }) {
+export function CallGuardianForm({ childOptions }: { childOptions: ChildOption[] }) {
   const [state, formAction, pending] = useActionState(sendProjectionMessage, initialState);
   const [preset, setPreset] = useState<string>(KIDS_PROJECTION_PRESETS[0]);
   const formRef = useRef<HTMLFormElement>(null);
@@ -45,7 +45,7 @@ export function CallGuardianForm({ children }: { children: ChildOption[] }) {
             <option value="" disabled>
               Selecione a criança…
             </option>
-            {children.map((c) => (
+            {childOptions.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.fullName}
               </option>
@@ -117,7 +117,7 @@ export function CallGuardianForm({ children }: { children: ChildOption[] }) {
       ) : null}
 
       <div className="mt-4">
-        <Button type="submit" disabled={pending || children.length === 0}>
+        <Button type="submit" disabled={pending || childOptions.length === 0}>
           {pending ? "Enviando…" : "Enviar para projeção"}
         </Button>
       </div>

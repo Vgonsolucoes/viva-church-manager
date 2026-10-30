@@ -26,9 +26,11 @@ import { theme } from "@/theme";
 import { getMyChildren, postCheckOut } from "@/services/api/kids";
 import type { Child } from "@/types";
 import { formatDate } from "@/utils/date";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function IgrejaInfantilScreen() {
   const router = useRouter();
+  const { me } = useAuth();
   const queryClient = useQueryClient();
   const [toast, setToast] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
@@ -202,6 +204,7 @@ export default function IgrejaInfantilScreen() {
         onRefresh={onRefresh}
         contentStyle={{ paddingBottom: theme.spacing.xxxxl }}
       >
+        {me?.projectionAccess?.KIDS ? <PrimaryButton title="Enviar aviso para projeção" onPress={() => router.push("/igreja/avisos-projecao?channel=KIDS" as never)} style={{ marginBottom: 16 }} /> : null}
         {isLoading ? (
           <View style={{ gap: theme.spacing.lg }}>
             {Array.from({ length: 2 }).map((_, i) => (

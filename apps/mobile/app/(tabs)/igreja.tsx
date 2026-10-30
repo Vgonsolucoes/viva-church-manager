@@ -18,9 +18,12 @@ interface MenuItemDef {
   href: string;
   anyPermission?: PermissionKey[];
   requirePermission?: PermissionKey;
+  projectionChannel?: "KIDS" | "PARKING";
 }
 
 const MENU: MenuItemDef[] = [
+  { key: "parking", href: "/igreja/avisos-projecao?channel=PARKING", projectionChannel: "PARKING" },
+  { key: "kidsProjection", href: "/igreja/avisos-projecao?channel=KIDS", projectionChannel: "KIDS" },
   {
     key: "events",
     href: "/igreja/eventos",
@@ -87,6 +90,7 @@ export default function IgrejaScreen() {
 
   const visibleItems = useMemo(() => {
     return MENU.filter((item) => {
+      if (item.projectionChannel) return Boolean(me?.projectionAccess?.[item.projectionChannel]);
       if (isSuper) return true;
       if (item.requirePermission) {
         if (!hasPermission(permissions, item.requirePermission)) return false;
@@ -96,7 +100,7 @@ export default function IgrejaScreen() {
       }
       return true;
     });
-  }, [permissions, isSuper]);
+  }, [permissions, isSuper, me?.projectionAccess]);
 
   const onRefresh = useCallback(async () => {
     await refetch();

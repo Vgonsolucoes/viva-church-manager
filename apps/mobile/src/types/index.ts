@@ -90,6 +90,7 @@ export const MeSchema = z.object({
   member: MemberPayloadSchema.nullable(),
   ministries: z.array(z.object({ id: z.string(), name: z.string() })),
   leadingCellIds: z.array(z.string()),
+  projectionAccess: z.object({ KIDS: z.boolean(), PARKING: z.boolean() }).default({ KIDS: false, PARKING: false }),
   syncedAt: z.coerce.date(),
 });
 export type Me = z.infer<typeof MeSchema>;

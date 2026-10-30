@@ -12,6 +12,9 @@ import { KidsSubNav } from "../KidsSubNav";
 import { CallGuardianForm } from "./CallGuardianForm";
 import { AutoRefresh } from "../checkins/AutoRefresh";
 
+import { getProjectionAccess } from "@/server/projection-access";
+import { redirect } from "next/navigation";
+
 export const dynamic = "force-dynamic";
 
 const timeFmt = new Intl.DateTimeFormat("pt-BR", {
@@ -24,7 +27,9 @@ const timeFmt = new Intl.DateTimeFormat("pt-BR", {
 export default async function KidsProjecaoAdminPage() {
   const session = await getServerSession(authOptions);
   const roles = (session?.roles ?? []) as RoleKey[];
-  const canSend = hasPermission(roles, "kids:projection:send");
+  if (!session?.uid) redirect("/login");
+  const canSend = (await getProjectionAccess(session.uid)).KIDS;
+  if (!canSend && !hasPermission(roles, "kids:read") && !hasPermission(roles, "kids:projection:view")) redirect("/admin");
   const canViewScreen = hasPermission(roles, "kids:projection:view");
 
   // Lazy close: crianças de cultos já encerrados não devem ser elegíveis para chamado.
@@ -94,7 +99,7 @@ export default async function KidsProjecaoAdminPage() {
               de Projeção) e deixe em tela cheia durante o culto.
             </span>
           </div>
-          <Link href="/kids/projecao" target="_blank">
+          <Link href="/projecao" target="_blank">
             <Button type="button" variant="secondary" size="sm">
               Abrir tela da projeção ↗
             </Button>
@@ -104,7 +109,7 @@ export default async function KidsProjecaoAdminPage() {
 
       {canSend ? (
         childOptions.length > 0 ? (
-          <CallGuardianForm children={childOptions} />
+          <CallGuardianForm childOptions={childOptions} />
         ) : (
           <div className="rounded-2xl border border-border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
             Nenhuma criança com check-in ativo {activeService ? "neste culto" : "hoje"}. O chamado

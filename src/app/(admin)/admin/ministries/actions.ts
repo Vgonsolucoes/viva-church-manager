@@ -16,6 +16,7 @@ export type MinistryActionResult = {
 
 const ministrySchema = z.object({
   name: z.string().min(2),
+  projectionChannel: z.enum(["", "KIDS", "PARKING"]).default(""),
   description: z.string().optional().or(z.literal("")),
   active: z.boolean().optional(),
   leaderId: z.string().optional().or(z.literal("")),
@@ -68,6 +69,7 @@ export async function createMinistry(
 
   const parsed = ministrySchema.safeParse({
     name: formData.get("name"),
+    projectionChannel: formData.get("projectionChannel") ?? "",
     description: formData.get("description"),
     leaderId: formData.get("leaderId"),
   });
@@ -84,6 +86,7 @@ export async function createMinistry(
     const ministry = await prisma.ministry.create({
       data: {
         name: parsed.data.name.trim(),
+        projectionChannel: parsed.data.projectionChannel || null,
         description: parsed.data.description ? parsed.data.description.trim() : null,
         active: true,
         leaderId,
@@ -99,11 +102,13 @@ export async function createMinistry(
         id: ministry.id,
         name: ministry.name,
         active: ministry.active,
+        projectionChannel: ministry.projectionChannel,
         leader: await leaderSummary(ministry.leaderId),
       },
     });
 
     revalidatePath("/admin/ministries");
+    revalidatePath("/admin", "layout");
     return { ok: true, message: "Ministério criado com sucesso." };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err ?? "desconhecido");
@@ -125,6 +130,7 @@ export async function updateMinistry(
   const parsed = updateMinistrySchema.safeParse({
     ministryId: formData.get("ministryId"),
     name: formData.get("name"),
+    projectionChannel: formData.get("projectionChannel") ?? "",
     description: formData.get("description"),
     active: formData.get("active") === "on",
     leaderId: formData.get("leaderId"),
@@ -135,7 +141,7 @@ export async function updateMinistry(
 
   const before = await prisma.ministry.findUnique({
     where: { id: parsed.data.ministryId },
-    select: { id: true, name: true, description: true, active: true, leaderId: true },
+    select: { id: true, name: true, description: true, active: true, leaderId: true, projectionChannel: true },
   });
   if (!before) {
     return { ok: false, error: "Ministério não encontrado para atualização." };
@@ -151,6 +157,7 @@ export async function updateMinistry(
       where: { id: before.id },
       data: {
         name: parsed.data.name.trim(),
+        projectionChannel: parsed.data.projectionChannel || null,
         description: parsed.data.description ? parsed.data.description.trim() : null,
         active: parsed.data.active ?? true,
         leaderId,
@@ -166,16 +173,19 @@ export async function updateMinistry(
       before: {
         name: before.name,
         active: before.active,
+        projectionChannel: before.projectionChannel,
         leader: await leaderSummary(before.leaderId),
       },
       after: {
         name: updated.name,
         active: updated.active,
+        projectionChannel: updated.projectionChannel,
         leader: await leaderSummary(updated.leaderId),
       },
     });
 
     revalidatePath("/admin/ministries");
+    revalidatePath("/admin", "layout");
     return { ok: true, message: "Ministério atualizado com sucesso." };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err ?? "desconhecido");

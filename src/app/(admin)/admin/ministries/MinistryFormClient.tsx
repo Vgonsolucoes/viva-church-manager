@@ -15,6 +15,7 @@ export function MinistryFormClient(props: {
     description: string | null;
     active: boolean;
     leaderId: string | null;
+    projectionChannel: "KIDS" | "PARKING" | null;
   }>;
 }) {
   const isEdit = Boolean(
@@ -34,6 +35,7 @@ export function MinistryFormClient(props: {
 
   return (
     <form ref={formRef} action={formAction} className="space-y-3">
+      <label className="block space-y-2 text-sm">Equipe de avisos à projeção<select name="projectionChannel" defaultValue={props.defaultValues?.projectionChannel ?? ""} className="w-full rounded-2xl border border-border bg-background p-3"><option value="">Sem envio de avisos</option><option value="KIDS">Kids — chamar responsável</option><option value="PARKING">Estacionamento — chamar proprietário</option></select><span className="block text-xs text-muted-foreground">Somente integrantes deste ministério ativo poderão enviar os avisos desta equipe, inclusive no aplicativo.</span></label>
       {isEdit ? (
         <input type="hidden" name="ministryId" value={props.defaultValues?.ministryId ?? ""} />
       ) : null}

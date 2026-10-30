@@ -43,6 +43,7 @@ export default async function MinistriesPage(props: {
             id: true,
             name: true,
             description: true,
+            projectionChannel: true,
             active: true,
             leaderId: true,
           },
@@ -189,6 +190,7 @@ export default async function MinistriesPage(props: {
                   ministryId: editMinistry.id,
                   name: editMinistry.name,
                   description: editMinistry.description,
+                  projectionChannel: editMinistry.projectionChannel,
                   active: editMinistry.active,
                   leaderId: editMinistry.leaderId,
                 }}

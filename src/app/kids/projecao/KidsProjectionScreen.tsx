@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 type ProjectionMessage = {
   id: string;
+  channel: "KIDS" | "PARKING";
   childName: string;
   message: string;
   sentAt: string;
@@ -111,7 +112,7 @@ export function KidsProjectionScreen({ operatorName }: { operatorName: string | 
 
   const fetchMessages = useCallback(async () => {
     try {
-      const res = await fetch("/api/v1/kids/projection/messages?take=20", {
+      const res = await fetch("/api/v1/projection/messages", {
         cache: "no-store",
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -146,10 +147,11 @@ export function KidsProjectionScreen({ operatorName }: { operatorName: string | 
     return () => clearInterval(id);
   }, [fetchMessages]);
 
-  const markViewed = useCallback(async (id: string) => {
+  const markViewed = useCallback(async (id: string, channel: "KIDS" | "PARKING") => {
     setAckBusyId(id);
     try {
-      await fetch(`/api/v1/kids/projection/messages/${id}/view`, { method: "POST" });
+      const res = await fetch(`/api/v1/projection/messages/${id}/view`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ channel }) });
+      if (!res.ok) throw new Error("Falha ao confirmar mensagem.");
     } catch {
       // a próxima atualização do polling reexibe a mensagem se falhar
     } finally {
@@ -181,7 +183,7 @@ export function KidsProjectionScreen({ operatorName }: { operatorName: string | 
         <div>
           <div className="text-lg font-bold tracking-wide">VIVA CHURCH</div>
           <div className="text-xs font-medium uppercase tracking-[0.3em] text-white/60">
-            Comunicação Kids
+            Avisos Kids e Estacionamento
           </div>
         </div>
         <div className="flex items-center gap-4">
@@ -218,7 +220,7 @@ export function KidsProjectionScreen({ operatorName }: { operatorName: string | 
               <div className="flex items-center justify-center gap-3">
                 <span className="kids-alert-dot inline-block h-4 w-4 rounded-full bg-red-500" />
                 <span className="text-xl font-bold uppercase tracking-[0.2em] text-red-300">
-                  Nova mensagem Kids
+                  Novo aviso — {current.channel === "PARKING" ? "Estacionamento" : "Kids"}
                 </span>
                 <span className="kids-alert-dot inline-block h-4 w-4 rounded-full bg-red-500" />
               </div>
@@ -238,7 +240,7 @@ export function KidsProjectionScreen({ operatorName }: { operatorName: string | 
               <button
                 type="button"
                 disabled={ackBusyId === current.id}
-                onClick={() => void markViewed(current.id)}
+                onClick={() => void markViewed(current.id, current.channel)}
                 className="mt-10 rounded-2xl bg-white px-10 py-4 text-xl font-bold text-black transition hover:bg-white/85 disabled:opacity-50"
               >
                 {ackBusyId === current.id ? "Confirmando…" : "VISUALIZADO"}
@@ -256,6 +258,7 @@ export function KidsProjectionScreen({ operatorName }: { operatorName: string | 
                     className="flex items-center justify-between gap-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-5 py-3"
                   >
                     <div className="min-w-0">
+                      <span className="mr-2 text-xs uppercase text-white/60">{m.channel === "PARKING" ? "Estacionamento" : "Kids"}</span>
                       <span className="font-bold uppercase">{m.childName}</span>
                       <span className="text-white/70"> — {m.message}</span>
                       <span className="ml-2 text-xs text-white/40">
@@ -265,7 +268,7 @@ export function KidsProjectionScreen({ operatorName }: { operatorName: string | 
                     <button
                       type="button"
                       disabled={ackBusyId === m.id}
-                      onClick={() => void markViewed(m.id)}
+                      onClick={() => void markViewed(m.id, m.channel)}
                       className="shrink-0 rounded-xl border border-white/25 px-4 py-1.5 text-sm font-semibold text-white/85 hover:bg-white/10 disabled:opacity-50"
                     >
                       Visualizado
@@ -281,7 +284,7 @@ export function KidsProjectionScreen({ operatorName }: { operatorName: string | 
               Aguardando mensagens
             </div>
             <div className="mt-4 text-2xl font-semibold text-white/70">
-              Nenhuma solicitação do Kids no momento
+              Nenhum aviso pendente no momento
             </div>
             <div className="mt-3 text-sm text-white/40">
               Esta tela pisca e emite alerta sonoro quando uma nova mensagem chegar.

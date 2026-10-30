@@ -12,7 +12,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "kids:smoke": "tsx scripts/kids-smoke.ts"
+    "kids:smoke": "tsx scripts/kids-smoke.ts",
+    "test:projection": "node --test scripts/projection-tests.cjs"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

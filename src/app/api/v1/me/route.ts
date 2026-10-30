@@ -9,6 +9,8 @@ import {
 } from "@/server/rbac";
 import { readSessionOrBearer } from "@/server/auth-jwt";
 
+import { getProjectionAccess } from "@/server/projection-access";
+
 export const dynamic = "force-dynamic";
 
 const MemberShape = z.object({
@@ -39,6 +41,7 @@ const MeResponseSchema = z.object({
   member: MemberShape.nullable(),
   ministries: z.array(z.object({ id: z.string(), name: z.string() })),
   leadingCellIds: z.array(z.string()),
+  projectionAccess: z.object({ KIDS: z.boolean(), PARKING: z.boolean() }),
   syncedAt: z.coerce.date(),
 });
 
@@ -107,6 +110,7 @@ export async function GET(req: Request) {
       : null,
     ministries,
     leadingCellIds: (user.member?.cellLeading ?? []).map((c: { id: string }) => c.id),
+    projectionAccess: await getProjectionAccess(user.id),
     syncedAt: new Date(),
   });
 

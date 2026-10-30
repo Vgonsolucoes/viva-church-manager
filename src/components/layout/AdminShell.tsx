@@ -7,6 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import {
   Baby,
+  Car,
   Bell,
   Calendar,
   ClipboardList,
@@ -116,6 +117,12 @@ const navItems: NavItem[] = [
     permission: "kids:read",
   },
   {
+    href: "/admin/parking",
+    label: "Estacionamento",
+    icon: <Car className="size-4" />,
+    permission: "parking:read",
+  },
+  {
     href: "/admin/finance",
     label: "Financeiro",
     icon: <PiggyBank className="size-4" />,
@@ -181,6 +188,7 @@ export function AdminShell(props: {
     image?: string | null;
     roles: RoleKey[];
     unreadNotifications: number;
+    projectionAccess?: { KIDS: boolean; PARKING: boolean };
   };
   children: React.ReactNode;
 }) {
@@ -189,7 +197,7 @@ export function AdminShell(props: {
   const [query, setQuery] = useState("");
   const [range, setRange] = useState<"today" | "week" | "month">("today");
 
-  const allowed = navItems.filter((i) => allowsItem(props.user.roles, i.permission));
+  const allowed = navItems.filter((i) => allowsItem(props.user.roles, i.permission) || (i.href === "/admin/parking" && props.user.projectionAccess?.PARKING));
   const allowedExtra = extraItems.filter((i) => allowsItem(props.user.roles, i.permission));
 
   const initials = useMemo(() => {

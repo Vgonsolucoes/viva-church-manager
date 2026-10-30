@@ -4,10 +4,10 @@ import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { authOptions } from "@/server/auth";
-import { logAudit } from "@/server/audit";
-import { prisma } from "@/server/db";
-import { hasPermission, type RoleKey } from "@/server/rbac";
-import { sendKidsProjectionMessage } from "@/server/kids-projection";
+
+
+import { getProjectionAccess } from "@/server/projection-access";
+import { createProjectionRequest } from "@/server/projection-requests";
 import {
   KIDS_PROJECTION_MESSAGE_MAX,
   KIDS_PROJECTION_PRESETS,
@@ -34,8 +34,7 @@ export async function sendProjectionMessage(
   formData: FormData,
 ): Promise<KidsProjectionFormState> {
   const session = await getServerSession(authOptions);
-  const roles = (session?.roles ?? []) as RoleKey[];
-  if (!session?.uid || !hasPermission(roles, "kids:projection:send")) {
+  if (!session?.uid || !(await getProjectionAccess(session.uid)).KIDS) {
     return initialError("Sem permissão para enviar mensagens à projeção.");
   }
 
@@ -59,31 +58,9 @@ export async function sendProjectionMessage(
     return initialError("Mensagem inválida.");
   }
 
-  const child = await prisma.child.findUnique({
-    where: { id: parsed.data.childId },
-    select: { id: true, fullName: true },
-  });
-  if (!child) return initialError("Criança não encontrada.");
-
-  const created = await sendKidsProjectionMessage({
-    childId: child.id,
-    message,
-    sentById: session.uid,
-  });
-
-  await logAudit({
-    actorUserId: session.uid,
-    action: "PROJECTION_MESSAGE_SENT",
-    entityType: "KidsProjectionMessage",
-    entityId: created.id,
-    after: {
-      childId: child.id,
-      childName: child.fullName,
-      message,
-      serviceScheduleId: created.serviceScheduleId,
-    },
-  });
+  const result = await createProjectionRequest(session.uid, { channel: "KIDS", childId: parsed.data.childId, message });
+  if (!result.ok) return initialError(result.error);
 
   revalidatePath("/admin/kids/projecao");
-  return { ok: true, message: `Chamado enviado para a projeção: ${child.fullName}.`, error: "" };
+  return { ok: true, message: "Chamado enviado para a projeção.", error: "" };
 }
