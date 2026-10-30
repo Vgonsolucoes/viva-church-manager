@@ -10,6 +10,8 @@ import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
 import { logAudit } from "@/server/audit";
 import { savePublicImageUpload } from "@/server/uploads";
+import { WeeklyServices } from "@/components/events/WeeklyServices";
+import { ensureWeeklyServices } from "@/server/weekly-services";
 
 export const dynamic = "force-dynamic";
 
@@ -233,8 +235,10 @@ async function createSale(formData: FormData) {
 }
 
 export default async function EventsPage() {
+  await ensureWeeklyServices();
   const [events, recentSales] = await Promise.all([
     prisma.event.findMany({
+      where: { NOT: { id: { startsWith: "viva-weekly-" } } },
       orderBy: { startsAt: "desc" },
       take: 50,
       include: {
@@ -275,6 +279,7 @@ export default async function EventsPage() {
         </div>
       </div>
 
+      <WeeklyServices />
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <div className="space-y-4 xl:col-span-2">
           <Card className="p-5">

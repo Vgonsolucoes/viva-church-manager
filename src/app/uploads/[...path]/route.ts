@@ -41,7 +41,7 @@ export async function GET(
       return new Response("Not found", { status: 404 });
     }
 
-    if (segments.length === 1 && segments[0].startsWith("avatar_")) {
+    if (segments.length === 1 && /^(avatar|banner)_/.test(segments[0])) {
       const avatar = await prisma.memberAvatar.findUnique({
         where: { name: segments[0] },
       });

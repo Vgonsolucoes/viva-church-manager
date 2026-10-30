@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
+import { ensureWeeklyServices } from "@/server/weekly-services";
 
-export async function GET() {
+export async function GET(req: Request) {
+  await ensureWeeklyServices();
   const now = new Date();
   const events = await prisma.event.findMany({
     where: { public: true, startsAt: { gte: now } },
@@ -17,7 +19,7 @@ export async function GET() {
       startsAt: e.startsAt,
       endsAt: e.endsAt,
       location: e.location,
-      bannerImageUrl: e.bannerImageUrl,
+      bannerImageUrl: e.bannerImageUrl ? new URL(e.bannerImageUrl, req.url).toString() : null,
       capacity: e.capacity,
       isPaid: e.isPaid,
       ticketPriceCents: e.ticketPriceCents,

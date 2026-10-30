@@ -1,10 +1,12 @@
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { prisma } from "@/server/db";
+import { ensureWeeklyServices } from "@/server/weekly-services";
 
 export const dynamic = "force-dynamic";
 
 export default async function CalendarAdminPage() {
+  await ensureWeeklyServices();
   const now = new Date();
   const [events, schedules, courses] = await Promise.all([
     prisma.event.findMany({ where: { startsAt: { gte: now } }, orderBy: { startsAt: "asc" }, take: 20 }),
@@ -66,6 +68,7 @@ export default async function CalendarAdminPage() {
                     {new Intl.DateTimeFormat("pt-BR", {
                       dateStyle: "short",
                       timeStyle: "short",
+                      timeZone: "America/Sao_Paulo",
                     }).format(it.startsAt)}{" "}
                     • {it.meta}
                   </div>

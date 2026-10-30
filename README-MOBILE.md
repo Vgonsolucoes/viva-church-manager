@@ -5,9 +5,19 @@
 - Conta Expo: `vivachurch`.
 - Projeto: `@vivachurch/viva-church` — https://expo.dev/accounts/vivachurch/projects/viva-church
 - EAS projectId: `d62d3333-4241-4af1-aa51-678fc496b383`.
-- Versão do aplicativo: `0.3.0`. O pacote Android permanece `br.com.vivasede.app`.
+- Versão do aplicativo: `0.3.1`. O pacote Android permanece `br.com.vivasede.app`.
 - O proprietário autorizou recriar o projeto porque não tem acesso à conta anterior `vgon`. A nova assinatura Android fica armazenada no EAS da conta `vivachurch`; um APK assinado com a chave anterior poderá precisar ser desinstalado antes de instalar o novo.
 - As notas sobre `projectId` vazio e Expo SDK 52 nas etapas históricas abaixo são antigas. Consulte `apps/mobile/app.json` e `apps/mobile/package.json` para a configuração atual.
+
+## Cultos fixos
+
+Domingo às 18h e quarta-feira às 20h, em `America/Sao_Paulo`, são recorrentes sem data final. `ensureWeeklyServices()` mantém uma janela móvel de 100 dias como eventos públicos reais, com IDs determinísticos e sem duplicar um culto público já cadastrado no mesmo horário. As consultas de agenda e eventos renovam a janela; não depende de cron nem de novo cadastro semanal.
+
+Em **Eventos → Cultos fixos**, usuários com `events:write` podem ajustar nome, local e arte de cada série. A configuração fica em `AppSetting`; a nova arte vale para as próximas ocorrências geradas pela série. Banners enviados são persistidos no mesmo armazenamento de imagens do banco (modelo legado `MemberAvatar`) e servidos em `/uploads/banner_*`, com fallback para os arquivos antigos.
+
+O endpoint de agenda retorna os campos legados e os campos esperados pelo aplicativo (`category`, `entityType`, `entityId`, campos nulos e `bannerImageUrl`). O início do app encontra o próximo culto mesmo quando a semana atual termina antes dele.
+
+Testes: `node --test scripts/weekly-services-tests.cjs`.
 
 ## Aparência da marca
 

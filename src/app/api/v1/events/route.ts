@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
 import { requireLoggedIn } from "@/server/session-helpers";
 import { hasPermission } from "@/server/rbac";
+import { ensureWeeklyServices } from "@/server/weekly-services";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,7 @@ export async function GET(req: Request) {
   const auth = await requireLoggedIn(req);
   if (!auth.ok) return auth.error;
   const { ctx } = auth;
+  await ensureWeeklyServices();
 
   const canWrite = hasPermission(ctx.roles, "events:write");
   const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
@@ -34,7 +36,7 @@ export async function GET(req: Request) {
       startsAt: e.startsAt,
       endsAt: e.endsAt,
       location: e.location,
-      bannerImageUrl: e.bannerImageUrl,
+      bannerImageUrl: e.bannerImageUrl ? new URL(e.bannerImageUrl, req.url).toString() : null,
       responsibleMemberId: e.responsibleMemberId,
       responsible: e.responsible
         ? {

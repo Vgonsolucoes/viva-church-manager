@@ -2,13 +2,14 @@ import { getServerSession } from "next-auth";
 import type { CourseAudience } from "@/generated/prisma/client";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { format } from "date-fns";
 import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
+import { ensureWeeklyServices } from "@/server/weekly-services";
 
 export const dynamic = "force-dynamic";
 
 export default async function MobileCalendarPage() {
+  await ensureWeeklyServices();
   const session = await getServerSession(authOptions);
   const now = new Date();
   const user = session?.uid
@@ -96,7 +97,7 @@ export default async function MobileCalendarPage() {
                 <div className="min-w-0">
                   <div className="text-sm font-semibold">{item.title}</div>
                   <div className="mt-1 text-sm text-muted-foreground">
-                    {format(item.startsAt, "dd/MM/yyyy HH:mm")}
+                    {new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" }).format(item.startsAt)}
                     {item.location ? ` • ${item.location}` : ""}
                   </div>
                   <div className="mt-2 text-xs text-muted-foreground">{item.subtitle}</div>

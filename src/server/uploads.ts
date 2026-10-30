@@ -52,7 +52,9 @@ async function saveUploadedFile(
     const name = `${prefix}_${Date.now()}_${crypto
       .randomBytes(10)
       .toString("hex")}.${ext}`;
-    if (prefix === "avatar") {
+    // Reuse the persisted image store (legacy model name) so uploaded banners
+    // survive container replacement just like member photos.
+    if (prefix === "avatar" || prefix === "banner") {
       await prisma.memberAvatar.create({
         data: { name, contentType: type, data: buffer },
       });

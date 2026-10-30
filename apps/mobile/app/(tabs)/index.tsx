@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo } from "react";
-import { Pressable, StyleSheet, Text, View, FlatList, Dimensions } from "react-native";
+import { Pressable, StyleSheet, Text, View, FlatList, Dimensions, Image } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -162,10 +162,14 @@ export default function HomeScreen() {
 
   const nextCulto = useMemo(() => {
     const now = Date.now();
-    return (agenda ?? [])
+    const services = (eventsList ?? []).filter(event => event.type === "SERVICE").map(event => ({
+      id: event.id, title: event.name, category: "CULTO", startsAt: event.startsAt,
+      location: event.location, bannerImageUrl: event.bannerImageUrl,
+    }));
+    return [...services, ...(agenda ?? [])]
       .filter((a) => a.category === "CULTO" && new Date(a.startsAt).getTime() + 3_600_000 >= now)
       .sort((a, b) => +new Date(a.startsAt) - +new Date(b.startsAt))[0];
-  }, [agenda]);
+  }, [agenda, eventsList]);
 
   const nextSchedule = useMemo(() => {
     const now = Date.now();
@@ -332,6 +336,7 @@ function HeroCultoCard({ culto }: { culto: any }) {
 
   return (
     <AppCard variant="hero" padding={0} style={{ overflow: "hidden" }}>
+      {culto.bannerImageUrl && <Image source={{ uri: culto.bannerImageUrl }} accessibilityLabel={`Arte de ${culto.title}`} style={{ width: "100%", aspectRatio: 16 / 9, backgroundColor: theme.colors.card }} resizeMode="contain" />}
       <LinearGradient
         colors={[theme.colors.gradientFrom, theme.colors.gradientTo]}
         start={{ x: 0, y: 0 }}

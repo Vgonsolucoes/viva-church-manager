@@ -262,6 +262,7 @@ export const AgendaItemSchema = z.object({
   description: z.string().nullable(),
   entityType: z.string(),
   entityId: z.string(),
+  bannerImageUrl: z.string().nullable().optional(),
 });
 export type AgendaItem = z.infer<typeof AgendaItemSchema>;
 

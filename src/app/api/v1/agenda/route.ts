@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/server/db";
 import { requireLoggedIn } from "@/server/session-helpers";
 import { hasPermission } from "@/server/rbac";
+import { ensureWeeklyServices } from "@/server/weekly-services";
+import { churchAgendaRange, churchDateKey, churchDateTime } from "@/lib/weekly-services";
 
 export const dynamic = "force-dynamic";
 
@@ -15,37 +18,14 @@ type AgendaItem = {
   location?: string | null;
   responsible?: string | null;
   ministry?: string | null;
+  category?: string;
+  bannerImageUrl?: string | null;
 };
 
 const QuerySchema = z.object({
   range: z.enum(["today", "week", "month"]).default("week"),
   category: z.string().optional(),
 });
-
-function getRangeDates(range: "today" | "week" | "month"): { from: Date; to: Date } {
-  const now = new Date();
-  const from = new Date(now);
-  let to: Date;
-
-  if (range === "today") {
-    from.setHours(0, 0, 0, 0);
-    to = new Date(from);
-    to.setDate(to.getDate() + 1);
-  } else if (range === "week") {
-    from.setHours(0, 0, 0, 0);
-    const day = from.getDay();
-    from.setDate(from.getDate() - day);
-    to = new Date(from);
-    to.setDate(to.getDate() + 7);
-  } else {
-    from.setDate(1);
-    from.setHours(0, 0, 0, 0);
-    to = new Date(from);
-    to.setMonth(to.getMonth() + 1);
-  }
-
-  return { from, to };
-}
 
 function categoryAllowed(categories: string[] | undefined, itemType: string): boolean {
   if (!categories || categories.length === 0) return true;
@@ -60,16 +40,12 @@ function categoryAllowed(categories: string[] | undefined, itemType: string): bo
 }
 
 function getNextCellMeetingDate(cell: { weekday: number; time: string }): Date {
-  const now = new Date();
-  const result = new Date(now);
-  result.setHours(0, 0, 0, 0);
-  const currentDay = result.getDay();
+  const result = new Date(`${churchDateKey(new Date())}T00:00:00Z`);
+  const currentDay = result.getUTCDay();
   let diff = cell.weekday - currentDay;
   if (diff < 0) diff += 7;
-  result.setDate(result.getDate() + diff);
-  const [h, m] = cell.time.split(":").map(Number);
-  result.setHours(h ?? 19, m ?? 0, 0, 0);
-  return result;
+  result.setUTCDate(result.getUTCDate() + diff);
+  return churchDateTime(result.toISOString().slice(0, 10), cell.time || "19:00");
 }
 
 export async function GET(req: Request) {
@@ -79,8 +55,8 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const query = QuerySchema.safeParse({
-    range: searchParams.get("range"),
-    category: searchParams.get("category"),
+    range: searchParams.get("range") ?? undefined,
+    category: searchParams.get("category") ?? undefined,
   });
   if (!query.success) {
     return NextResponse.json(
@@ -97,12 +73,13 @@ export async function GET(req: Request) {
         .filter(Boolean)
     : undefined;
 
-  const { from, to } = getRangeDates(range);
+  const { from, to } = churchAgendaRange(range);
+  await ensureWeeklyServices();
 
-  const canCalendarRead = hasPermission(ctx.roles as any, "calendar:read");
-  const canEventsRead = hasPermission(ctx.roles as any, "events:read");
-  const canSchedulesRead = hasPermission(ctx.roles as any, "schedules:read");
-  const memberId = (ctx.user as any).memberId ?? ctx.user.member?.id;
+  const canCalendarRead = hasPermission(ctx.roles, "calendar:read");
+  const canEventsRead = hasPermission(ctx.roles, "events:read");
+  const canSchedulesRead = hasPermission(ctx.roles, "schedules:read");
+  const memberId = ctx.member?.id ?? ctx.user.member?.id;
 
   const items: AgendaItem[] = [];
 
@@ -148,7 +125,7 @@ export async function GET(req: Request) {
   }
 
   if (categoryAllowed(categories, "event")) {
-    const eventWhere: any = {
+    const eventWhere: Prisma.EventWhereInput = {
       startsAt: { gte: from, lt: to },
     };
     if (!canCalendarRead && !canEventsRead) {
@@ -161,10 +138,13 @@ export async function GET(req: Request) {
       },
     });
     for (const e of events) {
+      if (categories?.length && !categories.includes(e.type)) continue;
       items.push({
         id: `evt-${e.id}`,
         type: "event",
         title: e.name,
+        category: ({ SERVICE: "CULTO", CONFERENCE: "CONFERENCIA", CELL: "CELULA" } as Record<string, string>)[e.type] ?? "EVENTO",
+        bannerImageUrl: e.bannerImageUrl ? new URL(e.bannerImageUrl, req.url).toString() : null,
         startsAt: e.startsAt.toISOString(),
         endsAt: e.endsAt ? e.endsAt.toISOString() : null,
         location: e.location,
@@ -248,5 +228,14 @@ export async function GET(req: Request) {
 
   items.sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
 
-  return NextResponse.json(items);
+  return NextResponse.json(items.map(item => ({
+    ...item,
+    category: item.category ?? ({ schedule: "ESCALA", event: "EVENTO", cell: "CELULA", discipleship: "DISCIPULADO" } as const)[item.type],
+    endsAt: item.endsAt ?? null,
+    location: item.location ?? null,
+    description: item.ministry ?? item.responsible ?? null,
+    entityType: item.type,
+    entityId: item.id.slice(item.id.indexOf("-") + 1),
+    bannerImageUrl: item.bannerImageUrl ?? null,
+  })));
 }

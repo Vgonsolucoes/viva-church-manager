@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View, Alert } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View, Alert, Image } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { MapPin } from "lucide-react-native";
@@ -281,6 +281,7 @@ function TimelineRow({
         <View style={{ flex: 1, paddingLeft: 12 }}>
           <AppCard variant="default" padding={undefined}>
             <View style={{ gap: 8 }}>
+              {item.bannerImageUrl && <Image source={{ uri: item.bannerImageUrl }} accessibilityLabel={`Arte de ${item.title}`} style={{ width: "100%", aspectRatio: 16 / 9, borderRadius: 12 }} resizeMode="contain" />}
               <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
                 <View style={{ flex: 1 }}>
                   <Text numberOfLines={2} style={styles.itemTitle}>

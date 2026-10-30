@@ -4,6 +4,7 @@ import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
 import { closeEndedKidsSessions } from "@/server/kids-close";
 import { DashboardClient } from "@/app/(admin)/admin/ui/DashboardClient";
+import { ensureWeeklyServices } from "@/server/weekly-services";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,7 @@ function monthRange(date = new Date()) {
 }
 
 export default async function AdminDashboardPage() {
+  await ensureWeeklyServices();
   const session = await getServerSession(authOptions);
   const now = new Date();
 
@@ -47,13 +49,13 @@ export default async function AdminDashboardPage() {
         schedule: { startsAt: { gte: now, lte: new Date(now.getTime() + 7 * 86400000) } },
       },
     }),
-    prisma.schedule.findMany({
-      where: { kind: "SERVICE", startsAt: { gte: now } },
+    prisma.event.findMany({
+      where: { type: "SERVICE", startsAt: { gte: now } },
       orderBy: { startsAt: "asc" },
       take: 3,
     }),
     prisma.event.findMany({
-      where: { startsAt: { gte: now } },
+      where: { type: { not: "SERVICE" }, startsAt: { gte: now } },
       orderBy: { startsAt: "asc" },
       take: 3,
     }),
@@ -121,8 +123,9 @@ export default async function AdminDashboardPage() {
       weekday: "long",
       hour: "2-digit",
       minute: "2-digit",
+      timeZone: "America/Sao_Paulo",
     }).format(dt);
-    return { id: s.id, title: s.title, subtitle, day, month };
+    return { id: s.id, title: s.name, subtitle, day, month };
   });
 
   const events = upcomingEvents.map((e) => {
