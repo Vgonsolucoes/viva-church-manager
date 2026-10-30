@@ -140,7 +140,7 @@ export function YoutubeVideosClient(props: {
         </div>
         <div className="flex items-center gap-2">
           <Badge className="bg-muted/10">{localVideos.length} sincronizados</Badge>
-          <Badge className="border-[rgba(88,167,255,0.22)] bg-[rgba(88,167,255,0.10)] text-foreground">
+          <Badge className="border-[rgba(var(--brand-rgb),0.22)] bg-[rgba(var(--brand-rgb),0.10)] text-foreground">
             {visibleCount} visiveis no site
           </Badge>
           <Button
@@ -180,7 +180,7 @@ export function YoutubeVideosClient(props: {
                 className={cn(
                   "h-9 rounded-2xl border border-border/80 px-3 text-xs font-semibold transition",
                   filter === f
-                    ? "bg-[rgba(88,167,255,0.16)] text-foreground"
+                    ? "bg-[rgba(var(--brand-rgb),0.16)] text-foreground"
                     : "bg-transparent text-muted-foreground hover:bg-muted/10 hover:text-foreground",
                 )}
               >

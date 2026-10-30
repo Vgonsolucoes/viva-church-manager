@@ -1,10 +1,11 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, StyleSheet, View, Platform, Easing } from "react-native";
-import { theme } from "@/theme";
+import { useAppTheme } from "@/theme";
+import { useThemedStyles } from "@/theme";
 
 export type SkeletonVariant = "line" | "card" | "heroCard" | "gridCard" | "avatar" | "button" | "title";
 
-const PRESETS: Record<SkeletonVariant, { width?: number | string; height: number; borderRadius: number }> = {
+const createPRESETS = (theme: ReturnType<typeof useAppTheme>): Record<SkeletonVariant, { width?: number | string; height: number; borderRadius: number }> => ({
   line: { width: "100%", height: 14, borderRadius: 6 },
   card: { width: "100%", height: 110, borderRadius: theme.radius.card },
   heroCard: { width: "100%", height: 160, borderRadius: theme.radius.cardHero },
@@ -12,7 +13,7 @@ const PRESETS: Record<SkeletonVariant, { width?: number | string; height: number
   avatar: { width: 44, height: 44, borderRadius: 22 },
   button: { width: "100%", height: 52, borderRadius: theme.radius.button },
   title: { width: 180, height: 22, borderRadius: 8 },
-};
+});
 
 interface LoadingSkeletonProps {
   variant?: SkeletonVariant;
@@ -23,6 +24,10 @@ interface LoadingSkeletonProps {
 }
 
 export function LoadingSkeleton({ variant = "line", width, height, borderRadius, style }: LoadingSkeletonProps) {
+  const theme = useAppTheme();
+  const PRESETS = useThemedStyles(createPRESETS, theme);
+  const styles = useThemedStyles(createStyles, theme);
+
   const preset = PRESETS[variant];
   const opacity = useRef(new Animated.Value(0.25)).current;
 
@@ -64,14 +69,16 @@ export function LoadingSkeleton({ variant = "line", width, height, borderRadius,
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   base: {
     backgroundColor: theme.colors.skeletonHighlight,
     overflow: "hidden",
   },
-});
+}));
 
 export function SkeletonCardLines({ lines = 3 }: { lines?: number }) {
+  const theme = useAppTheme();
+
   return (
     <View style={{ gap: theme.spacing.sm }}>
       {Array.from({ length: lines }).map((_, i) => (

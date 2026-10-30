@@ -11,7 +11,8 @@ import { useSessionStore } from "@/stores/session";
 import { hasAnyPermission, hasPermission } from "@/permissions";
 import { useAuth } from "@/hooks/useAuth";
 import type { PermissionKey } from "@/types";
-import { theme } from "@/theme";
+import { useAppTheme } from "@/theme";
+import { useThemedStyles } from "@/theme";
 
 interface MenuItemDef {
   key: MinistryKey;
@@ -72,6 +73,9 @@ const MENU: MenuItemDef[] = [
 ];
 
 export default function IgrejaScreen() {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const router = useRouter();
   const { initialized, refreshMe } = useAuth();
   const { me } = useSessionStore();
@@ -172,7 +176,7 @@ export default function IgrejaScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   gridContent: {
     flexGrow: 1,
   },
@@ -188,4 +192,4 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: theme.spacing.md,
   },
-});
+}));

@@ -7,7 +7,8 @@ import { Screen } from "@/components/Screen";
 import { Card } from "@/components/Card";
 import { EmptyState } from "@/components/EmptyState";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { theme } from "@/constants/theme";
+import { theme, useAppTheme } from "@/constants/theme";
+import { useThemedStyles } from "@/theme";
 import { friendlyEventDate, formatDate, formatTime } from "@/utils/date";
 import { addToCalendar } from "@/utils/calendar";
 import { listMyAgenda } from "@/services/api/agenda";
@@ -24,7 +25,7 @@ type Range = "today" | "week" | "month";
 
 type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
 
-function categoryMeta(cat: AgendaCategory): {
+function categoryMeta(cat: AgendaCategory, theme: ReturnType<typeof useAppTheme>): {
   label: string;
   icon: IconName;
   color: string;
@@ -43,11 +44,11 @@ function categoryMeta(cat: AgendaCategory): {
     case "DISCIPULADO":
       return { label: "Discipulado", icon: "book-open-page-variant", color: theme.colors.warning, bg: "rgba(244,161,0,0.15)", variant: "warning" };
     case "ENSAIO":
-      return { label: "Ensaio", icon: "music-circle", color: "#8B5CF6", bg: "rgba(139,92,246,0.15)", variant: "purple" };
+      return { label: "Ensaio", icon: "music-circle", color: "#8B5CF6", bg: theme.colors.borderPrimary, variant: "purple" };
     case "ESCALA":
-      return { label: "Escala", icon: "clipboard-text-clock", color: "#0EA5E9", bg: "rgba(14,165,233,0.15)", variant: "cyan" };
+      return { label: "Escala", icon: "clipboard-text-clock", color: "#0EA5E9", bg: theme.colors.borderPrimary, variant: "cyan" };
     case "CONFERENCIA":
-      return { label: "Conferência", icon: "microphone-variant", color: "#EC4899", bg: "rgba(236,72,153,0.15)", variant: "pink" };
+      return { label: "Conferência", icon: "microphone-variant", color: "#EC4899", bg: theme.colors.borderPrimary, variant: "pink" };
     default:
       return { label: "Agenda", icon: "calendar", color: theme.colors.primary, bg: theme.colors.primarySoft, variant: "primary" };
   }
@@ -60,6 +61,9 @@ const RANGE_TABS: { key: Range; label: string }[] = [
 ];
 
 export default function AgendaScreen() {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const { initialized } = useAuth();
   const [range, setRange] = useState<Range>("today");
 
@@ -167,6 +171,9 @@ function SegmentedControl({
   value: Range;
   onChange: (v: Range) => void;
 }) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   return (
     <View style={styles.segRoot}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
@@ -217,6 +224,9 @@ function TimelineList({
   items: AgendaItem[];
   onAddToCalendar: (item: AgendaItem) => void;
 }) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const grouped = useMemo(() => {
     const map = new Map<string, AgendaItem[]>();
     items.forEach((it) => {
@@ -250,7 +260,10 @@ function TimelineRow({
   item: AgendaItem;
   onAddToCalendar: (item: AgendaItem) => void;
 }) {
-  const meta = categoryMeta(item.category);
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
+  const meta = categoryMeta(item.category, theme);
   const time = formatTime(item.startsAt);
 
   return (
@@ -317,7 +330,7 @@ function TimelineRow({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   tabsWrap: {
     paddingHorizontal: theme.spacing.lg,
     paddingBottom: theme.spacing.md,
@@ -344,7 +357,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   segTextActive: {
-    color: "#FFFFFF",
+    color: theme.colors.foreground,
   },
   dayHeader: {
     color: theme.colors.foreground,
@@ -383,7 +396,7 @@ const styles = StyleSheet.create({
     minHeight: 80,
   },
   itemTitle: {
-    color: "#FFFFFF",
+    color: theme.colors.foreground,
     fontFamily: theme.fontFamilies.bold,
     fontSize: 15,
     lineHeight: 20,
@@ -420,7 +433,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: theme.radius.pill,
-    backgroundColor: "rgba(23,107,255,0.10)",
+    backgroundColor: theme.colors.borderPrimary,
     marginTop: 2,
   },
   itemActionText: {
@@ -428,7 +441,7 @@ const styles = StyleSheet.create({
     fontFamily: theme.fontFamilies.semibold,
     fontSize: 11,
   },
-});
+}));
 
 void formatDate;
 void formatTime;

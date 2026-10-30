@@ -1,6 +1,7 @@
 import React from "react";
 import { View, StyleSheet, Pressable, ViewStyle } from "react-native";
-import { theme } from "@/theme";
+import { useAppTheme } from "@/theme";
+import { useThemedStyles } from "@/theme";
 
 type Variant = "default" | "hero" | "outlined" | "transparent";
 
@@ -21,6 +22,9 @@ export function AppCard({
   onPress,
   padding,
 }: AppCardProps) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const cardStyles = [
     styles.base,
     variant === "default" && styles.defaultVar,
@@ -53,7 +57,7 @@ export function AppCard({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   base: {
     borderRadius: theme.radius.card,
     width: "100%",
@@ -78,4 +82,4 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.white16,
   },
   transparentVar: { backgroundColor: "transparent" },
-});
+}));

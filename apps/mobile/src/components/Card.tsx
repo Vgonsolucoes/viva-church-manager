@@ -1,6 +1,7 @@
 import React from "react";
 import { StyleSheet, View, StyleProp, ViewProps, ViewStyle } from "react-native";
-import { theme } from "@/constants/theme";
+import { useAppTheme } from "@/constants/theme";
+import { useThemedStyles } from "@/theme";
 
 export interface CardProps extends ViewProps {
   elevated?: boolean;
@@ -15,6 +16,9 @@ export function Card({
   children,
   ...rest
 }: CardProps) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const paddingStyle = padding === "none" ? null : styles[`pad_${padding}`];
   return (
     <View
@@ -26,7 +30,7 @@ export function Card({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   card: {
     width: "100%",
     backgroundColor: theme.colors.backgroundCard,
@@ -40,4 +44,4 @@ const styles = StyleSheet.create({
   pad_sm: { padding: 10 },
   pad_md: { padding: 14 },
   pad_lg: { padding: 18 },
-});
+}));

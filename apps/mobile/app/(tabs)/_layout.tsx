@@ -2,7 +2,8 @@ import React from "react";
 import { Tabs } from "expo-router";
 import { ColorValue, Platform, StyleSheet, View, Text } from "react-native";
 import { Home, CalendarDays, ClipboardList, Church, User } from "lucide-react-native";
-import { theme } from "@/theme";
+import { useAppTheme } from "@/theme";
+import { useThemedStyles } from "@/theme";
 
 function TabIcon({
   Icon,
@@ -15,6 +16,8 @@ function TabIcon({
   label: string;
   focused: boolean;
 }) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
   // React Navigation fornece o tint color como string em runtime
   const iconColor = color as string;
   return (
@@ -28,6 +31,8 @@ function TabIcon({
 }
 
 export default function TabsLayout() {
+  const theme = useAppTheme();
+
   return (
     <Tabs
       screenOptions={{
@@ -104,7 +109,7 @@ export default function TabsLayout() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => StyleSheet.create({
   tabWrapper: { alignItems: "center", justifyContent: "center", gap: 4, flex: 1 },
   iconWrap: {
     width: 44,
@@ -114,7 +119,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   iconWrapActive: {
-    backgroundColor: "rgba(23,107,255,0.12)",
+    backgroundColor: theme.colors.borderPrimary,
   },
   tabLabel: {
     fontSize: 11,

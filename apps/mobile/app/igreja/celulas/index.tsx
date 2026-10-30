@@ -20,7 +20,8 @@ import {
   User,
   ClipboardList,
 } from "lucide-react-native";
-import { theme } from "@/theme";
+import { useAppTheme } from "@/theme";
+import { useThemedStyles } from "@/theme";
 import { getMyCell } from "@/services/api/cellsMy";
 import { listCellMembers, postAttendance } from "@/services/api/cellsV2";
 import { useAuth } from "@/hooks/useAuth";
@@ -66,6 +67,9 @@ function firstMembers(cell: CellDetail, limit = 5) {
 }
 
 export default function MyCellScreen() {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const { me } = useAuth();
   const qc = useQueryClient();
 
@@ -298,7 +302,7 @@ function CalendarOutline({ color }: { color: string }) {
   return <Clock size={16} color={color} />;
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   heroCard: { padding: theme.spacing.lg },
   heroHeaderRow: {
     flexDirection: "row",
@@ -377,4 +381,4 @@ const styles = StyleSheet.create({
     color: theme.colors.foreground,
     fontSize: 14,
   },
-});
+}));

@@ -28,7 +28,7 @@ export function KidsSubNav() {
             className={cn(
               "inline-flex h-9 items-center rounded-full border px-4 text-sm font-medium transition-colors",
               active
-                ? "border-[#58a7ff]/50 bg-[#58a7ff]/15 text-foreground"
+                ? "border-[var(--primary)]/50 bg-[var(--primary)]/15 text-foreground"
                 : "border-border/70 bg-muted/10 text-muted-foreground hover:bg-muted/25 hover:text-foreground",
             )}
           >

@@ -1,7 +1,8 @@
 import { theme as newTheme } from "@/theme";
+import { useAppTheme as useBaseTheme, darkTheme } from "@/theme";
 export type { AppTheme, AppColors, AppSpacing, AppRadius, AppShadows, AppTypography, AppFontFamilies } from "@/theme";
 
-export const theme = {
+const createLegacyTheme = (newTheme: typeof import("@/theme").theme) => ({
   ...newTheme,
   colors: {
     ...newTheme.colors,
@@ -11,7 +12,7 @@ export const theme = {
     muted: newTheme.colors.foregroundMuted,
     border: newTheme.colors.borderSubtle,
     foreground: newTheme.colors.foreground,
-    foregroundDark: newTheme.colors.background,
+    foregroundDark: newTheme.colors.foreground,
     primary: newTheme.colors.primary500,
     primarySoft: newTheme.colors.borderPrimary,
     secondary: newTheme.colors.cardDark,
@@ -31,5 +32,10 @@ export const theme = {
     xl: 20,
     xxl: 26,
   },
-} as const;
+} as const);
+export const theme = createLegacyTheme(newTheme);
+const legacyDarkTheme = createLegacyTheme(darkTheme);
+export function useAppTheme() {
+  return useBaseTheme() === darkTheme ? legacyDarkTheme : theme;
+}
 

@@ -3,7 +3,9 @@ import { View, Text, StyleSheet, Pressable } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "expo-router";
 import { ChevronLeft, Search, Filter, Settings, Bell, Share2 } from "lucide-react-native";
-import { theme } from "@/theme";
+import { useAppTheme } from "@/theme";
+import { useThemedStyles } from "@/theme";
+import { ThemeToggle } from "./ThemeToggle";
 
 type RightIconKey = "search" | "filter" | "settings" | "bell" | "share";
 
@@ -37,6 +39,9 @@ export function AppHeader({
   backgroundColor,
   titleColor,
 }: AppHeaderProps) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
 
@@ -68,6 +73,7 @@ export function AppHeader({
           </View>
         </View>
         <View style={styles.right}>
+          <ThemeToggle />
           {rightIcons?.map((r, i) => {
             const I = ICONS[r.key];
             return (
@@ -91,7 +97,7 @@ export function AppHeader({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   root: {
     width: "100%",
   },
@@ -131,4 +137,4 @@ const styles = StyleSheet.create({
     color: theme.colors.foregroundMuted,
     marginTop: 2,
   },
-});
+}));

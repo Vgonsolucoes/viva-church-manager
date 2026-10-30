@@ -6,12 +6,12 @@ type Tone = "blue" | "purple" | "emerald" | "orange" | "red";
 
 const toneStyles: Record<Tone, { iconBg: string; glow: string }> = {
   blue: {
-    iconBg: "bg-[rgba(88,167,255,0.18)] text-[rgba(88,167,255,1)]",
-    glow: "shadow-[0_18px_70px_-38px_rgba(88,167,255,0.85)]",
+    iconBg: "bg-[rgba(var(--brand-rgb),0.18)] text-[rgba(var(--brand-rgb),1)]",
+    glow: "shadow-[0_18px_70px_-38px_rgba(var(--brand-rgb),0.85)]",
   },
   purple: {
-    iconBg: "bg-[rgba(162,105,255,0.18)] text-[rgba(162,105,255,1)]",
-    glow: "shadow-[0_18px_70px_-38px_rgba(162,105,255,0.85)]",
+    iconBg: "bg-[rgba(var(--brand-rgb),0.18)] text-[rgba(var(--brand-rgb),1)]",
+    glow: "shadow-[0_18px_70px_-38px_rgba(var(--brand-rgb),0.85)]",
   },
   emerald: {
     iconBg: "bg-[rgba(34,197,94,0.16)] text-[rgba(34,197,94,1)]",

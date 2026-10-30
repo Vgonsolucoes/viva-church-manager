@@ -8,6 +8,7 @@ import {
   ScrollView,
   Pressable,
   Dimensions,
+  Image,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Controller, useForm } from "react-hook-form";
@@ -15,7 +16,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Mail, Lock, Apple } from "lucide-react-native";
-import { theme } from "@/theme";
+import { useAppTheme } from "@/theme";
+import { useThemedStyles } from "@/theme";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Input } from "@/components/Input";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { useAuth } from "@/hooks/useAuth";
@@ -24,6 +27,9 @@ import { LoginInputSchema, type LoginInput } from "@/types";
 const { height } = Dimensions.get("window");
 
 export default function LoginScreen() {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const router = useRouter();
   const { isAuthenticated, login, loading, error, clearError } = useAuth();
   const [remember, setRemember] = useState(true);
@@ -68,6 +74,7 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.root} edges={["top", "left", "right", "bottom"]}>
+      <View style={{ alignItems: "flex-end", paddingHorizontal: 20 }}><ThemeToggle /></View>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -85,7 +92,7 @@ export default function LoginScreen() {
               end={{ x: 1, y: 1 }}
               style={styles.logoGradient}
             >
-              <Text style={styles.logoLetter}>V</Text>
+              <Image source={require("../assets/icon.png")} accessibilityLabel="Viva Church" style={{ width: 88, height: 88, borderRadius: 24 }} />
             </LinearGradient>
             <Text style={styles.brandName}>VIVA CHURCH</Text>
             <Text style={styles.slogan1}>Conectando pessoas.</Text>
@@ -202,7 +209,7 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: theme.colors.background,
@@ -391,4 +398,4 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: "Inter_600SemiBold",
   },
-});
+}));

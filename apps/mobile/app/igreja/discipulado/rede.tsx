@@ -7,7 +7,8 @@ import { Avatar } from "@/components/Avatar";
 import { EmptyState } from "@/components/EmptyState";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { AppCard } from "@/components/AppCard";
-import { theme } from "@/theme";
+import { useAppTheme } from "@/theme";
+import { useThemedStyles } from "@/theme";
 import { listMyDiscipleshipNetwork } from "@/services/api/discipleship";
 import type { DiscipleshipNetworkNode } from "@/types";
 
@@ -59,6 +60,9 @@ interface TreeNodeProps {
 }
 
 function TreeNode({ node, isRoot = false }: TreeNodeProps) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const children = node.disciples ?? [];
   const childrenCount = children.length;
   const myWidth = subtreeWidth(node);
@@ -151,6 +155,9 @@ function TreeNode({ node, isRoot = false }: TreeNodeProps) {
 }
 
 export default function DiscipuladoRedeScreen() {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ["discipleship-network"],
     queryFn: () => listMyDiscipleshipNetwork(),
@@ -186,7 +193,7 @@ export default function DiscipuladoRedeScreen() {
       <View style={{ paddingHorizontal: theme.spacing.lg, marginBottom: theme.spacing.md }}>
         <AppCard padding={theme.spacing.lg}>
           <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <View style={[styles.totalIcon, { backgroundColor: "rgba(23,107,255,0.14)" }]}>
+            <View style={[styles.totalIcon, { backgroundColor: theme.colors.borderPrimary }]}>
               <Users size={20} color={theme.colors.primary400} />
             </View>
             <View style={{ marginLeft: theme.spacing.md, flex: 1 }}>
@@ -233,7 +240,7 @@ export default function DiscipuladoRedeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   headerInner: {
     paddingHorizontal: theme.spacing.lg,
     paddingTop: theme.spacing.md,
@@ -292,7 +299,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.white16,
   },
   stageChipRoot: {
-    backgroundColor: "rgba(23,107,255,0.18)",
+    backgroundColor: theme.colors.borderPrimary,
   },
   stageText: {
     ...theme.typography.caption,
@@ -324,4 +331,4 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     justifyContent: "center",
   },
-});
+}));

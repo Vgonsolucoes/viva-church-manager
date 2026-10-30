@@ -260,7 +260,7 @@ export default async function NotificationsPage() {
                           <Badge key={r}>{r}</Badge>
                         ))}
                         {n.targetMemberTypes.map((t) => (
-                          <Badge key={t} className="bg-[rgba(88,167,255,0.10)]">
+                          <Badge key={t} className="bg-[rgba(var(--brand-rgb),0.10)]">
                             {t}
                           </Badge>
                         ))}

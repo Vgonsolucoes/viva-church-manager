@@ -14,7 +14,8 @@ import {
   CalendarRange,
   type LucideIcon,
 } from "lucide-react-native";
-import { theme } from "@/theme";
+import { useAppTheme } from "@/theme";
+import { useThemedStyles } from "@/theme";
 
 export type MinistryKey =
   | "events"
@@ -29,73 +30,73 @@ export type MinistryKey =
   | "parking"
   | "kidsProjection";
 
-const MAP: Record<MinistryKey, { label: string; Icon: LucideIcon; bgTint: string; bgTintAlpha: string; labelColor: string }> = {
+const createMAP = (theme: ReturnType<typeof useAppTheme>): Record<MinistryKey, { label: string; Icon: LucideIcon; bgTint: string; bgTintAlpha: string; labelColor: string }> => ({
   events: {
     label: "Eventos",
     Icon: CalendarDays,
-    bgTint: theme.colors.purple500,
-    bgTintAlpha: "rgba(112,87,255,0.14)",
-    labelColor: "#FFFFFF",
+    bgTint: theme.colors.primary500,
+    bgTintAlpha: theme.colors.borderPrimary,
+    labelColor: theme.colors.foreground,
   },
   cells: {
     label: "Células",
     Icon: Users,
-    bgTint: theme.colors.green500,
-    bgTintAlpha: "rgba(34,201,149,0.14)",
-    labelColor: "#FFFFFF",
+    bgTint: theme.colors.primary500,
+    bgTintAlpha: theme.colors.borderPrimary,
+    labelColor: theme.colors.foreground,
   },
   discipleships: {
     label: "Discipulado",
     Icon: GraduationCap,
-    bgTint: theme.colors.cyan500,
-    bgTintAlpha: "rgba(35,183,217,0.14)",
-    labelColor: "#FFFFFF",
+    bgTint: theme.colors.primary500,
+    bgTintAlpha: theme.colors.borderPrimary,
+    labelColor: theme.colors.foreground,
   },
   ministries: {
     label: "Ministérios",
     Icon: Briefcase,
-    bgTint: theme.colors.orange500,
-    bgTintAlpha: "rgba(243,155,66,0.14)",
-    labelColor: "#FFFFFF",
+    bgTint: theme.colors.primary500,
+    bgTintAlpha: theme.colors.borderPrimary,
+    labelColor: theme.colors.foreground,
   },
   projects: {
     label: "Projetos",
     Icon: HeartHandshake,
-    bgTint: theme.colors.pink500,
-    bgTintAlpha: "rgba(236,95,145,0.14)",
-    labelColor: "#FFFFFF",
+    bgTint: theme.colors.primary500,
+    bgTintAlpha: theme.colors.borderPrimary,
+    labelColor: theme.colors.foreground,
   },
   prayer: {
     label: "Oração",
     Icon: HeartPulse,
     bgTint: theme.colors.primary500,
-    bgTintAlpha: "rgba(23,107,255,0.14)",
-    labelColor: "#FFFFFF",
+    bgTintAlpha: theme.colors.borderPrimary,
+    labelColor: theme.colors.foreground,
   },
   qr: {
     label: "QR Code",
     Icon: QrCode,
-    bgTint: theme.colors.cyan400,
-    bgTintAlpha: "rgba(77,208,232,0.14)",
-    labelColor: "#FFFFFF",
+    bgTint: theme.colors.primary500,
+    bgTintAlpha: theme.colors.borderPrimary,
+    labelColor: theme.colors.foreground,
   },
   kids: {
     label: "Infantil",
     Icon: Baby,
-    bgTint: theme.colors.pink400,
-    bgTintAlpha: "rgba(243,134,170,0.14)",
-    labelColor: "#FFFFFF",
+    bgTint: theme.colors.primary500,
+    bgTintAlpha: theme.colors.borderPrimary,
+    labelColor: theme.colors.foreground,
   },
-  parking: { label: "Estacionamento", Icon: Car, bgTint: theme.colors.orange500, bgTintAlpha: "rgba(243,155,66,0.14)", labelColor: "#FFFFFF" },
-  kidsProjection: { label: "Avisos Kids", Icon: Megaphone, bgTint: theme.colors.pink400, bgTintAlpha: "rgba(243,134,170,0.14)", labelColor: "#FFFFFF" },
+  parking: { label: "Estacionamento", Icon: Car, bgTint: theme.colors.primary500, bgTintAlpha: theme.colors.borderPrimary, labelColor: theme.colors.foreground },
+  kidsProjection: { label: "Avisos Kids", Icon: Megaphone, bgTint: theme.colors.primary500, bgTintAlpha: theme.colors.borderPrimary, labelColor: theme.colors.foreground },
   notifications: {
     label: "Notificações",
     Icon: CalendarRange,
-    bgTint: theme.colors.purple400,
-    bgTintAlpha: "rgba(151,130,255,0.14)",
-    labelColor: "#FFFFFF",
+    bgTint: theme.colors.primary500,
+    bgTintAlpha: theme.colors.borderPrimary,
+    labelColor: theme.colors.foreground,
   },
-};
+});
 
 export interface MinistryCardProps {
   ministry: MinistryKey;
@@ -103,6 +104,10 @@ export interface MinistryCardProps {
 }
 
 export function MinistryCard({ ministry, onPress }: MinistryCardProps) {
+  const theme = useAppTheme();
+  const MAP = useThemedStyles(createMAP, theme);
+  const styles = useThemedStyles(createStyles, theme);
+
   const m = MAP[ministry];
   const I = m.Icon;
   return (
@@ -123,7 +128,7 @@ export function MinistryCard({ ministry, onPress }: MinistryCardProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   wrap: {
     flex: 1,
     aspectRatio: 1,
@@ -148,4 +153,4 @@ const styles = StyleSheet.create({
     ...theme.typography.bodyBold,
     fontSize: 14,
   },
-});
+}));

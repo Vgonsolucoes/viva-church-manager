@@ -327,15 +327,15 @@ export default async function EventsPage() {
                             {event.public ? <Badge>PUBLICO</Badge> : <Badge className="opacity-60">PRIVADO</Badge>}
                             {event.isPaid ? <Badge>PAGO</Badge> : <Badge className="opacity-70">GRATUITO</Badge>}
                             {event.capacity !== null ? (
-                              <Badge className="bg-[rgba(88,167,255,0.10)]">VAGAS {event.capacity}</Badge>
+                              <Badge className="bg-[rgba(var(--brand-rgb),0.10)]">VAGAS {event.capacity}</Badge>
                             ) : (
                               <Badge className="opacity-60">SEM LIMITE</Badge>
                             )}
                             {event.isPaid && event.allowPix ? (
-                              <Badge className="bg-[rgba(88,167,255,0.10)]">PIX</Badge>
+                              <Badge className="bg-[rgba(var(--brand-rgb),0.10)]">PIX</Badge>
                             ) : null}
                             {event.isPaid && event.allowCreditCard ? (
-                              <Badge className="bg-[rgba(88,167,255,0.10)]">CARTAO</Badge>
+                              <Badge className="bg-[rgba(var(--brand-rgb),0.10)]">CARTAO</Badge>
                             ) : null}
                           </div>
                         </div>
@@ -385,7 +385,7 @@ export default async function EventsPage() {
                     </div>
                     <div className="text-right">
                       <div className="text-sm font-semibold">{formatMoney(sale.amountCents)}</div>
-                      <Badge className="bg-[rgba(88,167,255,0.10)]">{sale.paymentMethod}</Badge>
+                      <Badge className="bg-[rgba(var(--brand-rgb),0.10)]">{sale.paymentMethod}</Badge>
                     </div>
                   </div>
                 ))

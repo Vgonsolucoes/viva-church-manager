@@ -34,7 +34,8 @@ import { Input } from "@/components/Input";
 import { Badge } from "@/components/Badge";
 import { StatusBadge } from "@/components/StatusBadge";
 import { LoadingSkeleton } from "@/components/LoadingSkeleton";
-import { theme } from "@/theme";
+import { useAppTheme } from "@/theme";
+import { useThemedStyles } from "@/theme";
 import { useAuth } from "@/hooks/useAuth";
 import { patchProfile } from "@/services/api/profile";
 import { getMyCell } from "@/services/api/cellsMy";
@@ -70,6 +71,9 @@ const STATES = [
 ];
 
 export default function PerfilEditarScreen() {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const router = useRouter();
   const { me, refreshMe, initialized } = useAuth();
   const queryClient = useQueryClient();
@@ -434,7 +438,7 @@ export default function PerfilEditarScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   photoSection: {
     alignItems: "center",
     paddingTop: theme.spacing.sm,
@@ -497,7 +501,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontSize: 14,
     fontWeight: "500",
-    color: "#FFFFFF",
+    color: theme.colors.foreground,
     fontFamily: theme.fontFamilies.regular,
   },
   footer: {
@@ -531,7 +535,7 @@ const styles = StyleSheet.create({
   },
   toastText: {
     flex: 1,
-    color: "#FFFFFF",
+    color: theme.colors.foreground,
     fontSize: 14,
     fontWeight: "700",
     fontFamily: theme.fontFamilies.bold,
@@ -566,7 +570,7 @@ const styles = StyleSheet.create({
   pickerTitle: {
     fontSize: 17,
     fontWeight: "800",
-    color: "#FFFFFF",
+    color: theme.colors.foreground,
     fontFamily: theme.fontFamilies.bold,
   },
   statesGrid: {
@@ -591,10 +595,10 @@ const styles = StyleSheet.create({
   stateChipText: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: theme.colors.foreground,
     fontFamily: theme.fontFamilies.bold,
   },
   stateChipTextActive: {
-    color: "#FFFFFF",
+    color: theme.colors.foreground,
   },
-});
+}));

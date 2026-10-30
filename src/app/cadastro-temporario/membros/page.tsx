@@ -270,7 +270,7 @@ export default async function TemporaryMembersPage(props: { searchParams?: Searc
     return (
       <div className="min-h-screen bg-background">
         <div className="mx-auto flex min-h-screen w-full max-w-3xl items-center px-4 py-10">
-          <Card className="w-full border-border/80 bg-[rgba(11,23,48,0.58)] p-6 backdrop-blur-xl">
+          <Card className="w-full border-border/80 bg-[var(--surface)] p-6 backdrop-blur-xl">
             <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
               VIVA CHURCH
             </div>
@@ -298,7 +298,7 @@ export default async function TemporaryMembersPage(props: { searchParams?: Searc
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto flex min-h-screen w-full max-w-3xl items-center px-4 py-10">
-        <Card className="w-full border-border/80 bg-[rgba(11,23,48,0.58)] p-6 backdrop-blur-xl">
+        <Card className="w-full border-border/80 bg-[var(--surface)] p-6 backdrop-blur-xl">
           <div className="text-lg font-semibold tracking-tight">Preencher cadastro</div>
           <div className="mt-5">
             {message ? (

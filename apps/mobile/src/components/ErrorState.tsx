@@ -1,7 +1,8 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { AlertTriangle, RefreshCw } from "lucide-react-native";
-import { theme } from "@/theme";
+import { useAppTheme } from "@/theme";
+import { useThemedStyles } from "@/theme";
 import { SecondaryButton } from "./SecondaryButton";
 
 interface ErrorStateProps {
@@ -17,6 +18,9 @@ export function ErrorState({
   onRetry,
   retryLabel = "Tentar novamente",
 }: ErrorStateProps) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   return (
     <View style={styles.wrap}>
       <View style={styles.icon}>
@@ -38,7 +42,7 @@ export function ErrorState({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   wrap: {
     alignItems: "center",
     justifyContent: "center",
@@ -54,11 +58,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: theme.spacing.lg,
   },
-  title: { ...theme.typography.heading, color: "#FFFFFF", textAlign: "center" },
+  title: { ...theme.typography.heading, color: theme.colors.foreground, textAlign: "center" },
   desc: {
     ...theme.typography.bodySm,
     color: theme.colors.foregroundMuted,
     textAlign: "center",
     marginTop: theme.spacing.sm,
   },
-});
+}));

@@ -8,11 +8,15 @@ import { ScreenContainer } from "@/components/ScreenContainer";
 import { Avatar } from "@/components/Avatar";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { SecondaryButton } from "@/components/SecondaryButton";
-import { theme } from "@/theme";
+import { useAppTheme } from "@/theme";
+import { useThemedStyles } from "@/theme";
 import { useAuth } from "@/hooks/useAuth";
 import { getMemberCard, refreshMemberCard } from "@/services/api/qr";
 
 export default function CarteirinhaScreen() {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const { me, initialized } = useAuth();
   const queryClient = useQueryClient();
 
@@ -118,7 +122,7 @@ export default function CarteirinhaScreen() {
                     <QRCode
                       value={card.qrToken}
                       size={104}
-                      color={theme.colors.background}
+                      color="#302922"
                       backgroundColor="#FFFFFF"
                     />
                   </View>
@@ -156,7 +160,7 @@ export default function CarteirinhaScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   header: {
     alignSelf: "flex-start",
     marginBottom: theme.spacing.lg,
@@ -192,7 +196,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     ...Platform.select({
       ios: {
-        shadowColor: "#473DFF",
+        shadowColor: theme.colors.primary500,
         shadowOpacity: 0.34,
         shadowRadius: 24,
         shadowOffset: { width: 0, height: 12 },
@@ -226,7 +230,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   logoText: {
-    color: "#FFFFFF",
+    color: theme.colors.onPrimary,
     fontSize: 22,
     fontFamily: theme.fontFamilies.bold,
     lineHeight: 26,
@@ -237,13 +241,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   brandName: {
-    color: "#FFFFFF",
+    color: theme.colors.onPrimary,
     fontFamily: theme.fontFamilies.bold,
     fontSize: 15,
     letterSpacing: 1.2,
   },
   brandSub: {
-    color: "rgba(255,255,255,0.62)",
+    color: theme.colors.onPrimary,
     fontFamily: theme.fontFamilies.medium,
     fontSize: 12,
     marginTop: 2,
@@ -261,7 +265,7 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.lg,
   },
   memberName: {
-    color: "#FFFFFF",
+    color: theme.colors.onPrimary,
     fontFamily: theme.fontFamilies.bold,
     fontSize: 20,
     lineHeight: 26,
@@ -269,7 +273,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   memberSince: {
-    color: "rgba(255,255,255,0.68)",
+    color: theme.colors.onPrimary,
     fontFamily: theme.fontFamilies.regular,
     fontSize: 13,
     textAlign: "center",
@@ -308,14 +312,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   numberLabel: {
-    color: "rgba(255,255,255,0.62)",
+    color: theme.colors.onPrimary,
     fontFamily: theme.fontFamilies.regular,
     fontSize: 11,
     marginBottom: 4,
     letterSpacing: 0.4,
   },
   numberValue: {
-    color: "#FFFFFF",
+    color: theme.colors.onPrimary,
     fontFamily: theme.fontFamilies.bold,
     fontSize: 20,
     letterSpacing: 1,
@@ -332,4 +336,4 @@ const styles = StyleSheet.create({
     fontFamily: theme.fontFamilies.regular,
     textAlign: "center",
   },
-});
+}));

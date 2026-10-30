@@ -10,7 +10,8 @@ import {
   HeartHandshake,
   Megaphone,
 } from "lucide-react-native";
-import { theme } from "@/theme";
+import { useAppTheme } from "@/theme";
+import { useThemedStyles } from "@/theme";
 
 export type NotificationType = "SCHEDULE" | "EVENT" | "CELL" | "LEADER" | "CULT" | "PROJECT" | "GENERAL";
 
@@ -23,19 +24,19 @@ export interface NotificationItemData {
   unread?: boolean;
 }
 
-const MAP: Record<NotificationType, { Icon: any; bg: string; color: string }> = {
+const createMAP = (theme: ReturnType<typeof useAppTheme>): Record<NotificationType, { Icon: any; bg: string; color: string }> => ({
   SCHEDULE: {
     Icon: CalendarCheck,
-    bg: "rgba(23,107,255,0.14)",
+    bg: theme.colors.borderPrimary,
     color: theme.colors.primary400,
   },
-  EVENT: { Icon: CalendarDays, bg: "rgba(236,95,145,0.14)", color: theme.colors.pink500 },
-  CELL: { Icon: Users, bg: "rgba(34,201,149,0.14)", color: theme.colors.green500 },
-  LEADER: { Icon: Crown, bg: "rgba(243,155,66,0.14)", color: theme.colors.orange500 },
-  CULT: { Icon: Church, bg: "rgba(112,87,255,0.14)", color: theme.colors.purple400 },
-  PROJECT: { Icon: HeartHandshake, bg: "rgba(35,183,217,0.14)", color: theme.colors.cyan400 },
+  EVENT: { Icon: CalendarDays, bg: theme.colors.borderPrimary, color: theme.colors.pink500 },
+  CELL: { Icon: Users, bg: theme.colors.borderPrimary, color: theme.colors.green500 },
+  LEADER: { Icon: Crown, bg: theme.colors.borderPrimary, color: theme.colors.orange500 },
+  CULT: { Icon: Church, bg: theme.colors.borderPrimary, color: theme.colors.purple400 },
+  PROJECT: { Icon: HeartHandshake, bg: theme.colors.borderPrimary, color: theme.colors.cyan400 },
   GENERAL: { Icon: Megaphone, bg: theme.colors.white08, color: theme.colors.foregroundMuted },
-};
+});
 
 interface NotificationItemProps {
   data: NotificationItemData;
@@ -43,6 +44,10 @@ interface NotificationItemProps {
 }
 
 export function NotificationItem({ data, onPress }: NotificationItemProps) {
+  const theme = useAppTheme();
+  const MAP = useThemedStyles(createMAP, theme);
+  const styles = useThemedStyles(createStyles, theme);
+
   const m = MAP[data.type] ?? MAP.GENERAL;
   const I = m.Icon;
   return (
@@ -69,7 +74,7 @@ export function NotificationItem({ data, onPress }: NotificationItemProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   wrap: {
     paddingVertical: theme.spacing.md,
     paddingHorizontal: theme.spacing.lg,
@@ -87,7 +92,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  title: { ...theme.typography.bodyBold, color: "#FFFFFF" },
+  title: { ...theme.typography.bodyBold, color: theme.colors.foreground },
   desc: { ...theme.typography.subtle, color: theme.colors.foregroundMuted, marginTop: 3 },
   time: { ...theme.typography.caption, color: theme.colors.foregroundMuted },
   unreadDot: {
@@ -98,4 +103,4 @@ const styles = StyleSheet.create({
     marginTop: 8,
     alignSelf: "flex-end",
   },
-});
+}));

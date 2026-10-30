@@ -65,11 +65,11 @@ function brl(cents: number) {
 
 function tooltipStyle() {
   return {
-    background: "rgba(7, 17, 31, 0.92)",
-    border: "1px solid rgba(234, 241, 255, 0.10)",
+    background: "var(--surface)",
+    border: "1px solid var(--border)",
     borderRadius: 18,
-    color: "rgba(234, 241, 255, 0.95)",
-    boxShadow: "0 18px 70px -48px rgba(88,167,255,0.9)",
+    color: "var(--foreground)",
+    boxShadow: "0 18px 70px -48px rgba(var(--brand-rgb),0.9)",
   } as const;
 }
 
@@ -116,8 +116,8 @@ export function DashboardClient(props: {
   }, []);
 
   const donutData = [
-    { name: "Em andamento", value: props.cells.active, color: "rgba(88,167,255,1)" },
-    { name: "Novas", value: props.cells.newCells, color: "rgba(162,105,255,1)" },
+    { name: "Em andamento", value: props.cells.active, color: "rgba(var(--brand-rgb),1)" },
+    { name: "Novas", value: props.cells.newCells, color: "rgba(var(--brand-rgb),1)" },
     { name: "Em formação", value: props.cells.forming, color: "rgba(34,197,94,1)" },
   ].filter((d) => d.value > 0);
 
@@ -206,7 +206,7 @@ export function DashboardClient(props: {
               props.services.map((s) => (
                 <div
                   key={s.id}
-                  className="group flex items-center justify-between rounded-2xl border border-border/80 bg-muted/10 px-4 py-3 transition-[background,box-shadow] hover:bg-muted/20 hover:shadow-[0_18px_60px_-46px_rgba(88,167,255,0.7)]"
+                  className="group flex items-center justify-between rounded-2xl border border-border/80 bg-muted/10 px-4 py-3 transition-[background,box-shadow] hover:bg-muted/20 hover:shadow-[0_18px_60px_-46px_rgba(var(--brand-rgb),0.7)]"
                 >
                   <div className="min-w-0">
                     <div className="truncate text-sm font-semibold">{s.title}</div>
@@ -242,7 +242,7 @@ export function DashboardClient(props: {
               props.events.map((e) => (
                 <div
                   key={e.id}
-                  className="group flex items-center justify-between rounded-2xl border border-border/80 bg-muted/10 px-4 py-3 transition-[background,box-shadow] hover:bg-muted/20 hover:shadow-[0_18px_60px_-46px_rgba(162,105,255,0.7)]"
+                  className="group flex items-center justify-between rounded-2xl border border-border/80 bg-muted/10 px-4 py-3 transition-[background,box-shadow] hover:bg-muted/20 hover:shadow-[0_18px_60px_-46px_rgba(var(--brand-rgb),0.7)]"
                 >
                   <div className="min-w-0">
                     <div className="truncate text-sm font-semibold">{e.title}</div>
@@ -284,7 +284,7 @@ export function DashboardClient(props: {
                       nameKey="name"
                       innerRadius={54}
                       outerRadius={74}
-                      stroke="rgba(234,241,255,0.06)"
+                      stroke="var(--border)"
                       strokeWidth={2}
                       paddingAngle={2}
                     >
@@ -305,8 +305,8 @@ export function DashboardClient(props: {
             </div>
 
             <div className="space-y-2">
-              <LegendRow color="rgba(88,167,255,1)" label="Em andamento" value={props.cells.active} />
-              <LegendRow color="rgba(162,105,255,1)" label="Novas" value={props.cells.newCells} />
+              <LegendRow color="rgba(var(--brand-rgb),1)" label="Em andamento" value={props.cells.active} />
+              <LegendRow color="rgba(var(--brand-rgb),1)" label="Novas" value={props.cells.newCells} />
               <LegendRow color="rgba(34,197,94,1)" label="Em formação" value={props.cells.forming} />
             </div>
           </div>
@@ -336,15 +336,15 @@ export function DashboardClient(props: {
                   <AreaChart data={props.finance.series} margin={{ left: 8, right: 12, top: 10, bottom: 0 }}>
                     <defs>
                       <linearGradient id="finFill" x1="0" x2="0" y1="0" y2="1">
-                        <stop offset="5%" stopColor="rgba(162,105,255,1)" stopOpacity={0.30} />
-                        <stop offset="95%" stopColor="rgba(162,105,255,1)" stopOpacity={0.02} />
+                        <stop offset="5%" stopColor="rgba(var(--brand-rgb),1)" stopOpacity={0.30} />
+                        <stop offset="95%" stopColor="rgba(var(--brand-rgb),1)" stopOpacity={0.02} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid stroke="rgba(234,241,255,0.06)" vertical={false} />
-                    <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "rgba(234,241,255,0.55)" }} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "rgba(234,241,255,0.55)" }} width={34} />
+                    <CartesianGrid stroke="var(--border)" vertical={false} />
+                    <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "var(--muted-foreground)" }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "var(--muted-foreground)" }} width={34} />
                     <Tooltip contentStyle={tooltipStyle()} />
-                    <Area type="monotone" dataKey="balanceCents" stroke="rgba(162,105,255,1)" fill="url(#finFill)" strokeWidth={2} dot={false} />
+                    <Area type="monotone" dataKey="balanceCents" stroke="rgba(var(--brand-rgb),1)" fill="url(#finFill)" strokeWidth={2} dot={false} />
                     <Line type="monotone" dataKey="inCents" stroke="rgba(34,197,94,1)" strokeWidth={2} dot={false} />
                     <Line type="monotone" dataKey="outCents" stroke="rgba(244,63,94,1)" strokeWidth={2} dot={false} />
                   </AreaChart>
@@ -382,7 +382,7 @@ export function DashboardClient(props: {
                   </div>
                   <div className="mt-3 h-2.5 w-full rounded-full bg-muted/30">
                     <div
-                      className="h-2.5 rounded-full bg-gradient-to-r from-[#2b8cff] via-[#58a7ff] to-[#a269ff]"
+                      className="h-2.5 rounded-full bg-gradient-to-r from-[var(--primary)] via-[var(--primary)] to-[var(--primary)]"
                       style={{ width: `${p.pct}%` }}
                     />
                   </div>
@@ -454,7 +454,7 @@ function FinancePill(props: { title: string; value: string; tone: "emerald" | "r
       ? "border-[rgba(34,197,94,0.20)] bg-[rgba(34,197,94,0.08)]"
       : tone === "red"
         ? "border-[rgba(244,63,94,0.22)] bg-[rgba(244,63,94,0.08)]"
-        : "border-[rgba(162,105,255,0.22)] bg-[rgba(162,105,255,0.08)]";
+        : "border-[rgba(var(--brand-rgb),0.22)] bg-[rgba(var(--brand-rgb),0.08)]";
 
   return (
     <div className={cn("rounded-3xl border px-4 py-3", toneClass)}>
@@ -473,9 +473,9 @@ function BottomCard(props: {
 }) {
   const tone =
     props.tone === "blue"
-      ? "bg-[rgba(88,167,255,0.08)] border-[rgba(88,167,255,0.18)]"
+      ? "bg-[rgba(var(--brand-rgb),0.08)] border-[rgba(var(--brand-rgb),0.18)]"
       : props.tone === "purple"
-        ? "bg-[rgba(162,105,255,0.08)] border-[rgba(162,105,255,0.18)]"
+        ? "bg-[rgba(var(--brand-rgb),0.08)] border-[rgba(var(--brand-rgb),0.18)]"
         : props.tone === "emerald"
           ? "bg-[rgba(34,197,94,0.08)] border-[rgba(34,197,94,0.18)]"
           : props.tone === "orange"

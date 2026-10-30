@@ -1,8 +1,10 @@
 import React from "react";
 import { Stack } from "expo-router";
-import { theme } from "@/theme";
+import { useAppTheme } from "@/theme";
 
 export default function IgrejaLayout() {
+  const theme = useAppTheme();
+
   return (
     <Stack
       screenOptions={{

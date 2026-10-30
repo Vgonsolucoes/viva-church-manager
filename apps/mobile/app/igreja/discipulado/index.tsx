@@ -17,7 +17,8 @@ import { SecondaryButton } from "@/components/SecondaryButton";
 import { Input } from "@/components/Input";
 import { EmptyState } from "@/components/EmptyState";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { theme } from "@/theme";
+import { useAppTheme } from "@/theme";
+import { useThemedStyles } from "@/theme";
 import { useAuth } from "@/hooks/useAuth";
 import { formatDate } from "@/utils/date";
 import {
@@ -27,6 +28,9 @@ import {
 import type { Discipleship } from "@/types";
 
 export default function IgrejaDiscipuladoScreen() {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const router = useRouter();
   const { me } = useAuth();
   const queryClient = useQueryClient();
@@ -98,7 +102,7 @@ export default function IgrejaDiscipuladoScreen() {
 
                   <View style={styles.datesGrid}>
                     <View style={styles.dateItem}>
-                      <View style={[styles.dateIconWrap, { backgroundColor: "rgba(34,201,149,0.14)" }]}>
+                      <View style={[styles.dateIconWrap, { backgroundColor: theme.colors.borderPrimary }]}>
                         <Calendar size={16} color={theme.colors.green500} />
                       </View>
                       <View style={{ marginLeft: theme.spacing.sm, flex: 1 }}>
@@ -111,7 +115,7 @@ export default function IgrejaDiscipuladoScreen() {
                       </View>
                     </View>
                     <View style={styles.dateItem}>
-                      <View style={[styles.dateIconWrap, { backgroundColor: "rgba(23,107,255,0.14)" }]}>
+                      <View style={[styles.dateIconWrap, { backgroundColor: theme.colors.borderPrimary }]}>
                         <Clock size={16} color={theme.colors.primary400} />
                       </View>
                       <View style={{ marginLeft: theme.spacing.sm, flex: 1 }}>
@@ -149,7 +153,7 @@ export default function IgrejaDiscipuladoScreen() {
                 padding={theme.spacing.lg}
               >
                 <View style={styles.menuRow}>
-                  <View style={[styles.menuIcon, { backgroundColor: "rgba(23,107,255,0.12)" }]}>
+                  <View style={[styles.menuIcon, { backgroundColor: theme.colors.borderPrimary }]}>
                     <CalendarDays size={20} color={theme.colors.primary400} />
                   </View>
                   <View style={{ flex: 1, marginLeft: theme.spacing.md }}>
@@ -166,7 +170,7 @@ export default function IgrejaDiscipuladoScreen() {
                 padding={theme.spacing.lg}
               >
                 <View style={styles.menuRow}>
-                  <View style={[styles.menuIcon, { backgroundColor: "rgba(112,87,255,0.14)" }]}>
+                  <View style={[styles.menuIcon, { backgroundColor: theme.colors.borderPrimary }]}>
                     <Users size={20} color={theme.colors.purple400} />
                   </View>
                   <View style={{ flex: 1, marginLeft: theme.spacing.md }}>
@@ -183,7 +187,7 @@ export default function IgrejaDiscipuladoScreen() {
                 padding={theme.spacing.lg}
               >
                 <View style={styles.menuRow}>
-                  <View style={[styles.menuIcon, { backgroundColor: "rgba(34,201,149,0.14)" }]}>
+                  <View style={[styles.menuIcon, { backgroundColor: theme.colors.borderPrimary }]}>
                     <Users size={20} color={theme.colors.green500} />
                   </View>
                   <View style={{ flex: 1, marginLeft: theme.spacing.md }}>
@@ -200,7 +204,7 @@ export default function IgrejaDiscipuladoScreen() {
             {isDiscipler ? (
               <AppCard padding={theme.spacing.lg}>
                 <View style={{ flexDirection: "row", alignItems: "center", marginBottom: theme.spacing.md }}>
-                  <View style={[styles.menuIcon, { backgroundColor: "rgba(34,201,149,0.14)" }]}>
+                  <View style={[styles.menuIcon, { backgroundColor: theme.colors.borderPrimary }]}>
                     <Users size={18} color={theme.colors.green500} />
                   </View>
                   <Text style={[styles.sectionLabel, { marginLeft: theme.spacing.sm, marginBottom: 0 }]}>
@@ -246,6 +250,9 @@ function DiscipleCard({
   item: Discipleship;
   onNewMeeting: () => void;
 }) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   return (
     <View style={styles.discipleCard}>
       <Avatar name={item.discipleName} size="md" />
@@ -253,7 +260,7 @@ function DiscipleCard({
         <Text style={styles.discipleName} numberOfLines={1}>{item.discipleName}</Text>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
           {item.lastMeetingAt ? (
-            <View style={[styles.tagMini, { backgroundColor: "rgba(34,201,149,0.12)" }]}>
+            <View style={[styles.tagMini, { backgroundColor: theme.colors.borderPrimary }]}>
               <Calendar size={11} color={theme.colors.green500} />
               <Text style={[styles.tagMiniText, { color: theme.colors.green500 }]}>
                 Último: {formatDate(item.lastMeetingAt)}
@@ -268,7 +275,7 @@ function DiscipleCard({
             </View>
           )}
           {item.nextMeetingAt ? (
-            <View style={[styles.tagMini, { backgroundColor: "rgba(23,107,255,0.12)" }]}>
+            <View style={[styles.tagMini, { backgroundColor: theme.colors.borderPrimary }]}>
               <Clock size={11} color={theme.colors.primary400} />
               <Text style={[styles.tagMiniText, { color: theme.colors.primary400 }]}>
                 Próximo: {formatDate(item.nextMeetingAt)}
@@ -282,7 +289,7 @@ function DiscipleCard({
         onPress={onNewMeeting}
         hitSlop={8}
       >
-        <Text style={{ color: "#FFFFFF", fontSize: 20, lineHeight: 20, fontFamily: theme.fontFamilies.bold }}>+</Text>
+        <Text style={{ color: theme.colors.foreground, fontSize: 20, lineHeight: 20, fontFamily: theme.fontFamilies.bold }}>+</Text>
       </Pressable>
     </View>
   );
@@ -297,6 +304,9 @@ function MeetingModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const [dateStr, setDateStr] = useState(formatDate(new Date()));
   const [themeTxt, setThemeTxt] = useState("");
   const [notes, setNotes] = useState("");
@@ -392,7 +402,7 @@ function MeetingModal({
             <SecondaryButton
               title={saveMut.isPending ? "Salvando..." : "Salvar encontro"}
               style={{ flex: 1, backgroundColor: theme.colors.primary500 }}
-              textStyle={{ color: "#FFFFFF" }}
+              textStyle={{ color: theme.colors.foreground }}
               onPress={() =>
                 saveMut.mutate({
                   discipleshipId: item.id,
@@ -412,7 +422,7 @@ function MeetingModal({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   screenTitle: {
     ...theme.typography.titleLg,
     color: theme.colors.foreground,
@@ -504,7 +514,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 3,
     borderRadius: theme.radius.pill,
-    backgroundColor: "rgba(34,201,149,0.14)",
+    backgroundColor: theme.colors.borderPrimary,
   },
   countBadgeText: {
     ...theme.typography.captionBold,
@@ -581,7 +591,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: theme.spacing.md,
     borderRadius: theme.radius.md,
-    backgroundColor: "rgba(23,107,255,0.12)",
+    backgroundColor: theme.colors.borderPrimary,
   },
   discipleHighlightName: {
     ...theme.typography.bodyBold,
@@ -596,4 +606,4 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: theme.colors.borderSubtle,
   },
-});
+}));

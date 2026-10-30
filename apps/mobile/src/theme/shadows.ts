@@ -15,13 +15,13 @@ export const shadows = {
   },
   lg: {
     ...Platform.select<ViewStyle>({
-      ios: { shadowColor: "#184CFF", shadowOpacity: 0.22, shadowRadius: 18, shadowOffset: { width: 0, height: 8 } },
+      ios: { shadowColor: "#76503B", shadowOpacity: 0.22, shadowRadius: 18, shadowOffset: { width: 0, height: 8 } },
       android: { elevation: 4 },
     }),
   },
   premium: {
     ...Platform.select<ViewStyle>({
-      ios: { shadowColor: "#473DFF", shadowOpacity: 0.28, shadowRadius: 22, shadowOffset: { width: 0, height: 10 } },
+      ios: { shadowColor: "#76503B", shadowOpacity: 0.28, shadowRadius: 22, shadowOffset: { width: 0, height: 10 } },
       android: { elevation: 6 },
     }),
   },

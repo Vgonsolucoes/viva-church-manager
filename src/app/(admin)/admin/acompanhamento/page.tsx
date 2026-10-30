@@ -606,7 +606,7 @@ export default async function AcompanhamentoPage(props: {
                 <div className="text-base font-semibold">{journey.member.fullName}</div>
                 <Badge>{followUpStageLabels[journey.stage]}</Badge>
                 {readyToServe ? (
-                  <Badge className="bg-[rgba(88,167,255,0.10)]">Apto a servir</Badge>
+                  <Badge className="bg-[rgba(var(--brand-rgb),0.10)]">Apto a servir</Badge>
                 ) : null}
               </div>
               <div className="mt-2 text-sm text-muted-foreground">
@@ -618,7 +618,7 @@ export default async function AcompanhamentoPage(props: {
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
                 {memberTypes.map((type) => (
-                  <Badge key={type} className="bg-[rgba(88,167,255,0.10)]">
+                  <Badge key={type} className="bg-[rgba(var(--brand-rgb),0.10)]">
                     {memberTypeLabels[type]}
                   </Badge>
                 ))}
@@ -651,7 +651,7 @@ export default async function AcompanhamentoPage(props: {
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="font-semibold text-foreground">{course.title}</div>
                         {completion ? (
-                          <Badge className="bg-[rgba(88,167,255,0.10)]">Concluído</Badge>
+                          <Badge className="bg-[rgba(var(--brand-rgb),0.10)]">Concluído</Badge>
                         ) : (
                           <Badge className="opacity-70">Pendente</Badge>
                         )}
@@ -1093,7 +1093,7 @@ export default async function AcompanhamentoPage(props: {
                     <div className="text-sm font-semibold">{course.title}</div>
                     <div className="text-xs text-muted-foreground">Curso obrigatório</div>
                   </div>
-                  <Badge className="bg-[rgba(88,167,255,0.10)]">Cadastrado</Badge>
+                  <Badge className="bg-[rgba(var(--brand-rgb),0.10)]">Cadastrado</Badge>
                 </div>
               </div>
             ))}

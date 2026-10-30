@@ -9,7 +9,8 @@ import { Pressable } from "react-native";
 import { Avatar } from "@/components/Avatar";
 import { SecondaryButton } from "@/components/SecondaryButton";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { theme } from "@/theme";
+import { useAppTheme } from "@/theme";
+import { useThemedStyles } from "@/theme";
 import { postScan } from "@/services/api/qr";
 import type { QrScanResult } from "@/types";
 import { formatDateTime } from "@/utils/date";
@@ -19,6 +20,9 @@ const CORNER_SIZE = 28;
 const CORNER_BORDER = 3;
 
 export default function QrScanScreen() {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const router = useRouter();
   const [permission, requestPermission] = useCameraPermissions();
   const [scanningEnabled, setScanningEnabled] = useState(true);
@@ -93,7 +97,7 @@ export default function QrScanScreen() {
 
           <View style={{ flex: 1, paddingHorizontal: theme.spacing.lg }}>
             <View style={styles.permissionCard}>
-              <View style={[styles.permissionIcon, { backgroundColor: "rgba(23,107,255,0.14)" }]}>
+              <View style={[styles.permissionIcon, { backgroundColor: theme.colors.borderPrimary }]}>
                 <Flashlight size={34} color={theme.colors.primary400} />
               </View>
               <Text style={styles.permissionTitle}>Precisamos da câmera</Text>
@@ -106,7 +110,7 @@ export default function QrScanScreen() {
                   title={permission.canAskAgain ? "Conceder permissão" : "Abrir configurações"}
                   onPress={() => void requestPermission()}
                   style={{ backgroundColor: theme.colors.primary500 }}
-                  textStyle={{ color: "#FFFFFF" }}
+                  textStyle={{ color: theme.colors.foreground }}
                 />
               </View>
             </View>
@@ -218,7 +222,7 @@ export default function QrScanScreen() {
                 <Flashlight
                   size={18}
                   color={theme.colors.primary400}
-                  fill={torchOn ? "rgba(23,107,255,0.25)" : undefined}
+                  fill={torchOn ? theme.colors.borderPrimary : undefined}
                 />
                 <Text style={[styles.ghostBtnText, { marginLeft: 8 }]}>
                   {torchOn ? "Luz ligada" : "Flash"}
@@ -271,7 +275,7 @@ export default function QrScanScreen() {
                     styles.resultIcon,
                     {
                       backgroundColor: result.valid
-                        ? "rgba(34,201,149,0.16)"
+                        ? theme.colors.borderPrimary
                         : "rgba(240,68,56,0.14)",
                     },
                   ]}
@@ -321,7 +325,7 @@ export default function QrScanScreen() {
                 title="Escanear outro"
                 onPress={resetScan}
                 style={{ backgroundColor: theme.colors.primary500 }}
-                textStyle={{ color: "#FFFFFF" }}
+                textStyle={{ color: theme.colors.foreground }}
               />
             </View>
           </View>
@@ -332,6 +336,9 @@ export default function QrScanScreen() {
 }
 
 function BadgeLine({ label, value }: { label: string; value: string }) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   return (
     <View style={styles.badgeLine}>
       <Text style={styles.badgeLabel}>{label}</Text>
@@ -342,7 +349,7 @@ function BadgeLine({ label, value }: { label: string; value: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: "#000000",
@@ -372,7 +379,7 @@ const styles = StyleSheet.create({
   },
   headerTitleOverlay: {
     ...theme.typography.card,
-    color: "#FFFFFF",
+    color: theme.colors.foreground,
     fontFamily: theme.fontFamilies.semibold,
   },
   backBtn: {
@@ -429,14 +436,14 @@ const styles = StyleSheet.create({
   },
   hintText: {
     ...theme.typography.heading,
-    color: "#FFFFFF",
+    color: theme.colors.foreground,
     fontFamily: theme.fontFamilies.semibold,
     textAlign: "center",
     marginTop: theme.spacing.sm,
   },
   hintSubtitle: {
     ...theme.typography.subtle,
-    color: "rgba(255,255,255,0.72)",
+    color: theme.colors.foregroundMuted,
     fontFamily: theme.fontFamilies.regular,
     textAlign: "center",
     marginTop: theme.spacing.xs,
@@ -452,7 +459,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: theme.spacing.lg,
-    backgroundColor: "rgba(23,107,255,0.10)",
+    backgroundColor: theme.colors.borderPrimary,
     flexDirection: "row",
   },
   ghostBtnText: {
@@ -472,7 +479,7 @@ const styles = StyleSheet.create({
     gap: theme.spacing.md,
   },
   scanningText: {
-    color: "#FFFFFF",
+    color: theme.colors.foreground,
     ...theme.typography.bodyBold,
     fontFamily: theme.fontFamilies.semibold,
   },
@@ -587,4 +594,4 @@ const styles = StyleSheet.create({
     ...theme.typography.body,
     color: theme.colors.foregroundMuted,
   },
-});
+}));

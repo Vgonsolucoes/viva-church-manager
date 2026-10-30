@@ -22,13 +22,17 @@ import { SecondaryButton } from "@/components/SecondaryButton";
 import { LoadingSkeleton } from "@/components/LoadingSkeleton";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
-import { theme } from "@/theme";
+import { useAppTheme } from "@/theme";
+import { useThemedStyles } from "@/theme";
 import { getMyChildren, postCheckOut } from "@/services/api/kids";
 import type { Child } from "@/types";
 import { formatDate } from "@/utils/date";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function IgrejaInfantilScreen() {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const router = useRouter();
   const { me } = useAuth();
   const queryClient = useQueryClient();
@@ -276,7 +280,7 @@ export default function IgrejaInfantilScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   registerRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -304,7 +308,7 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.lg,
   },
   childName: {
-    color: "#FFFFFF",
+    color: theme.colors.foreground,
     ...theme.typography.card,
   },
   childMetaRow: {
@@ -323,12 +327,12 @@ const styles = StyleSheet.create({
     borderTopColor: theme.colors.white08,
   },
   checkInInfo: {
-    backgroundColor: "rgba(34,201,149,0.08)",
+    backgroundColor: theme.colors.borderPrimary,
     borderRadius: theme.radius.md,
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.md,
     borderWidth: 1,
-    borderColor: "rgba(34,201,149,0.20)",
+    borderColor: theme.colors.borderPrimary,
   },
   checkInInfoRow: {
     flexDirection: "row",
@@ -380,7 +384,7 @@ const styles = StyleSheet.create({
     paddingVertical: theme.spacing.sm,
   },
   guardianName: {
-    color: "#FFFFFF",
+    color: theme.colors.foreground,
     ...theme.typography.bodyBold,
   },
   guardianMeta: {
@@ -414,8 +418,8 @@ const styles = StyleSheet.create({
     zIndex: 100,
   },
   toastText: {
-    color: "#FFFFFF",
+    color: theme.colors.foreground,
     ...theme.typography.bodyBold,
     textAlign: "center",
   },
-});
+}));

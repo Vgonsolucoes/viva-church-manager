@@ -5,12 +5,12 @@ import type { ButtonHTMLAttributes } from "react";
 import { cn } from "@/lib/cn";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center whitespace-nowrap rounded-2xl text-sm font-semibold tracking-tight transition-[transform,background,color,box-shadow,filter] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:shadow-[0_0_0_10px_rgba(88,167,255,0.08)] disabled:pointer-events-none disabled:opacity-50 active:translate-y-px",
+  "inline-flex items-center justify-center whitespace-nowrap rounded-2xl text-sm font-semibold tracking-tight transition-[transform,background,color,box-shadow,filter] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:shadow-[0_0_0_10px_rgba(var(--brand-rgb),0.08)] disabled:pointer-events-none disabled:opacity-50 active:translate-y-px",
   {
     variants: {
       variant: {
         primary:
-          "bg-gradient-to-r from-[#2b8cff] via-[#58a7ff] to-[#a269ff] text-[#07111f] shadow-[0_12px_34px_-18px_rgba(88,167,255,0.9)] hover:brightness-110",
+          "bg-primary text-primary-foreground shadow-sm hover:brightness-110",
         secondary:
           "bg-muted/20 text-foreground border border-border/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] hover:bg-muted/30",
         outline:

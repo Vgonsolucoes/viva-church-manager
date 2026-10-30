@@ -12,7 +12,9 @@ export function ThemeToggle() {
     <Button
       variant="ghost"
       size="icon"
-      aria-label="Alternar tema"
+      aria-label={isDark ? "Usar modo claro" : "Usar modo escuro"}
+      title={isDark ? "Usar modo claro" : "Usar modo escuro"}
+      aria-pressed={isDark}
       onClick={() => setTheme(isDark ? "light" : "dark")}
     >
       <Sun className="hidden size-4 dark:block" />

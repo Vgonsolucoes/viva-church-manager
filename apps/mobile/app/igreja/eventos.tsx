@@ -7,11 +7,15 @@ import { Screen } from "@/components/Screen";
 import { Card } from "@/components/Card";
 import { EmptyState } from "@/components/EmptyState";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { theme } from "@/constants/theme";
+import { useAppTheme } from "@/constants/theme";
+import { useThemedStyles } from "@/theme";
 import { listEvents } from "@/services/api/events";
 import { friendlyEventDate, formatCurrencyBRL } from "@/utils/date";
 
 export default function IgrejaEventosScreen() {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const router = useRouter();
   const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ["igreja-events"],
@@ -104,7 +108,7 @@ export default function IgrejaEventosScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   list: { gap: 12, flex: 1 },
   row: { overflow: "hidden" },
   rowContent: { flexDirection: "row", alignItems: "center" },
@@ -137,4 +141,4 @@ const styles = StyleSheet.create({
   chevronWrap: {
     paddingHorizontal: 12,
   },
-});
+}));

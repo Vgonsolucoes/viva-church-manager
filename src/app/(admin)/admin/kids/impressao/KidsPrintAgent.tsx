@@ -264,7 +264,7 @@ export function KidsPrintAgent() {
       </div>
 
       {status === "printing" || status === "finishing" ? (
-        <div className="mt-4 rounded-2xl border border-[#58a7ff]/40 bg-[#58a7ff]/10 p-4">
+        <div className="mt-4 rounded-2xl border border-[var(--primary)]/40 bg-[var(--primary)]/10 p-4">
           <div className="text-sm font-semibold">
             Imprimindo {totalLabels}{" "}
             {totalLabels === 1 ? "etiqueta" : "etiquetas"}…

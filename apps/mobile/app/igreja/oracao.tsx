@@ -17,7 +17,8 @@ import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { EmptyState } from "@/components/EmptyState";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { theme } from "@/constants/theme";
+import { useAppTheme } from "@/constants/theme";
+import { useThemedStyles } from "@/theme";
 import { createPrayerRequest, listPrayerRequests } from "@/services/api/prayer";
 import { formatDate } from "@/utils/date";
 import type { PrayerRequest, PrayerRequestPrivacy } from "@/types";
@@ -29,14 +30,18 @@ const PRIVACY_OPTS: PrayerRequestPrivacy[] = [
   "PUBLICO",
 ];
 
-const PRIVACY_LABEL: Record<PrayerRequestPrivacy, { label: string; icon: keyof typeof Ionicons.glyphMap; color: string }> = {
+const createPRIVACY_LABEL = (theme: ReturnType<typeof useAppTheme>): Record<PrayerRequestPrivacy, { label: string; icon: keyof typeof Ionicons.glyphMap; color: string }> => ({
   PRIVADO: { label: "Privado", icon: "lock-closed-outline", color: theme.colors.muted },
   PASTORES: { label: "Pastores", icon: "ribbon-outline", color: theme.colors.warning },
   LIDERANCA: { label: "Liderança", icon: "people-circle-outline", color: theme.colors.primary },
   PUBLICO: { label: "Público", icon: "earth-outline", color: theme.colors.success },
-};
+});
 
 export default function IgrejaOracaoScreen() {
+  const theme = useAppTheme();
+  const PRIVACY_LABEL = useThemedStyles(createPRIVACY_LABEL, theme);
+  const styles = useThemedStyles(createStyles, theme);
+
   const queryClient = useQueryClient();
   const [showNew, setShowNew] = useState(false);
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
@@ -177,7 +182,7 @@ export default function IgrejaOracaoScreen() {
         <Pressable
           style={styles.fab}
           onPress={() => setShowNew(true)}
-          android_ripple={{ color: "rgba(255,255,255,0.25)", borderless: true }}
+          android_ripple={{ color: theme.colors.foregroundMuted, borderless: true }}
         >
           <Ionicons name="add" size={26} color="#FFFFFF" />
         </Pressable>
@@ -203,6 +208,10 @@ function NewRequestModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const theme = useAppTheme();
+  const PRIVACY_LABEL = useThemedStyles(createPRIVACY_LABEL, theme);
+  const styles = useThemedStyles(createStyles, theme);
+
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [category, setCategory] = useState("");
@@ -307,7 +316,7 @@ function NewRequestModal({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   fab: {
     position: "absolute",
     right: 16,
@@ -473,4 +482,4 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
   },
-});
+}));

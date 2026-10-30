@@ -10,7 +10,8 @@ import {
   StyleProp,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { theme } from "@/constants/theme";
+import { useAppTheme } from "@/constants/theme";
+import { useThemedStyles } from "@/theme";
 
 export interface ScreenProps {
   title?: string;
@@ -41,9 +42,12 @@ export function Screen({
   children,
   loadingLabel,
 }: ScreenProps) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const background = backgroundBrand
     ? { backgroundColor: theme.colors.background }
-    : { backgroundColor: "#F2F5FB" };
+    : { backgroundColor: theme.colors.background };
 
   const content = (
     <>
@@ -97,7 +101,7 @@ export function Screen({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   root: { flex: 1 },
   padded: { padding: theme.spacing.lg },
   scrollContent: { flexGrow: 1 },
@@ -118,4 +122,4 @@ const styles = StyleSheet.create({
     color: theme.colors.foregroundDark,
     marginBottom: theme.spacing.lg,
   },
-});
+}));

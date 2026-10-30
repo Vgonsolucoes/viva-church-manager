@@ -11,7 +11,8 @@ import { PrimaryButton } from "@/components/PrimaryButton";
 import { SecondaryButton } from "@/components/SecondaryButton";
 import { LoadingSkeleton } from "@/components/LoadingSkeleton";
 import { ErrorState } from "@/components/ErrorState";
-import { theme } from "@/theme";
+import { useAppTheme } from "@/theme";
+import { useThemedStyles } from "@/theme";
 import {
   getMyChildren,
   postKidsCheckin,
@@ -20,6 +21,9 @@ import {
 import type { KidsCheckinResult } from "@/types";
 
 export default function KidsCheckinScreen() {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const router = useRouter();
   const queryClient = useQueryClient();
   const { token } = useLocalSearchParams<{ token: string }>();
@@ -151,7 +155,7 @@ export default function KidsCheckinScreen() {
                 title="Cadastrar filho(a)"
                 onPress={() => router.push("/igreja/kids-cadastro")}
                 style={{ backgroundColor: theme.colors.primary500, marginTop: theme.spacing.md }}
-                textStyle={{ color: "#FFFFFF" }}
+                textStyle={{ color: theme.colors.foreground }}
               />
             ) : null}
           </View>
@@ -239,7 +243,7 @@ export default function KidsCheckinScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   selectHint: {
     ...theme.typography.subtleBold,
     color: theme.colors.foregroundMuted,
@@ -247,7 +251,7 @@ const styles = StyleSheet.create({
   },
   childCard: { marginBottom: theme.spacing.md },
   childRow: { flexDirection: "row", alignItems: "center", gap: theme.spacing.md },
-  childName: { flex: 1, color: "#FFFFFF", ...theme.typography.card },
+  childName: { flex: 1, color: theme.colors.foreground, ...theme.typography.card },
   checkbox: {
     width: 26,
     height: 26,
@@ -257,7 +261,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  checkboxMark: { color: "#FFFFFF", fontFamily: theme.fontFamilies.bold, fontSize: 14 },
+  checkboxMark: { color: theme.colors.foreground, fontFamily: theme.fontFamilies.bold, fontSize: 14 },
   alreadyText: {
     ...theme.typography.caption,
     color: theme.colors.foregroundMuted,
@@ -291,7 +295,7 @@ const styles = StyleSheet.create({
   },
   successTitle: {
     ...theme.typography.heading,
-    color: "#FFFFFF",
+    color: theme.colors.foreground,
     fontFamily: theme.fontFamilies.bold,
     textAlign: "center",
   },
@@ -301,7 +305,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   resultRow: { flexDirection: "row", alignItems: "center", gap: theme.spacing.md },
-  resultName: { color: "#FFFFFF", ...theme.typography.bodyBold },
+  resultName: { color: theme.colors.foreground, ...theme.typography.bodyBold },
   resultCodeRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -315,4 +319,4 @@ const styles = StyleSheet.create({
     fontFamily: theme.fontFamilies.bold,
     fontSize: 24,
   },
-});
+}));

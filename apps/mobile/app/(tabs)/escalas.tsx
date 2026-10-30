@@ -20,7 +20,8 @@ import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { EmptyState } from "@/components/EmptyState";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { theme } from "@/constants/theme";
+import { theme, useAppTheme } from "@/constants/theme";
+import { useThemedStyles } from "@/theme";
 import { useAuth } from "@/hooks/useAuth";
 import {
   formatDate,
@@ -123,6 +124,9 @@ function assignmentToCardData(s: ScheduleAssignment): ScheduleCardData {
 }
 
 export default function EscalasScreen() {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const { me } = useAuth();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<TabKey>("upcoming");
@@ -374,6 +378,9 @@ function TabsBar({
   value: TabKey;
   onChange: (v: TabKey) => void;
 }) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   return (
     <View style={styles.segRoot}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
@@ -475,6 +482,9 @@ function CompatScheduleCard({
   onRefuse?: (s: ScheduleAssignment) => void;
   onSubstitute?: (s: ScheduleAssignment) => void;
 }) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const st = statusLabel(item.status);
   const cardData = assignmentToCardData(item);
 
@@ -616,6 +626,9 @@ function AvailabilityCard({
   onEdit: (b: VolunteerAvailabilityBlock) => void;
   onDelete: (id: string) => void;
 }) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const colorByReason: Record<string, string> = {
     DISPONIVEL: theme.colors.green500,
     INDISPONIVEL: theme.colors.danger500,
@@ -639,7 +652,7 @@ function AvailabilityCard({
       <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
         <View style={{ flex: 1 }}>
           <Badge label={block.reason} variant={badgeVariant} />
-          <Text style={[styles.availDates, { color: "#FFFFFF" }]}>
+          <Text style={[styles.availDates, { color: theme.colors.foreground }]}>
             {formatDate(block.startDate)}
             {block.endDate ? ` até ${formatDate(block.endDate)}` : ""}
           </Text>
@@ -714,6 +727,9 @@ function BottomSheetModal({
   title: string;
   children: React.ReactNode;
 }) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.modalOverlay} onPress={onClose}>
@@ -748,6 +764,9 @@ function RefuseForm({
   onCancel: () => void;
   onSubmit: (reason: ScheduleDeclineReason, note: string) => void;
 }) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const [reason, setReason] = useState<ScheduleDeclineReason>(DECLINE_REASONS[0]);
   const [note, setNote] = useState(initialNote ?? "");
   return (
@@ -808,6 +827,9 @@ function SubstitutionForm({
   onCancel: () => void;
   onSubmit: (toVolunteerId: string, reason: ScheduleDeclineReason, note: string) => void;
 }) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const [reason, setReason] = useState<ScheduleDeclineReason>(DECLINE_REASONS[0]);
   const [note, setNote] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
@@ -917,6 +939,9 @@ function AvailabilityForm({
     note?: string | null;
   }) => void;
 }) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const [startStr, setStartStr] = useState(() =>
     block?.startDate ? formatDate(block.startDate) : formatDate(new Date()),
   );
@@ -1002,7 +1027,7 @@ function AvailabilityForm({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   tabsWrap: {
     paddingHorizontal: theme.spacing.lg,
     paddingBottom: theme.spacing.md,
@@ -1026,7 +1051,7 @@ const styles = StyleSheet.create({
     fontFamily: theme.fontFamilies.bold,
     fontSize: 13,
   },
-  segTextActive: { color: "#FFFFFF" },
+  segTextActive: { color: theme.colors.foreground },
 
   cardHeaderCompat: {
     flexDirection: "row",
@@ -1034,7 +1059,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   cardTitleCompat: {
-    color: "#FFFFFF",
+    color: theme.colors.foreground,
     fontFamily: theme.fontFamilies.bold,
     fontSize: 16,
     lineHeight: 20,
@@ -1072,7 +1097,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(23,107,255,0.10)",
+    backgroundColor: theme.colors.borderPrimary,
   },
   modalOverlay: {
     flex: 1,
@@ -1102,7 +1127,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   modalTitle: {
-    color: "#FFFFFF",
+    color: theme.colors.foreground,
     fontFamily: theme.fontFamilies.bold,
     fontSize: 17,
   },
@@ -1135,11 +1160,11 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.primary500,
   },
   chipText: {
-    color: "#FFFFFF",
+    color: theme.colors.foreground,
     fontFamily: theme.fontFamilies.bold,
     fontSize: 12,
   },
-  chipTextActive: { color: "#FFFFFF" },
+  chipTextActive: { color: theme.colors.foreground },
   volList: {
     gap: 6,
     maxHeight: 260,
@@ -1155,16 +1180,16 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.white08,
   },
   volRowActive: {
-    backgroundColor: "rgba(23,107,255,0.14)",
+    backgroundColor: theme.colors.borderPrimary,
     borderColor: theme.colors.primary500,
   },
   volName: {
     flex: 1,
-    color: "#FFFFFF",
+    color: theme.colors.foreground,
     fontFamily: theme.fontFamilies.semibold,
     fontSize: 14,
   },
-});
+}));
 
 // Satisfy unused imports (TextInput used in other places might be optional)
 void (TextInput as any);

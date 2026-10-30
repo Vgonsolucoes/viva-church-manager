@@ -6,10 +6,14 @@ import { useAuth } from "@/hooks/useAuth";
 import { AppHeader } from "@/components/AppHeader";
 import { ScreenContainer } from "@/components/ScreenContainer";
 import { PrimaryButton } from "@/components/PrimaryButton";
-import { theme } from "@/theme";
+import { useAppTheme } from "@/theme";
+import { useThemedStyles } from "@/theme";
 import { getProjectionRequests, sendProjectionRequest, type ProjectionChannel } from "@/services/api/projection";
 
 export default function ProjectionNotices() {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const params = useLocalSearchParams<{ channel?: string }>();
   const channel: ProjectionChannel = params.channel === "PARKING" ? "PARKING" : "KIDS";
   const { me, initialized, refreshMe } = useAuth();
@@ -55,12 +59,12 @@ export default function ProjectionNotices() {
     </ScreenContainer>
   </View>;
 }
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   section: { padding: 16, gap: 12, borderWidth: 1, borderColor: theme.colors.borderSubtle, borderRadius: 20, marginBottom: 16 },
   text: { color: theme.colors.foreground, fontSize: 14 },
   heading: { color: theme.colors.foreground, fontSize: 16, fontWeight: "700" },
   input: { color: theme.colors.foreground, backgroundColor: theme.colors.backgroundSecondary, borderWidth: 1, borderColor: theme.colors.borderSubtle, borderRadius: 12, padding: 12, fontSize: 16 },
   option: { padding: 12, gap: 6, borderWidth: 1, borderColor: theme.colors.borderSubtle, borderRadius: 12 },
-  selected: { borderColor: theme.colors.primary500, backgroundColor: "rgba(23,107,255,0.12)" },
-});
+  selected: { borderColor: theme.colors.primary500, backgroundColor: theme.colors.borderPrimary },
+}));

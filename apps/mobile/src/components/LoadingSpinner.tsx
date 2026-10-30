@@ -1,19 +1,20 @@
 import React from "react";
 import { ActivityIndicator, View, ViewStyle, StyleProp } from "react-native";
-import { theme } from "@/constants/theme";
+import { useAppTheme } from "@/constants/theme";
 
 export function LoadingSpinner({
   size = "small",
-  color = theme.colors.primary,
+  color,
   style,
 }: {
   size?: "small" | "large";
   color?: string;
   style?: StyleProp<ViewStyle>;
 }) {
+  const theme = useAppTheme();
   return (
     <View style={style} pointerEvents="none">
-      <ActivityIndicator size={size} color={color} />
+      <ActivityIndicator size={size} color={color ?? theme.colors.primary} />
     </View>
   );
 }

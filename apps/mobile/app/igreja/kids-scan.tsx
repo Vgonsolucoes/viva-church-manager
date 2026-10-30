@@ -6,13 +6,17 @@ import { Stack, useRouter } from "expo-router";
 import { Flashlight, ChevronLeft } from "lucide-react-native";
 import { SecondaryButton } from "@/components/SecondaryButton";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { theme } from "@/theme";
+import { useAppTheme } from "@/theme";
+import { useThemedStyles } from "@/theme";
 
 const VIEWFINDER_SIZE = 240;
 const CORNER_SIZE = 28;
 const CORNER_BORDER = 3;
 
 export default function KidsScanScreen() {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const router = useRouter();
   const [permission, requestPermission] = useCameraPermissions();
   const [scanningEnabled, setScanningEnabled] = useState(true);
@@ -70,7 +74,7 @@ export default function KidsScanScreen() {
           <View style={{ flex: 1, paddingHorizontal: theme.spacing.lg }}>
             <View style={styles.permissionCard}>
               <View
-                style={[styles.permissionIcon, { backgroundColor: "rgba(23,107,255,0.14)" }]}
+                style={[styles.permissionIcon, { backgroundColor: theme.colors.borderPrimary }]}
               >
                 <Flashlight size={34} color={theme.colors.primary400} />
               </View>
@@ -84,7 +88,7 @@ export default function KidsScanScreen() {
                   title={permission.canAskAgain ? "Conceder permissão" : "Abrir configurações"}
                   onPress={() => void requestPermission()}
                   style={{ backgroundColor: theme.colors.primary500 }}
-                  textStyle={{ color: "#FFFFFF" }}
+                  textStyle={{ color: theme.colors.foreground }}
                 />
               </View>
             </View>
@@ -167,7 +171,7 @@ export default function KidsScanScreen() {
                 <Flashlight
                   size={18}
                   color={theme.colors.primary400}
-                  fill={torchOn ? "rgba(23,107,255,0.25)" : undefined}
+                  fill={torchOn ? theme.colors.borderPrimary : undefined}
                 />
                 <Text style={[styles.ghostBtnText, { marginLeft: 8 }]}>
                   {torchOn ? "Luz ligada" : "Flash"}
@@ -181,7 +185,7 @@ export default function KidsScanScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   root: { flex: 1, backgroundColor: "#000000" },
   cameraRoot: { flex: 1, backgroundColor: "#000000" },
   camera: { flex: 1 },
@@ -203,7 +207,7 @@ const styles = StyleSheet.create({
   },
   headerTitleOverlay: {
     ...theme.typography.card,
-    color: "#FFFFFF",
+    color: theme.colors.foreground,
     fontFamily: theme.fontFamilies.semibold,
   },
   backBtn: {
@@ -235,14 +239,14 @@ const styles = StyleSheet.create({
   corner: { position: "absolute", borderRadius: 2 },
   hintText: {
     ...theme.typography.heading,
-    color: "#FFFFFF",
+    color: theme.colors.foreground,
     fontFamily: theme.fontFamilies.semibold,
     textAlign: "center",
     marginTop: theme.spacing.sm,
   },
   hintSubtitle: {
     ...theme.typography.subtle,
-    color: "rgba(255,255,255,0.72)",
+    color: theme.colors.foregroundMuted,
     fontFamily: theme.fontFamilies.regular,
     textAlign: "center",
     marginTop: theme.spacing.xs,
@@ -258,7 +262,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: theme.spacing.lg,
-    backgroundColor: "rgba(23,107,255,0.10)",
+    backgroundColor: theme.colors.borderPrimary,
     flexDirection: "row",
   },
   ghostBtnText: {
@@ -297,4 +301,4 @@ const styles = StyleSheet.create({
   },
   noPermWrap: { flex: 1, alignItems: "center", justifyContent: "center", gap: theme.spacing.md },
   noPermText: { ...theme.typography.body, color: theme.colors.foregroundMuted },
-});
+}));

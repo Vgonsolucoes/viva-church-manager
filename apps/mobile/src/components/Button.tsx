@@ -9,7 +9,8 @@ import {
   ViewStyle,
   PressableProps,
 } from "react-native";
-import { theme } from "@/constants/theme";
+import { useAppTheme } from "@/constants/theme";
+import { useThemedStyles } from "@/theme";
 
 type Variant = "primary" | "secondary" | "outline" | "ghost" | "destructive";
 type Size = "sm" | "md" | "lg";
@@ -37,6 +38,9 @@ export function Button({
   rightIcon,
   ...rest
 }: ButtonProps) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const rootStyle = [
     styles.base,
     styles[`size_${size}`],
@@ -46,7 +50,7 @@ export function Button({
     style,
   ];
   const textColor =
-    variant === "primary" || variant === "destructive" || variant === "secondary"
+    variant === "primary" || variant === "destructive"
       ? styles.textLight
       : styles.textDark;
   const textSize = styles[`text_${size}`];
@@ -66,7 +70,7 @@ export function Button({
             color={
               variant === "ghost" || variant === "outline"
                 ? theme.colors.primary
-                : "#FFFFFF"
+                : theme.colors.onPrimary
             }
           />
         </View>
@@ -85,7 +89,7 @@ export function Button({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   base: {
     borderRadius: theme.radius.md,
     flexDirection: "row",
@@ -103,8 +107,8 @@ const styles = StyleSheet.create({
   contentRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   icon: { marginLeft: -4 },
   text: { fontWeight: "600", letterSpacing: 0.2 },
-  textLight: { color: "#FFFFFF" },
-  textDark: { color: theme.colors.foregroundDark },
+  textLight: { color: theme.colors.onPrimary },
+  textDark: { color: theme.colors.foreground },
   text_sm: { fontSize: theme.font.sm },
   text_md: { fontSize: theme.font.md },
   text_lg: { fontSize: theme.font.lg },
@@ -124,4 +128,4 @@ const styles = StyleSheet.create({
   variant_destructive: {
     backgroundColor: theme.colors.destructive,
   },
-});
+}));

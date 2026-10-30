@@ -115,8 +115,8 @@ type FlowNodeData = {
 };
 
 const levelTone = [
-  "rgba(88,167,255,1)",
-  "rgba(162,105,255,1)",
+  "rgba(var(--brand-rgb),1)",
+  "rgba(var(--brand-rgb),1)",
   "rgba(34,197,94,1)",
   "rgba(249,115,22,1)",
   "rgba(244,63,94,1)",
@@ -635,7 +635,7 @@ function DiscipleshipNetworkCanvas(props: {
                   zoomable
                   nodeColor={(node) => {
                     const data = node.data as FlowNodeData | undefined;
-                    return data ? getLevelColor(data.member.level) : "rgba(88,167,255,1)";
+                    return data ? getLevelColor(data.member.level) : "rgba(var(--brand-rgb),1)";
                   }}
                   style={{
                     backgroundColor: "var(--card, rgba(255,255,255,0.88))",
@@ -714,7 +714,7 @@ function DiscipleshipNetworkCanvas(props: {
                   className="h-2 rounded-full"
                   style={{
                     width: `${Math.max(0, Math.min(selectedMember.progress, 100))}%`,
-                    background: `linear-gradient(90deg, ${getLevelColor(selectedMember.level)}, rgba(88,167,255,1))`,
+                    background: `linear-gradient(90deg, ${getLevelColor(selectedMember.level)}, rgba(var(--brand-rgb),1))`,
                   }}
                 />
               </div>
@@ -854,7 +854,7 @@ function DiscipleshipNetworkCanvas(props: {
         ) : (
           <div className="space-y-4">
             <div className="flex items-center gap-3">
-              <div className="flex size-12 items-center justify-center rounded-2xl bg-[rgba(88,167,255,0.12)] text-primary">
+              <div className="flex size-12 items-center justify-center rounded-2xl bg-[rgba(var(--brand-rgb),0.12)] text-primary">
                 <Users className="size-5" />
               </div>
               <div>

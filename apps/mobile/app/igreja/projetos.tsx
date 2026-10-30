@@ -6,7 +6,8 @@ import { Screen } from "@/components/Screen";
 import { Card } from "@/components/Card";
 import { EmptyState } from "@/components/EmptyState";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { theme } from "@/constants/theme";
+import { useAppTheme } from "@/constants/theme";
+import { useThemedStyles } from "@/theme";
 import { listProjects } from "@/services/api/projects";
 import { formatCurrencyBRL, formatDate } from "@/utils/date";
 
@@ -17,6 +18,9 @@ function percent(raised: number, goal: number): number {
 }
 
 export default function IgrejaProjetosScreen() {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ["fundraising-projects"],
     queryFn: () => listProjects(),
@@ -112,6 +116,9 @@ export default function IgrejaProjetosScreen() {
 }
 
 function Stat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   return (
     <View style={{ flex: 1 }}>
       <Text style={styles.statLabel}>{label}</Text>
@@ -121,6 +128,9 @@ function Stat({ label, value, accent }: { label: string; value: string; accent?:
 }
 
 function DateMini({ label, value }: { label: string; value: string }) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   return (
     <View style={styles.dateMini}>
       <Ionicons name="calendar-outline" size={13} color={theme.colors.muted} />
@@ -130,7 +140,7 @@ function DateMini({ label, value }: { label: string; value: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   bannerWrap: {
     width: "100%",
     height: 140,
@@ -217,4 +227,4 @@ const styles = StyleSheet.create({
     color: theme.colors.foregroundDark,
     fontWeight: "700",
   },
-});
+}));

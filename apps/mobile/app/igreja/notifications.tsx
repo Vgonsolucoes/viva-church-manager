@@ -8,7 +8,8 @@ import { NotificationItem, type NotificationItemData, type NotificationType } fr
 import { LoadingSkeleton } from "@/components/LoadingSkeleton";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
-import { theme } from "@/theme";
+import { useAppTheme } from "@/theme";
+import { useThemedStyles } from "@/theme";
 import { listar } from "@/services/api/notifications";
 import { formatDate } from "@/utils/date";
 
@@ -66,6 +67,9 @@ function normalise(raw: unknown, idx: number): NotificationItemData {
 }
 
 export default function IgrejaNotificationsScreen() {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const [tab, setTab] = useState<TabKey>("all");
 
   const { data, isLoading, isFetching, isError, refetch } = useQuery({
@@ -151,7 +155,7 @@ export default function IgrejaNotificationsScreen() {
                     <Text
                       style={[
                         styles.pillBadgeText,
-                        active ? { color: theme.colors.primary500 } : { color: "#FFFFFF" },
+                        active ? { color: theme.colors.primary500 } : { color: theme.colors.foreground },
                       ]}
                     >
                       {count}
@@ -212,7 +216,7 @@ export default function IgrejaNotificationsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   tabsWrap: {
     flexDirection: "row",
     paddingHorizontal: theme.spacing.lg,
@@ -232,8 +236,8 @@ const styles = StyleSheet.create({
     borderColor: "transparent",
   },
   pillActive: {
-    backgroundColor: "rgba(23,107,255,0.14)",
-    borderColor: "rgba(23,107,255,0.30)",
+    backgroundColor: theme.colors.borderPrimary,
+    borderColor: theme.colors.borderPrimary,
   },
   pillText: {
     ...theme.typography.subtleBold,
@@ -276,4 +280,4 @@ const styles = StyleSheet.create({
     borderWidth: 0.5,
     borderColor: theme.colors.cardOutline,
   },
-});
+}));

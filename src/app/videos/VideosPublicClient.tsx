@@ -52,7 +52,7 @@ export function VideosPublicClient(props: {
         <header className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
           <div>
             <div className="flex items-center gap-3">
-              <div className="flex size-11 items-center justify-center rounded-2xl border border-border/80 bg-[rgba(11,23,48,0.6)] backdrop-blur">
+              <div className="flex size-11 items-center justify-center rounded-2xl border border-border/80 bg-[var(--surface)] backdrop-blur">
                 <YoutubeLogo className="size-5 text-rose-400" />
               </div>
               <div>
@@ -133,7 +133,7 @@ export function VideosPublicClient(props: {
                   type="button"
                   onClick={() => setActiveId(v.id)}
                   className={cn(
-                    "group text-left overflow-hidden rounded-3xl border border-border/80 bg-[rgba(11,23,48,0.55)] backdrop-blur transition hover:bg-[rgba(11,23,48,0.8)] hover:shadow-[0_18px_70px_-48px_rgba(88,167,255,0.7)]",
+                    "group text-left overflow-hidden rounded-3xl border border-border/80 bg-[var(--surface)] backdrop-blur transition hover:bg-[var(--surface)] hover:shadow-[0_18px_70px_-48px_rgba(var(--brand-rgb),0.7)]",
                     activeId === v.id && "ring-2 ring-primary/40",
                   )}
                 >

@@ -1283,7 +1283,7 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
                   className={cn(
                     "flex items-center gap-3 rounded-2xl border px-3 py-3 text-sm transition-[background,color,border-color,box-shadow]",
                     active
-                      ? "border-[rgba(88,167,255,0.32)] bg-[rgba(88,167,255,0.12)] text-foreground shadow-[0_18px_70px_-46px_rgba(88,167,255,0.72)]"
+                      ? "border-[rgba(var(--brand-rgb),0.32)] bg-[rgba(var(--brand-rgb),0.12)] text-foreground shadow-[0_18px_70px_-46px_rgba(var(--brand-rgb),0.72)]"
                       : "border-border/70 bg-muted/10 text-muted-foreground hover:bg-muted/20 hover:text-foreground",
                   )}
                 >
@@ -1360,7 +1360,7 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
                       </div>
                       <div className="mt-2 h-2 rounded-full bg-muted/30">
                         <div
-                          className="h-2 rounded-full bg-gradient-to-r from-[#58a7ff] via-[#2b8cff] to-[#a269ff]"
+                          className="h-2 rounded-full bg-gradient-to-r from-[var(--primary)] via-[var(--primary)] to-[var(--primary)]"
                           style={{ width: `${clampProgress(detailRow.progress)}%` }}
                         />
                       </div>
@@ -1610,7 +1610,7 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
                               <div className="flex items-center gap-2">
                                 <div className="h-2 w-16 rounded-full bg-muted/30">
                                   <div
-                                    className="h-2 rounded-full bg-gradient-to-r from-[#58a7ff] to-[#a269ff]"
+                                    className="h-2 rounded-full bg-gradient-to-r from-[var(--primary)] to-[var(--primary)]"
                                     style={{ width: `${clampProgress(row.progress)}%` }}
                                   />
                                 </div>
@@ -1978,7 +1978,7 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
                         </div>
                         <div className="h-2 rounded-full bg-muted/30">
                           <div
-                            className="h-2 rounded-full bg-gradient-to-r from-[#58a7ff] to-[#a269ff]"
+                            className="h-2 rounded-full bg-gradient-to-r from-[var(--primary)] to-[var(--primary)]"
                             style={{
                               width: `${rows.length ? Math.max((item.count / rows.length) * 100, 6) : 0}%`,
                             }}

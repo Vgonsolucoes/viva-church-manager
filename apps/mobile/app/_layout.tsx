@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { View, StyleSheet, Text, Animated, Platform } from "react-native";
+import { View, StyleSheet, Text, Animated, Platform, Image } from "react-native";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
@@ -17,7 +17,9 @@ import {
 } from "@expo-google-fonts/inter";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSessionStore } from "@/stores/session";
-import { theme } from "@/theme";
+import { useAppTheme } from "@/theme";
+import { useThemedStyles } from "@/theme";
+import { useAppearance, useHydrateAppearance } from "@/theme";
 import { useNetwork } from "@/hooks/useNetwork";
 import { registerPushDevice } from "@/services/api/pushDevices";
 
@@ -40,6 +42,9 @@ const queryClient = new QueryClient({
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function AnimatedSplash({ onFinish }: { onFinish: () => void }) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.92)).current;
 
@@ -75,7 +80,7 @@ function AnimatedSplash({ onFinish }: { onFinish: () => void }) {
           end={{ x: 1, y: 1 }}
           style={styles.logoGradient}
         >
-          <Text style={styles.logoLetter}>V</Text>
+          <Image source={require("../assets/icon.png")} accessibilityLabel="Viva Church" style={{ width: 96, height: 96, borderRadius: 28 }} />
         </LinearGradient>
         <Text style={styles.brandName}>VIVA CHURCH</Text>
         <Text style={styles.sloganLine1}>Conectando pessoas.</Text>
@@ -92,6 +97,9 @@ function AuthGuard({
   children: React.ReactNode;
   fontsReady: boolean;
 }) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const segments = useSegments();
   const router = useRouter();
   const { accessToken, initialized } = useSessionStore();
@@ -263,6 +271,10 @@ async function safeGetDeviceName(): Promise<string | null> {
 }
 
 export default function RootLayout() {
+  useHydrateAppearance();
+  const mode = useAppearance((state) => state.mode);
+  const theme = useAppTheme();
+
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
@@ -276,7 +288,7 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <NetworkInit />
           <AuthGuard fontsReady={fontsLoaded}>
-            <StatusBar style="light" />
+            <StatusBar style={mode === "dark" ? "light" : "dark"} />
             <Stack
               screenOptions={{
                 headerStyle: { backgroundColor: theme.colors.background },
@@ -325,7 +337,7 @@ export default function RootLayout() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   splash: {
     flex: 1,
     backgroundColor: theme.colors.background,
@@ -372,4 +384,4 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_500Medium",
     textAlign: "center",
   },
-});
+}));

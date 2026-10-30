@@ -1,7 +1,8 @@
 import React from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { ChevronRight } from "lucide-react-native";
-import { theme } from "@/theme";
+import { useAppTheme } from "@/theme";
+import { useThemedStyles } from "@/theme";
 
 interface SectionHeaderProps {
   title: string;
@@ -12,6 +13,9 @@ interface SectionHeaderProps {
 }
 
 export function SectionHeader({ title, actionLabel, onActionPress, tint, style }: SectionHeaderProps) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   return (
     <View style={[styles.row, style]}>
       <Text style={[styles.title, tint && { color: tint }]}>{title}</Text>
@@ -29,7 +33,7 @@ export function SectionHeader({ title, actionLabel, onActionPress, tint, style }
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -44,4 +48,4 @@ const styles = StyleSheet.create({
     color: theme.colors.primary400,
     marginRight: 2,
   },
-});
+}));

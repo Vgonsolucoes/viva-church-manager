@@ -10,7 +10,8 @@ import {
   Briefcase,
   CalendarRange,
 } from "lucide-react-native";
-import { theme } from "@/theme";
+import { useAppTheme } from "@/theme";
+import { useThemedStyles } from "@/theme";
 import { PrimaryButton } from "./PrimaryButton";
 
 type Tint = "default" | "info" | "agenda" | "cells" | "schedules";
@@ -34,13 +35,13 @@ const EXTRA_ICONS: Record<string, any> = {
   inbox: Inbox,
 };
 
-const COLORS: Record<Tint, { color: string; bg: string }> = {
+const createCOLORS = (theme: ReturnType<typeof useAppTheme>): Record<Tint, { color: string; bg: string }> => ({
   default: { color: theme.colors.foregroundMuted, bg: "rgba(143,164,191,0.12)" },
-  info: { color: theme.colors.primary400, bg: "rgba(23,107,255,0.12)" },
-  agenda: { color: theme.colors.purple400, bg: "rgba(112,87,255,0.12)" },
-  cells: { color: theme.colors.green500, bg: "rgba(34,201,149,0.12)" },
-  schedules: { color: theme.colors.cyan400, bg: "rgba(35,183,217,0.12)" },
-};
+  info: { color: theme.colors.primary400, bg: theme.colors.borderPrimary },
+  agenda: { color: theme.colors.purple400, bg: theme.colors.borderPrimary },
+  cells: { color: theme.colors.green500, bg: theme.colors.borderPrimary },
+  schedules: { color: theme.colors.cyan400, bg: theme.colors.borderPrimary },
+});
 
 interface EmptyStateProps {
   icon?: React.ComponentType<any> | string;
@@ -59,6 +60,10 @@ export function EmptyState({
   actionLabel,
   onAction,
 }: EmptyStateProps) {
+  const theme = useAppTheme();
+  const COLORS = useThemedStyles(createCOLORS, theme);
+  const styles = useThemedStyles(createStyles, theme);
+
   const c = COLORS[tint];
   let I: any = ICONS[tint];
   if (icon) {
@@ -85,7 +90,7 @@ export function EmptyState({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   wrap: {
     alignItems: "center",
     justifyContent: "center",
@@ -100,11 +105,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: theme.spacing.lg,
   },
-  title: { ...theme.typography.heading, color: "#FFFFFF", textAlign: "center" },
+  title: { ...theme.typography.heading, color: theme.colors.foreground, textAlign: "center" },
   desc: {
     ...theme.typography.bodySm,
     color: theme.colors.foregroundMuted,
     textAlign: "center",
     marginTop: theme.spacing.sm,
   },
-});
+}));

@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Image, Text, StyleSheet, ViewStyle } from "react-native";
-import { theme } from "@/theme";
+import { useAppTheme } from "@/theme";
+import { useThemedStyles } from "@/theme";
 
 type Size = "xs" | "sm" | "md" | "lg" | "xl" | "xxl";
 
@@ -41,6 +42,9 @@ export function Avatar({
   style,
   fallbackTint,
 }: AvatarProps) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const sizePx: number = typeof size === "number" ? size : SIZE_MAP[size];
   const ring = ringColor ? { borderColor: ringColor, borderWidth: ringWidth } : null;
   const tint = fallbackTint ?? theme.colors.primary500;
@@ -77,10 +81,10 @@ export function Avatar({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   ringWrap: { overflow: "hidden", backgroundColor: theme.colors.card },
   fallback: { alignItems: "center", justifyContent: "center" },
-  initials: { color: "#FFFFFF", fontFamily: theme.fontFamilies.bold, letterSpacing: 0.4 },
+  initials: { color: theme.colors.onPrimary, fontFamily: theme.fontFamilies.bold, letterSpacing: 0.4 },
   online: {
     position: "absolute",
     width: 12,
@@ -90,4 +94,4 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: theme.colors.background,
   },
-});
+}));

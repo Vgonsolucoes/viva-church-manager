@@ -1,6 +1,7 @@
 import React from "react";
 import { Pressable, Text, StyleSheet, ViewStyle, View, ActivityIndicator } from "react-native";
-import { theme } from "@/theme";
+import { useAppTheme } from "@/theme";
+import { useThemedStyles } from "@/theme";
 
 type Variant = "default" | "ghost" | "transparent" | "outline";
 
@@ -29,6 +30,9 @@ export function SecondaryButton({
   textStyle,
   leftIcon,
 }: SecondaryButtonProps) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const label = children ?? title ?? "";
   const styleArray = Array.isArray(style) ? style : [style];
   const base: ViewStyle[] = [
@@ -74,7 +78,7 @@ export function SecondaryButton({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   base: {
     width: "100%",
     borderRadius: theme.radius.button,
@@ -87,7 +91,7 @@ const styles = StyleSheet.create({
     borderWidth: 0.6,
     borderColor: theme.colors.white16,
   },
-  ghostVar: { backgroundColor: "rgba(23,107,255,0.10)" },
+  ghostVar: { backgroundColor: theme.colors.borderPrimary },
   outlineVar: {
     backgroundColor: "transparent",
     borderWidth: 1,
@@ -96,9 +100,9 @@ const styles = StyleSheet.create({
   transparentVar: { backgroundColor: "transparent" },
   row: { flexDirection: "row", alignItems: "center", justifyContent: "center" },
   text: {
-    color: "#FFFFFF",
+    color: theme.colors.foreground,
     ...theme.typography.button,
   },
   pressed: { opacity: 0.86, transform: [{ scale: 0.975 }] },
   disabled: { opacity: 0.45 },
-});
+}));

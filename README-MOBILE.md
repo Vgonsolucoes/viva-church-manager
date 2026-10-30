@@ -5,11 +5,19 @@
 - Conta Expo: `vivachurch`.
 - Projeto: `@vivachurch/viva-church` — https://expo.dev/accounts/vivachurch/projects/viva-church
 - EAS projectId: `d62d3333-4241-4af1-aa51-678fc496b383`.
-- Versão do aplicativo: `0.2.1`. O pacote Android permanece `br.com.vivasede.app`.
+- Versão do aplicativo: `0.3.0`. O pacote Android permanece `br.com.vivasede.app`.
 - O proprietário autorizou recriar o projeto porque não tem acesso à conta anterior `vgon`. A nova assinatura Android fica armazenada no EAS da conta `vivachurch`; um APK assinado com a chave anterior poderá precisar ser desinstalado antes de instalar o novo.
 - As notas sobre `projectId` vazio e Expo SDK 52 nas etapas históricas abaixo são antigas. Consulte `apps/mobile/app.json` e `apps/mobile/package.json` para a configuração atual.
 
-Aplicativo multiplataforma Expo SDK 52 (React Native + Expo Router 4, Zustand, TanStack Query).
+## Aparência da marca
+
+O aplicativo oferece os modos claro (creme e marrom) e escuro (café e cobre). O botão de sol/lua aparece no início, nos cabeçalhos e no perfil; a escolha fica salva neste aparelho e também está disponível antes do login. A web salva sua preferência separadamente no navegador.
+
+Novos componentes devem usar `useAppTheme()` e `useThemedStyles()` para atualizar cores e estilos ao alternar a aparência. Use `colors.onPrimary` em textos sobre botões e gradientes primários; QR codes mantêm fundo branco e módulos escuros nos dois modos.
+
+Validação: `node --test scripts/theme-tests.cjs`, além da checagem TypeScript do aplicativo e do build da web.
+
+Aplicativo multiplataforma Expo (React Native, Expo Router, Zustand, TanStack Query).
 Integração com a API Web do Viva Church Manager (Next.js / Prisma / PostgreSQL).
 
 **Código fonte:** `apps/mobile/` no monorepo.

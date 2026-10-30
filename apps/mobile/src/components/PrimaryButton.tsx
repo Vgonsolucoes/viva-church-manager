@@ -1,7 +1,8 @@
 import React from "react";
 import { Pressable, Text, StyleSheet, View, ActivityIndicator, ViewStyle } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { theme } from "@/theme";
+import { useAppTheme } from "@/theme";
+import { useThemedStyles } from "@/theme";
 
 type Variant = "solid" | "gradient" | "small";
 
@@ -28,6 +29,9 @@ export function PrimaryButton({
   leftIcon,
   height,
 }: PrimaryButtonProps) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const defaultHeight = variant === "small" ? 44 : 52;
   const h = height ?? defaultHeight;
   const label = children ?? title ?? "";
@@ -60,7 +64,7 @@ export function PrimaryButton({
     const inner = (
       <>
         {loading ? (
-          <ActivityIndicator size="small" color="#FFFFFF" style={{ marginRight: 8 }} />
+          <ActivityIndicator size="small" color={theme.colors.onPrimary} style={{ marginRight: 8 }} />
         ) : leftIcon ? (
           <View style={{ marginRight: 8 }}>{leftIcon}</View>
         ) : null}
@@ -92,7 +96,7 @@ export function PrimaryButton({
     <Pressable
       onPress={disabled || loading ? undefined : onPress}
       android_ripple={{
-        color: "rgba(255,255,255,0.10)",
+        color: theme.colors.foregroundMuted,
         borderless: false,
         radius: theme.radius.button,
       }}
@@ -102,7 +106,7 @@ export function PrimaryButton({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   base: {
     width: "100%",
     backgroundColor: theme.colors.primary500,
@@ -121,9 +125,9 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   text: {
-    color: "#FFFFFF",
+    color: theme.colors.onPrimary,
     ...theme.typography.button,
   },
   pressed: { opacity: 0.88, transform: [{ scale: 0.975 }] },
   disabled: { opacity: 0.5 },
-});
+}));

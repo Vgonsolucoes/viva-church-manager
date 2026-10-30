@@ -18,7 +18,8 @@ import { Avatar } from "@/components/Avatar";
 import { AppCard } from "@/components/AppCard";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { Input } from "@/components/Input";
-import { theme } from "@/theme";
+import { useAppTheme } from "@/theme";
+import { useThemedStyles } from "@/theme";
 import {
   createChild,
   getMyChildren,
@@ -55,6 +56,9 @@ function birthDateToInput(date: Date | null | undefined): string {
 }
 
 export default function KidsCadastroScreen() {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const router = useRouter();
   const queryClient = useQueryClient();
   const { childId } = useLocalSearchParams<{ childId?: string }>();
@@ -388,7 +392,7 @@ export default function KidsCadastroScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   photoSection: {
     alignItems: "center",
     gap: theme.spacing.sm,
@@ -480,8 +484,8 @@ const styles = StyleSheet.create({
     zIndex: 100,
   },
   toastText: {
-    color: "#FFFFFF",
+    color: theme.colors.foreground,
     ...theme.typography.bodyBold,
     textAlign: "center",
   },
-});
+}));

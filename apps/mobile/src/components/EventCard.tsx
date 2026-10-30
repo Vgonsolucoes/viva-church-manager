@@ -1,7 +1,8 @@
 import React from "react";
 import { View, Text, StyleSheet, ImageBackground, Pressable, Dimensions, Image } from "react-native";
 import { MapPin } from "lucide-react-native";
-import { theme } from "@/theme";
+import { useAppTheme } from "@/theme";
+import { useThemedStyles } from "@/theme";
 import { AppCard } from "./AppCard";
 import { Badge } from "./Badge";
 import { PrimaryButton } from "./PrimaryButton";
@@ -31,6 +32,9 @@ interface EventCardProps {
 }
 
 export function EventCard({ data, onParticipate, onView, compact }: EventCardProps) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const variant: "primary" | "purple" | "cyan" | "orange" | "pink" =
     data.category === "CONFERENCIA"
       ? "purple"
@@ -129,7 +133,7 @@ export function EventCard({ data, onParticipate, onView, compact }: EventCardPro
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   imageBg: { width: "100%", height: 170, backgroundColor: theme.colors.cardDark },
   imagePlaceholder: {
     backgroundColor: theme.colors.cardDark,
@@ -146,7 +150,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.cardOutline,
     alignItems: "center",
   },
-  dateBadgeTop: { color: "#FFFFFF", fontFamily: theme.fontFamilies.bold, fontSize: 13, lineHeight: 16 },
+  dateBadgeTop: { color: theme.colors.foreground, fontFamily: theme.fontFamilies.bold, fontSize: 13, lineHeight: 16 },
   dateBadgeBottom: {
     color: theme.colors.primary400,
     fontFamily: theme.fontFamilies.semibold,
@@ -157,7 +161,7 @@ const styles = StyleSheet.create({
   body: { padding: theme.spacing.lg },
   title: {
     ...theme.typography.card,
-    color: "#FFFFFF",
+    color: theme.colors.foreground,
     marginTop: theme.spacing.sm,
   },
   metaRow: { flexDirection: "row", alignItems: "center", marginTop: theme.spacing.sm },
@@ -176,4 +180,4 @@ const styles = StyleSheet.create({
     ...theme.typography.captionBold,
     color: theme.colors.foregroundMuted,
   },
-});
+}));

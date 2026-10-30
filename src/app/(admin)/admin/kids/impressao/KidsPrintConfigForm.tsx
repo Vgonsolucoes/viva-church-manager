@@ -29,7 +29,7 @@ export function KidsPrintConfigForm({ config }: { config: KidsPrintConfig }) {
             type="checkbox"
             name="enabled"
             defaultChecked={config.enabled}
-            className="mt-0.5 h-4 w-4 rounded border-border accent-[#58a7ff]"
+            className="mt-0.5 h-4 w-4 rounded border-border accent-[var(--primary)]"
           />
           <span>
             <span className="block text-sm font-medium">Impressão automática</span>
@@ -53,7 +53,7 @@ export function KidsPrintConfigForm({ config }: { config: KidsPrintConfig }) {
               max={120}
               step={1}
               defaultValue={config.labelWidthMm}
-              className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-[#58a7ff]/60"
+              className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/60"
             />
             <span className="mt-1 block text-[11px] text-muted-foreground">
               Padrão: 80 mm (bobina da Epson TM-T20X).
@@ -71,7 +71,7 @@ export function KidsPrintConfigForm({ config }: { config: KidsPrintConfig }) {
               max={100}
               step={1}
               defaultValue={config.labelHeightMm}
-              className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-[#58a7ff]/60"
+              className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/60"
             />
             <span className="mt-1 block text-[11px] text-muted-foreground">
               Padrão: 50 mm por etiqueta.
@@ -89,7 +89,7 @@ export function KidsPrintConfigForm({ config }: { config: KidsPrintConfig }) {
               max={4}
               step={1}
               defaultValue={config.copies}
-              className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-[#58a7ff]/60"
+              className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/60"
             />
             <span className="mt-1 block text-[11px] text-muted-foreground">
               Vias de cada etiqueta (criança e responsável).

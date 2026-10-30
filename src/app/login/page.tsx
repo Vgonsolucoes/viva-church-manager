@@ -11,12 +11,12 @@ export default function LoginPage() {
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Image
-              src="https://vgon.com.br/wp-content/uploads/2026/05/653710779_1244850837750825_1067912328932006259_n.png"
+              src="/viva-icon.png"
               alt="Ministério Viva Church"
               width={44}
               height={44}
               className="rounded-xl"
-              style={{ width: "auto", height: "auto" }}
+
               priority
             />
             <div>

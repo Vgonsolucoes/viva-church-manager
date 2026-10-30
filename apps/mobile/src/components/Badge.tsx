@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
-import { theme } from "@/theme";
+import { useAppTheme } from "@/theme";
+import { useThemedStyles } from "@/theme";
 
 type Variant =
   | "primary"
@@ -13,17 +14,17 @@ type Variant =
   | "pink"
   | "muted";
 
-const MAP: Record<Variant, { bg: string; color: string }> = {
-  primary: { bg: "rgba(23,107,255,0.14)", color: theme.colors.primary400 },
-  success: { bg: "rgba(34,201,149,0.14)", color: theme.colors.green500 },
+const createMAP = (theme: ReturnType<typeof useAppTheme>): Record<Variant, { bg: string; color: string }> => ({
+  primary: { bg: theme.colors.borderPrimary, color: theme.colors.primary400 },
+  success: { bg: theme.colors.borderPrimary, color: theme.colors.green500 },
   warning: { bg: "rgba(244,161,0,0.14)", color: theme.colors.warning500 },
   danger: { bg: "rgba(240,68,56,0.14)", color: theme.colors.danger500 },
-  purple: { bg: "rgba(112,87,255,0.14)", color: theme.colors.purple400 },
-  cyan: { bg: "rgba(35,183,217,0.14)", color: theme.colors.cyan400 },
-  orange: { bg: "rgba(243,155,66,0.14)", color: theme.colors.orange500 },
-  pink: { bg: "rgba(236,95,145,0.14)", color: theme.colors.pink500 },
+  purple: { bg: theme.colors.borderPrimary, color: theme.colors.purple400 },
+  cyan: { bg: theme.colors.borderPrimary, color: theme.colors.cyan400 },
+  orange: { bg: theme.colors.borderPrimary, color: theme.colors.orange500 },
+  pink: { bg: theme.colors.borderPrimary, color: theme.colors.pink500 },
   muted: { bg: theme.colors.white08, color: theme.colors.foregroundMuted },
-};
+});
 
 export interface BadgeProps {
   label: string;
@@ -32,6 +33,10 @@ export interface BadgeProps {
 }
 
 export function Badge({ label, variant = "primary", style }: BadgeProps) {
+  const theme = useAppTheme();
+  const MAP = useThemedStyles(createMAP, theme);
+  const styles = useThemedStyles(createStyles, theme);
+
   const m = MAP[variant];
   return (
     <View style={[styles.pill, { backgroundColor: m.bg }, style]}>
@@ -40,7 +45,7 @@ export function Badge({ label, variant = "primary", style }: BadgeProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   pill: {
     paddingHorizontal: theme.spacing.md,
     paddingVertical: 5,
@@ -51,4 +56,4 @@ const styles = StyleSheet.create({
     ...theme.typography.captionBold,
     letterSpacing: 0.4,
   },
-});
+}));

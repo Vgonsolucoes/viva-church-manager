@@ -10,7 +10,8 @@ import { Card } from "@/components/Card";
 import { EmptyState } from "@/components/EmptyState";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { useAuth } from "@/hooks/useAuth";
-import { theme } from "@/constants/theme";
+import { theme, useAppTheme } from "@/constants/theme";
+import { useThemedStyles } from "@/theme";
 import { friendlyEventDate, weekdayLabel, formatTime } from "@/utils/date";
 import { listMyAgenda } from "@/services/api/agenda";
 import { listMySchedules } from "@/services/api/schedules";
@@ -23,6 +24,7 @@ import { AppCard } from "@/components/AppCard";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { SecondaryButton } from "@/components/SecondaryButton";
 import { SectionHeader } from "@/components/SectionHeader";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Badge } from "@/components/Badge";
 import { StatusBadge } from "@/components/StatusBadge";
 import { LoadingSkeleton, SkeletonCardLines } from "@/components/LoadingSkeleton";
@@ -52,11 +54,11 @@ function categoryMeta(cat: AgendaCategory): { label: string; icon: IconName; col
     case "DISCIPULADO":
       return { label: "Discipulado", icon: "book-open-page-variant", color: theme.colors.warning, bg: "rgba(244,161,0,0.15)" };
     case "ENSAIO":
-      return { label: "Ensaio", icon: "music-circle", color: "#8B5CF6", bg: "rgba(139,92,246,0.15)" };
+      return { label: "Ensaio", icon: "music-circle", color: "#8B5CF6", bg: theme.colors.borderPrimary };
     case "ESCALA":
-      return { label: "Escala", icon: "clipboard-text-clock", color: "#0EA5E9", bg: "rgba(14,165,233,0.15)" };
+      return { label: "Escala", icon: "clipboard-text-clock", color: "#0EA5E9", bg: theme.colors.borderPrimary };
     case "CONFERENCIA":
-      return { label: "Conferência", icon: "microphone-variant", color: "#EC4899", bg: "rgba(236,72,153,0.15)" };
+      return { label: "Conferência", icon: "microphone-variant", color: "#EC4899", bg: theme.colors.borderPrimary };
     default:
       return { label: "Agenda", icon: "calendar", color: theme.colors.primary, bg: theme.colors.primarySoft };
   }
@@ -84,6 +86,9 @@ function eventToCardData(e: EventPublic, idx: number): EventCardData {
 }
 
 export default function HomeScreen() {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const { me, initialized, refreshMe } = useAuth();
 
   const {
@@ -204,7 +209,7 @@ export default function HomeScreen() {
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <View style={styles.headerBar}>
         <View style={{ flex: 1 }}>{headerLeft}</View>
-        <View>{headerRight}</View>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}><ThemeToggle />{headerRight}</View>
       </View>
 
       <ScreenContainer
@@ -295,6 +300,9 @@ export default function HomeScreen() {
 }
 
 function HeroCultoCard({ culto }: { culto: any }) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   if (!culto) {
     return (
       <AppCard variant="hero" style={{ backgroundColor: theme.colors.cardDark }}>
@@ -347,15 +355,15 @@ function HeroCultoCard({ culto }: { culto: any }) {
             </View>
             <View style={[styles.heroMetaDot, { backgroundColor: "rgba(255,255,255,0.30)" }]} />
             <View style={styles.heroMetaItem}>
-              <Clock size={16} color="#FFFFFF" />
+              <Clock size={16} color={theme.colors.onPrimary} />
               <Text style={[styles.heroMetaText, { marginLeft: 6 }]}>{timeStr}</Text>
             </View>
           </View>
 
           {culto.location ? (
             <View style={[styles.heroMetaRow, { marginTop: 8 }]}>
-              <MapPin size={16} color="rgba(255,255,255,0.70)" />
-              <Text style={[styles.heroMetaText, { marginLeft: 6, color: "rgba(255,255,255,0.78)" }]} numberOfLines={1}>
+              <MapPin size={16} color={theme.colors.onPrimary} />
+              <Text style={[styles.heroMetaText, { marginLeft: 6, color: theme.colors.onPrimary }]} numberOfLines={1}>
                 {culto.location}
               </Text>
             </View>
@@ -375,6 +383,9 @@ function HeroCultoCard({ culto }: { culto: any }) {
 }
 
 function NextScheduleCard({ schedule }: { schedule: any }) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const hasSched = !!schedule?.schedule;
   const st = schedule?.status ?? "PENDING";
   const dateLabel = hasSched ? friendlyEventDate(schedule.schedule.startsAt) : undefined;
@@ -414,6 +425,9 @@ function NextScheduleCard({ schedule }: { schedule: any }) {
 }
 
 function MyCellCard({ cell }: { cell: CellDetail | null | undefined }) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   return (
     <AppCard variant="default">
       <View style={{ gap: 8 }}>
@@ -442,7 +456,7 @@ function MyCellCard({ cell }: { cell: CellDetail | null | undefined }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   headerBar: {
     paddingTop: 0,
     paddingHorizontal: theme.spacing.lg,
@@ -459,7 +473,7 @@ const styles = StyleSheet.create({
     fontFamily: theme.fontFamilies.medium,
   },
   usernameText: {
-    color: "#FFFFFF",
+    color: theme.colors.foreground,
     fontSize: 20,
     fontFamily: theme.fontFamilies.bold,
     marginTop: 2,
@@ -468,7 +482,7 @@ const styles = StyleSheet.create({
   heroTopRow: { flexDirection: "row", alignItems: "center" },
   heroTitle: {
     marginTop: 14,
-    color: "#FFFFFF",
+    color: theme.colors.onPrimary,
     fontFamily: theme.fontFamilies.bold,
     fontSize: 26,
     lineHeight: 32,
@@ -482,13 +496,13 @@ const styles = StyleSheet.create({
   heroMetaItem: { flexDirection: "row", alignItems: "center" },
   heroMetaDot: { width: 4, height: 4, borderRadius: 2, marginHorizontal: 10 },
   heroMetaText: {
-    color: "#FFFFFF",
+    color: theme.colors.onPrimary,
     fontFamily: theme.fontFamilies.semibold,
     fontSize: 14,
   },
   miniCardHeader: { flexDirection: "row", alignItems: "center" },
   miniCardTitle: {
-    color: "#FFFFFF",
+    color: theme.colors.foreground,
     fontFamily: theme.fontFamilies.bold,
     fontSize: 15,
     lineHeight: 20,
@@ -512,7 +526,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     paddingVertical: 16,
   },
-});
+}));
 
 void weekdayLabel;
 void formatTime;

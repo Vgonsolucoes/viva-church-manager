@@ -10,7 +10,8 @@ import {
   ViewStyle,
 } from "react-native";
 import { Eye, EyeOff } from "lucide-react-native";
-import { theme } from "@/theme";
+import { useAppTheme } from "@/theme";
+import { useThemedStyles } from "@/theme";
 
 export interface InputProps extends Omit<TextInputProps, "onChangeText"> {
   label?: string;
@@ -44,6 +45,9 @@ export function Input({
   secureTextEntry,
   ...rest
 }: InputProps) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const [showPwd, setShowPwd] = useState(false);
   const secure = secureTextEntry && !showPwd;
   const showPasswordToggle = passwordToggle || secureTextEntry;
@@ -86,7 +90,7 @@ export function Input({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   container: { width: "100%" },
   label: {
     ...theme.typography.subtleBold,
@@ -111,7 +115,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 52,
     paddingHorizontal: theme.spacing.md,
-    color: "#FFFFFF",
+    color: theme.colors.foreground,
     ...theme.typography.body,
   },
   errorText: {
@@ -119,4 +123,4 @@ const styles = StyleSheet.create({
     ...theme.typography.caption,
     color: theme.colors.danger500,
   },
-});
+}));

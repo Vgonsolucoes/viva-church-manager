@@ -6,10 +6,14 @@ import { Screen } from "@/components/Screen";
 import { Card } from "@/components/Card";
 import { EmptyState } from "@/components/EmptyState";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { theme } from "@/constants/theme";
+import { useAppTheme } from "@/constants/theme";
+import { useThemedStyles } from "@/theme";
 import { listMyMinistries } from "@/services/api/ministries";
 
 export default function IgrejaMinisteriosScreen() {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ["my-ministries"],
     queryFn: () => listMyMinistries(),
@@ -70,7 +74,7 @@ export default function IgrejaMinisteriosScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   row: { flexDirection: "row", alignItems: "flex-start" },
   iconWrap: {
     width: 48,
@@ -102,4 +106,4 @@ const styles = StyleSheet.create({
     color: theme.colors.muted,
     lineHeight: 18,
   },
-});
+}));

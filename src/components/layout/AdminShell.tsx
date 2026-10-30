@@ -240,15 +240,15 @@ export function AdminShell(props: {
       <div className={cn("mx-auto flex w-full gap-6 px-4 py-8", pathname?.startsWith("/admin/discipleships") ? "max-w-none" : "max-w-[1480px]")}>
         <aside className="hidden w-64 shrink-0 lg:block">
           <div className="sticky top-6 space-y-4">
-            <div className="rounded-3xl border border-border/80 bg-[rgba(11,23,48,0.60)] p-4 shadow-[0_18px_70px_-48px_rgba(88,167,255,0.7)] backdrop-blur-xl">
+            <div className="rounded-3xl border border-border/80 bg-[var(--surface)] p-4 shadow-[0_18px_70px_-48px_rgba(var(--brand-rgb),0.7)] backdrop-blur-xl">
               <div className="flex items-center gap-3">
                 <Image
-                  src="https://vgon.com.br/wp-content/uploads/2026/05/653710779_1244850837750825_1067912328932006259_n.png"
+                  src="/viva-icon.png"
                   alt="Ministério Viva Church"
                   width={36}
                   height={36}
                   className="rounded-xl"
-                  style={{ width: "auto", height: "auto" }}
+
                 />
                 <div className="min-w-0">
                   <div className="truncate text-sm font-semibold tracking-wide text-foreground">
@@ -260,7 +260,7 @@ export function AdminShell(props: {
                 </div>
               </div>
             </div>
-            <nav className="rounded-3xl border border-border/80 bg-[rgba(11,23,48,0.55)] p-2 backdrop-blur-xl">
+            <nav className="rounded-3xl border border-border/80 bg-[var(--surface)] p-2 backdrop-blur-xl">
               {allowed.map((item) => {
                 const active =
                   pathname === item.href ||
@@ -273,7 +273,7 @@ export function AdminShell(props: {
                     className={cn(
                       "group flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium tracking-tight transition-[background,box-shadow,transform,color]",
                       active
-                        ? "bg-[rgba(88,167,255,0.16)] text-foreground shadow-[0_14px_50px_-36px_rgba(88,167,255,0.95)]"
+                        ? "bg-[rgba(var(--brand-rgb),0.16)] text-foreground shadow-[0_14px_50px_-36px_rgba(var(--brand-rgb),0.95)]"
                         : "text-muted-foreground hover:bg-muted/20 hover:text-foreground",
                     )}
                   >
@@ -286,7 +286,7 @@ export function AdminShell(props: {
               })}
             </nav>
             {allowedExtra.length ? (
-              <div className="rounded-3xl border border-border/80 bg-[rgba(11,23,48,0.45)] p-2 backdrop-blur-xl">
+              <div className="rounded-3xl border border-border/80 bg-[var(--surface)] p-2 backdrop-blur-xl">
                 <div className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                   Extras
                 </div>
@@ -302,7 +302,7 @@ export function AdminShell(props: {
                       className={cn(
                         "group flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium tracking-tight transition-[background,box-shadow,transform,color]",
                         active
-                          ? "bg-[rgba(88,167,255,0.16)] text-foreground shadow-[0_14px_50px_-36px_rgba(88,167,255,0.95)]"
+                          ? "bg-[rgba(var(--brand-rgb),0.16)] text-foreground shadow-[0_14px_50px_-36px_rgba(var(--brand-rgb),0.95)]"
                           : "text-muted-foreground hover:bg-muted/20 hover:text-foreground",
                       )}
                     >
@@ -320,7 +320,7 @@ export function AdminShell(props: {
                 })}
               </div>
             ) : null}
-            <div className="rounded-3xl border border-border/80 bg-[rgba(11,23,48,0.55)] p-4 backdrop-blur-xl">
+            <div className="rounded-3xl border border-border/80 bg-[var(--surface)] p-4 backdrop-blur-xl">
               <div className="text-xs font-semibold text-muted-foreground">Viva Church • Ministério</div>
               <div className="mt-3 flex items-center justify-between rounded-2xl border border-border/80 bg-muted/10 px-3 py-2">
                 <div className="text-xs font-semibold text-muted-foreground">Ver site</div>
@@ -368,7 +368,7 @@ export function AdminShell(props: {
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col gap-4">
-          <div className="hidden items-center justify-between gap-4 rounded-3xl border border-border/80 bg-[rgba(11,23,48,0.55)] px-4 py-3 shadow-[0_18px_70px_-60px_rgba(88,167,255,0.7)] backdrop-blur-xl lg:flex">
+          <div className="hidden items-center justify-between gap-4 rounded-3xl border border-border/80 bg-[var(--surface)] px-4 py-3 shadow-[0_18px_70px_-60px_rgba(var(--brand-rgb),0.7)] backdrop-blur-xl lg:flex">
             <div className="min-w-0 flex-1">
               <form onSubmit={onSearchSubmit} className="relative max-w-xl">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -445,15 +445,15 @@ export function AdminShell(props: {
             </div>
           </div>
 
-          <header className="flex items-center justify-between rounded-3xl border border-border/80 bg-[rgba(11,23,48,0.55)] px-4 py-3 shadow-[0_18px_70px_-60px_rgba(88,167,255,0.7)] backdrop-blur-xl lg:hidden">
+          <header className="flex items-center justify-between rounded-3xl border border-border/80 bg-[var(--surface)] px-4 py-3 shadow-[0_18px_70px_-60px_rgba(var(--brand-rgb),0.7)] backdrop-blur-xl lg:hidden">
             <div className="min-w-0 flex items-center gap-3">
               <Image
-                src="https://vgon.com.br/wp-content/uploads/2026/05/653710779_1244850837750825_1067912328932006259_n.png"
+                src="/viva-icon.png"
                 alt="Ministério Viva Church"
                 width={32}
                 height={32}
                 className="rounded-xl"
-                style={{ width: "auto", height: "auto" }}
+
               />
               <div className="min-w-0">
                 <div className="truncate text-sm font-semibold">Viva Church Manager</div>

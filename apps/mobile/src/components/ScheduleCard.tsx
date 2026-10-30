@@ -1,7 +1,8 @@
 import React from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { ClipboardList, Church, Music, Users, DollarSign, HeartHandshake, Baby } from "lucide-react-native";
-import { theme } from "@/theme";
+import { useAppTheme } from "@/theme";
+import { useThemedStyles } from "@/theme";
 import { AppCard } from "./AppCard";
 import { StatusBadge, ScheduleStatus } from "./StatusBadge";
 import { PrimaryButton } from "./PrimaryButton";
@@ -22,15 +23,15 @@ export interface ScheduleCardData {
   onMore?: () => void;
 }
 
-const CATEGORY_STYLES: Record<string, { bg: string; color: string; Icon: any }> = {
-  CULTO: { bg: "rgba(23,107,255,0.14)", color: theme.colors.primary400, Icon: Church },
-  ENSAIO: { bg: "rgba(112,87,255,0.14)", color: theme.colors.purple400, Icon: Music },
-  EVENTO: { bg: "rgba(236,95,145,0.14)", color: theme.colors.pink500, Icon: HeartHandshake },
-  REUNIAO: { bg: "rgba(35,183,217,0.14)", color: theme.colors.cyan400, Icon: Users },
-  KIDS: { bg: "rgba(243,155,66,0.14)", color: theme.colors.orange500, Icon: Baby },
-  PROJETO: { bg: "rgba(34,201,149,0.14)", color: theme.colors.green500, Icon: DollarSign },
+const createCATEGORY_STYLES = (theme: ReturnType<typeof useAppTheme>): Record<string, { bg: string; color: string; Icon: any }> => ({
+  CULTO: { bg: theme.colors.borderPrimary, color: theme.colors.primary400, Icon: Church },
+  ENSAIO: { bg: theme.colors.borderPrimary, color: theme.colors.purple400, Icon: Music },
+  EVENTO: { bg: theme.colors.borderPrimary, color: theme.colors.pink500, Icon: HeartHandshake },
+  REUNIAO: { bg: theme.colors.borderPrimary, color: theme.colors.cyan400, Icon: Users },
+  KIDS: { bg: theme.colors.borderPrimary, color: theme.colors.orange500, Icon: Baby },
+  PROJETO: { bg: theme.colors.borderPrimary, color: theme.colors.green500, Icon: DollarSign },
   OUTRO: { bg: theme.colors.white08, color: theme.colors.foregroundMuted, Icon: ClipboardList },
-};
+});
 
 interface ScheduleCardProps {
   data: ScheduleCardData;
@@ -40,6 +41,10 @@ interface ScheduleCardProps {
 }
 
 export function ScheduleCard({ data, onConfirm, onRefuse, onView }: ScheduleCardProps) {
+  const theme = useAppTheme();
+  const CATEGORY_STYLES = useThemedStyles(createCATEGORY_STYLES, theme);
+  const styles = useThemedStyles(createStyles, theme);
+
   const style = CATEGORY_STYLES[data.category ?? "OUTRO"] ?? CATEGORY_STYLES.OUTRO;
   const I = style.Icon;
   const showActions = data.status === "PENDING";
@@ -90,7 +95,7 @@ export function ScheduleCard({ data, onConfirm, onRefuse, onView }: ScheduleCard
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   headerRow: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -104,7 +109,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  title: { ...theme.typography.card, color: "#FFFFFF" },
+  title: { ...theme.typography.card, color: theme.colors.foreground },
   metaDateTime: {
     ...theme.typography.subtle,
     color: theme.colors.foregroundMuted,
@@ -120,4 +125,4 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
-});
+}));

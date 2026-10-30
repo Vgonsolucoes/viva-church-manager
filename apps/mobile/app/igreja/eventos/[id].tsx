@@ -7,7 +7,8 @@ import { Screen } from "@/components/Screen";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { theme } from "@/constants/theme";
+import { useAppTheme } from "@/constants/theme";
+import { useThemedStyles } from "@/theme";
 import { getEventDetail, postRegistration } from "@/services/api/events";
 import {
   formatCurrencyBRL,
@@ -16,6 +17,9 @@ import {
 import type { EventPublic } from "@/types";
 
 export default function EventDetailScreen() {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const { id } = useLocalSearchParams<{ id: string }>();
   const queryClient = useQueryClient();
   const [showResult, setShowResult] = useState<{ ok: boolean; text: string } | null>(null);
@@ -180,6 +184,9 @@ function DetailRow({
   label: string;
   children: React.ReactNode;
 }) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   return (
     <View style={styles.detailRow}>
       <Ionicons name={icon} size={18} color={theme.colors.primary} />
@@ -191,7 +198,7 @@ function DetailRow({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   bannerWrap: {
     width: "100%",
     height: 220,
@@ -207,7 +214,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: "800",
-    color: "#FFFFFF",
+    color: theme.colors.foreground,
     lineHeight: 28,
   },
   detailRow: {
@@ -266,7 +273,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     lineHeight: 20,
   },
-});
+}));
 
 // Keep LoadingSpinner referenced
 void LoadingSpinner;

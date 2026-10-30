@@ -1,7 +1,7 @@
 import React from "react";
 import { View, StyleSheet, ScrollView, RefreshControl, KeyboardAvoidingView, Platform } from "react-native";
 import { SafeAreaView, Edge } from "react-native-safe-area-context";
-import { theme } from "@/theme";
+import { useAppTheme } from "@/theme";
 
 interface ScreenContainerProps {
   children: React.ReactNode;
@@ -32,6 +32,8 @@ export function ScreenContainer({
   style,
   contentStyle,
 }: ScreenContainerProps) {
+  const theme = useAppTheme();
+
   const bg = backgroundColor ?? theme.colors.background;
   const horiz = paddingHorizontal ?? (padded ? theme.spacing.lg : 0);
   const inner = (

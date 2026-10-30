@@ -15,11 +15,16 @@ import { Avatar } from "@/components/Avatar";
 import { AppCard } from "@/components/AppCard";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { LoadingSkeleton } from "@/components/LoadingSkeleton";
-import { theme } from "@/theme";
+import { useAppTheme } from "@/theme";
+import { useThemedStyles } from "@/theme";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
 import { getMyCell } from "@/services/api/cellsMy";
 
 export default function PerfilScreen() {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles, theme);
+
   const router = useRouter();
   const { me, logout, loading, initialized, refreshMe } = useAuth();
 
@@ -43,7 +48,7 @@ export default function PerfilScreen() {
       id: "ministries",
       label: "Meus ministérios",
       Icon: Briefcase,
-      iconBg: "rgba(23,107,255,0.14)",
+      iconBg: theme.colors.borderPrimary,
       iconColor: theme.colors.primary400,
       onPress: () => router.push("/igreja/ministerios" as any),
       danger: false,
@@ -53,7 +58,7 @@ export default function PerfilScreen() {
       id: "cell",
       label: "Minha célula",
       Icon: Users,
-      iconBg: "rgba(34,201,149,0.14)",
+      iconBg: theme.colors.borderPrimary,
       iconColor: theme.colors.green500,
       onPress: () => router.push("/igreja/celulas" as any),
       danger: false,
@@ -63,7 +68,7 @@ export default function PerfilScreen() {
       id: "data",
       label: "Meus dados",
       Icon: ClipboardList,
-      iconBg: "rgba(112,87,255,0.14)",
+      iconBg: theme.colors.borderPrimary,
       iconColor: theme.colors.purple400,
       onPress: () => router.push("/perfil/editar"),
       danger: false,
@@ -73,7 +78,7 @@ export default function PerfilScreen() {
       id: "settings",
       label: "Configurações",
       Icon: Settings,
-      iconBg: "rgba(243,155,66,0.14)",
+      iconBg: theme.colors.borderPrimary,
       iconColor: theme.colors.orange500,
       onPress: () => {},
       danger: false,
@@ -100,6 +105,7 @@ export default function PerfilScreen() {
       onRefresh={onRefresh}
       contentStyle={{ gap: theme.spacing.lg, paddingBottom: theme.spacing.xxxxl }}
     >
+      <ThemeToggle showLabel />
       <View style={styles.heroSection}>
         {!initialized ? (
           <View style={styles.skeletonWrap}>
@@ -173,7 +179,7 @@ export default function PerfilScreen() {
                         {
                           backgroundColor: danger
                             ? "rgba(240,68,56,0.14)"
-                            : "rgba(23,107,255,0.14)",
+                            : theme.colors.borderPrimary,
                         },
                       ]}
                     >
@@ -202,7 +208,7 @@ export default function PerfilScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useAppTheme>) => (StyleSheet.create({
   heroSection: {
     alignItems: "center",
     paddingTop: theme.spacing.sm,
@@ -215,7 +221,7 @@ const styles = StyleSheet.create({
     paddingTop: theme.spacing.sm,
   },
   name: {
-    color: "#FFFFFF",
+    color: theme.colors.foreground,
     fontSize: 22,
     fontFamily: theme.fontFamilies.bold,
     marginTop: theme.spacing.md,
@@ -250,7 +256,7 @@ const styles = StyleSheet.create({
   },
   menuLabel: {
     flex: 1,
-    color: "#FFFFFF",
+    color: theme.colors.foreground,
     ...theme.typography.bodyBold,
   },
   rowRight: {
@@ -272,4 +278,4 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.white08,
     marginHorizontal: theme.spacing.lg,
   },
-});
+}));

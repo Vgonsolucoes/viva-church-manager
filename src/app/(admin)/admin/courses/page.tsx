@@ -282,13 +282,13 @@ export default async function CoursesPage() {
                         {course.isRequired ? (
                           <Badge className="bg-[rgba(76,217,123,0.15)]">TRILHA OBRIGATÓRIA #{course.trackOrder ?? "—"}</Badge>
                         ) : null}
-                        {course.notifyAdmins ? <Badge className="bg-[rgba(88,167,255,0.10)]">ADMINS</Badge> : null}
-                        {course.notifyMembers ? <Badge className="bg-[rgba(88,167,255,0.10)]">MEMBROS</Badge> : null}
+                        {course.notifyAdmins ? <Badge className="bg-[rgba(var(--brand-rgb),0.10)]">ADMINS</Badge> : null}
+                        {course.notifyMembers ? <Badge className="bg-[rgba(var(--brand-rgb),0.10)]">MEMBROS</Badge> : null}
                         {course.notifyVolunteers ? (
-                          <Badge className="bg-[rgba(88,167,255,0.10)]">VOLUNTÁRIOS</Badge>
+                          <Badge className="bg-[rgba(var(--brand-rgb),0.10)]">VOLUNTÁRIOS</Badge>
                         ) : null}
                         {course.notifyVisitors ? (
-                          <Badge className="bg-[rgba(88,167,255,0.10)]">VISITANTES</Badge>
+                          <Badge className="bg-[rgba(var(--brand-rgb),0.10)]">VISITANTES</Badge>
                         ) : null}
                       </div>
                     </div>

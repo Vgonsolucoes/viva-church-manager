@@ -39,7 +39,7 @@ export function CallGuardianForm({ childOptions }: { childOptions: ChildOption[]
           <select
             name="childId"
             required
-            className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-[#58a7ff]/60"
+            className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/60"
             defaultValue=""
           >
             <option value="" disabled>
@@ -67,7 +67,7 @@ export function CallGuardianForm({ childOptions }: { childOptions: ChildOption[]
                   value={option}
                   checked={preset === option}
                   onChange={() => setPreset(option)}
-                  className="h-4 w-4 accent-[#58a7ff]"
+                  className="h-4 w-4 accent-[var(--primary)]"
                 />
                 {option}
               </label>
@@ -79,7 +79,7 @@ export function CallGuardianForm({ childOptions }: { childOptions: ChildOption[]
                 value="__custom__"
                 checked={isCustom}
                 onChange={() => setPreset("__custom__")}
-                className="h-4 w-4 accent-[#58a7ff]"
+                className="h-4 w-4 accent-[var(--primary)]"
               />
               Outra mensagem
             </label>
@@ -96,7 +96,7 @@ export function CallGuardianForm({ childOptions }: { childOptions: ChildOption[]
               rows={2}
               maxLength={KIDS_PROJECTION_MESSAGE_MAX}
               placeholder="Ex.: Responsável da Maria, favor comparecer ao Kids."
-              className="mt-1 w-full resize-none rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-[#58a7ff]/60"
+              className="mt-1 w-full resize-none rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/60"
             />
             <span className="mt-1 block text-[11px] text-muted-foreground">
               Máximo de {KIDS_PROJECTION_MESSAGE_MAX} caracteres.
