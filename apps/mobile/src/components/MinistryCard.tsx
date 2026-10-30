@@ -2,6 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import {
   CalendarDays,
+  Church,
   Users,
   GraduationCap,
   Briefcase,
@@ -18,6 +19,7 @@ import { useAppTheme } from "@/theme";
 import { useThemedStyles } from "@/theme";
 
 export type MinistryKey =
+  | "services"
   | "events"
   | "cells"
   | "discipleships"
@@ -31,6 +33,7 @@ export type MinistryKey =
   | "kidsProjection";
 
 const createMAP = (theme: ReturnType<typeof useAppTheme>): Record<MinistryKey, { label: string; Icon: LucideIcon; bgTint: string; bgTintAlpha: string; labelColor: string }> => ({
+  services: { label: "Cultos Fixos", Icon: Church, bgTint: theme.colors.primary500, bgTintAlpha: theme.colors.borderPrimary, labelColor: theme.colors.foreground },
   events: {
     label: "Eventos",
     Icon: CalendarDays,

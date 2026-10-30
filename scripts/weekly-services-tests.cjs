@@ -7,6 +7,20 @@ function load(file, deps={}) {
 }
 const recurrence=load('src/lib/weekly-services.ts');
 const configs=recurrence.WEEKLY_SERVICES.map(service=>({key:service.key,name:service.name,location:null,bannerImageUrl:null}));
+test('Mobile feeds separate services from events and preserve their artwork and chronological order',()=>{
+ const {splitUpcomingEvents}=load('apps/mobile/src/utils/event-feed.ts');
+ const entries=Object.freeze([
+  {id:'evening',type:'SERVICE',startsAt:'2026-11-01T21:00:00Z',bannerImageUrl:'https://church.example/evening.png'},
+  {id:'conference',type:'CONFERENCE',startsAt:'2026-11-02T20:00:00Z',bannerImageUrl:'https://church.example/event.png'},
+  {id:'morning',type:'SERVICE',startsAt:'2026-11-01T12:00:00Z',bannerImageUrl:'https://church.example/morning.png'},
+  {id:'old',type:'SERVICE',startsAt:'2026-10-25T12:00:00Z',bannerImageUrl:null},
+ ]);
+ const feed=splitUpcomingEvents(entries,Date.parse('2026-11-01T10:00:00Z'));
+ assert.deepEqual(Array.from(feed.services,item=>item.id),['morning','evening']);
+ assert.deepEqual(Array.from(feed.events,item=>item.id),['conference']);
+ assert.equal(feed.services[0].bannerImageUrl,'https://church.example/morning.png');
+ assert.equal(entries[0].id,'evening');
+});
 test('Both Sunday services at 09h and 18h and Wednesday at 20h repeat across years',()=>{
  const events=recurrence.weeklyOccurrences(new Date('2026-12-27T00:00:00Z'),new Date('2027-01-08T00:00:00Z'),configs);
  assert.deepEqual(Array.from(events,e=>e.startsAt.toISOString()),['2026-12-27T12:00:00.000Z','2026-12-27T21:00:00.000Z','2026-12-30T23:00:00.000Z','2027-01-03T12:00:00.000Z','2027-01-03T21:00:00.000Z','2027-01-06T23:00:00.000Z']);

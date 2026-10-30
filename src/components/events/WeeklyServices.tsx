@@ -25,14 +25,14 @@ async function saveArtwork(form: FormData) {
   const current = (await getWeeklyServices()).find(service => service.key === key)!;
   const bannerImageUrl = uploaded ?? (form.get("removeArtwork") === "on" ? null : url || current.bannerImageUrl);
   await updateWeeklyService({ key, name, location: location || null, bannerImageUrl });
-  revalidatePath("/admin/events"); revalidatePath("/admin/calendar"); revalidatePath("/app/calendar");
+  revalidatePath("/admin/cultos-fixos"); revalidatePath("/admin/calendar"); revalidatePath("/app/calendar");
 }
 export async function WeeklyServices() {
   const session = await getServerSession(authOptions);
   const canWrite = hasPermission(session?.roles ?? [], "events:write");
   const services = await getWeeklyServices();
   return <section className="space-y-4">
-    <div><h2 className="text-lg font-semibold">Cultos fixos da igreja</h2><p className="text-sm text-muted-foreground">Repetição semanal permanente · horário de Brasília · visíveis para os membros no aplicativo.</p></div>
+    <div><h1 className="text-xl font-semibold">Cultos Fixos</h1><p className="mt-1 text-sm text-muted-foreground">Horários semanais e artes dos próximos cultos · horário de Brasília · disponíveis no aplicativo.</p></div>
     <div className="grid gap-4 md:grid-cols-2">{services.map(service => <Card key={service.key} className="overflow-hidden">
       {service.bannerImageUrl && <div className="relative aspect-video bg-muted"><Image src={service.bannerImageUrl} alt={`Arte de ${service.name}`} fill className="object-contain" unoptimized /></div>}
       <div className="space-y-3 p-5"><h3 className="font-semibold">{service.name}</h3><p className="text-sm text-primary">{WEEKLY_SERVICES.find(item => item.key === service.key)!.label}</p>

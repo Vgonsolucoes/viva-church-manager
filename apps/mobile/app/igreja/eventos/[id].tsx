@@ -72,7 +72,7 @@ export default function EventDetailScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: ev.name.length > 28 ? "Detalhe do evento" : ev.name }} />
+      <Stack.Screen options={{ title: ev.name.length > 28 ? (ev.type === "SERVICE" ? "Detalhe do culto" : "Detalhe do evento") : ev.name }} />
       <Screen
         backgroundBrand
         padded={false}

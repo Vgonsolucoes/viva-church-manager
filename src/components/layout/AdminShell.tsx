@@ -10,6 +10,7 @@ import {
   Car,
   Bell,
   Calendar,
+  Church,
   ClipboardList,
   Film,
   GraduationCap,
@@ -97,6 +98,12 @@ const navItems: NavItem[] = [
     label: "Eventos",
     icon: <HandHeart className="size-4" />,
     permission: "events:read",
+  },
+  {
+    href: "/admin/cultos-fixos",
+    label: "Cultos Fixos",
+    icon: <Church className="size-4" />,
+    permission: ["events:read", "events:write"],
   },
   {
     href: "/admin/courses",

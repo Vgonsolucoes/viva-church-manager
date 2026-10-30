@@ -23,6 +23,7 @@ interface MenuItemDef {
 }
 
 const MENU: MenuItemDef[] = [
+  { key: "services", href: "/igreja/cultos" },
   { key: "parking", href: "/igreja/avisos-projecao?channel=PARKING", projectionChannel: "PARKING" },
   { key: "kidsProjection", href: "/igreja/avisos-projecao?channel=KIDS", projectionChannel: "KIDS" },
   {

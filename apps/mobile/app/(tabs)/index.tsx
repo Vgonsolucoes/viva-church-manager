@@ -13,12 +13,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { theme, useAppTheme } from "@/constants/theme";
 import { useThemedStyles } from "@/theme";
 import { friendlyEventDate, weekdayLabel, formatTime } from "@/utils/date";
-import { listMyAgenda } from "@/services/api/agenda";
 import { listMySchedules } from "@/services/api/schedules";
 import { getMyCell } from "@/services/api/cellsMy";
 import { listEvents } from "@/services/api/events";
 import type { AgendaCategory, CellDetail, EventPublic } from "@/types";
-import { Link } from "expo-router";
+import { Link, useRouter } from "expo-router";
+import { splitUpcomingEvents } from "@/utils/event-feed";
 import { ScreenContainer } from "@/components/ScreenContainer";
 import { AppCard } from "@/components/AppCard";
 import { PrimaryButton } from "@/components/PrimaryButton";
@@ -86,23 +86,11 @@ function eventToCardData(e: EventPublic, idx: number): EventCardData {
 }
 
 export default function HomeScreen() {
+  const router = useRouter();
   const theme = useAppTheme();
   const styles = useThemedStyles(createStyles, theme);
 
   const { me, initialized, refreshMe } = useAuth();
-
-  const {
-    data: agenda,
-    isLoading: agendaLoading,
-    isFetching: agendaFetching,
-    refetch: refetchAgenda,
-    error: agendaError,
-  } = useQuery({
-    queryKey: ["my-agenda-home"],
-    queryFn: () => listMyAgenda(),
-    enabled: initialized && !!me,
-    staleTime: 60_000,
-  });
 
   const {
     data: schedules,
@@ -135,6 +123,7 @@ export default function HomeScreen() {
     isLoading: eventsLoading,
     isFetching: eventsFetching,
     refetch: refetchEvents,
+    error: eventsError,
   } = useQuery({
     queryKey: ["events-home"],
     queryFn: () => listEvents(),
@@ -142,34 +131,24 @@ export default function HomeScreen() {
     staleTime: 5 * 60_000,
   });
 
-  const isLoadingAny = agendaLoading || schedulesLoading || cellLoading || eventsLoading;
-  const isFetchingAny = agendaFetching || schedulesFetching || cellFetching || eventsFetching;
+  const isLoadingAny = schedulesLoading || cellLoading || eventsLoading;
+  const isFetchingAny = schedulesFetching || cellFetching || eventsFetching;
 
   const firstError =
-    (agendaError as Error | null) ||
+    (eventsError as Error | null) ||
     (schedulesError as Error | null) ||
     (cellError as Error | null);
 
   const onRefresh = useCallback(async () => {
     await Promise.all([
       refreshMe(true),
-      refetchAgenda(),
       refetchSchedules(),
       refetchCell(),
       refetchEvents(),
     ]);
-  }, [refreshMe, refetchAgenda, refetchSchedules, refetchCell, refetchEvents]);
+  }, [refreshMe, refetchSchedules, refetchCell, refetchEvents]);
 
-  const nextCulto = useMemo(() => {
-    const now = Date.now();
-    const services = (eventsList ?? []).filter(event => event.type === "SERVICE").map(event => ({
-      id: event.id, title: event.name, category: "CULTO", startsAt: event.startsAt,
-      location: event.location, bannerImageUrl: event.bannerImageUrl,
-    }));
-    return [...services, ...(agenda ?? [])]
-      .filter((a) => a.category === "CULTO" && new Date(a.startsAt).getTime() + 3_600_000 >= now)
-      .sort((a, b) => +new Date(a.startsAt) - +new Date(b.startsAt))[0];
-  }, [agenda, eventsList]);
+  const feed = useMemo(() => splitUpcomingEvents(eventsList ?? []), [eventsList]);
 
   const nextSchedule = useMemo(() => {
     const now = Date.now();
@@ -186,12 +165,8 @@ export default function HomeScreen() {
   }, [schedules]);
 
   const upcomingEvents = useMemo(() => {
-    const arr = eventsList ?? [];
-    return arr
-      .filter((e) => new Date(e.startsAt).getTime() + 3_600_000 >= Date.now())
-      .sort((a, b) => +new Date(a.startsAt) - +new Date(b.startsAt))
-      .map(eventToCardData);
-  }, [eventsList]);
+    return feed.events.map(eventToCardData);
+  }, [feed]);
 
   const isLoading = !initialized || isLoadingAny;
 
@@ -255,7 +230,15 @@ export default function HomeScreen() {
           </View>
         ) : (
           <View style={{ gap: 16 }}>
-            <HeroCultoCard culto={nextCulto} />
+            <SectionHeader title="Próximos cultos" actionLabel="Ver todos" onActionPress={() => router.push("/igreja/cultos")} />
+            {feed.services.length ? <FlatList
+              data={feed.services.slice(0, 6)}
+              keyExtractor={item => item.id}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 12, paddingRight: 8 }}
+              renderItem={({ item }) => <View style={{ width: SCREEN_WIDTH * 0.84 }}><HeroCultoCard culto={item} /></View>}
+            /> : <HeroCultoCard />}
 
             <View style={{ flexDirection: "row", gap: 12 }}>
               <View style={{ flex: 1 }}>
@@ -267,9 +250,9 @@ export default function HomeScreen() {
             </View>
 
             <SectionHeader
-              title="Acontecendo na Viva"
+              title="Eventos"
               actionLabel="Ver todos"
-              onActionPress={() => {}}
+              onActionPress={() => router.push("/igreja/eventos")}
             />
 
             {upcomingEvents.length === 0 ? (
@@ -289,7 +272,7 @@ export default function HomeScreen() {
                 contentContainerStyle={{ gap: 12, paddingRight: 8 }}
                 renderItem={({ item }) => (
                   <View style={{ width: SCREEN_WIDTH * 0.76 }}>
-                    <EventCard data={item} compact />
+                    <EventCard data={item} compact onView={() => router.push(`/igreja/eventos/${item.id}`)} onParticipate={() => router.push(`/igreja/eventos/${item.id}`)} />
                   </View>
                 )}
               />
@@ -303,7 +286,8 @@ export default function HomeScreen() {
   );
 }
 
-function HeroCultoCard({ culto }: { culto: any }) {
+function HeroCultoCard({ culto }: { culto?: EventPublic }) {
+  const router = useRouter();
   const theme = useAppTheme();
   const styles = useThemedStyles(createStyles, theme);
 
@@ -336,7 +320,7 @@ function HeroCultoCard({ culto }: { culto: any }) {
 
   return (
     <AppCard variant="hero" padding={0} style={{ overflow: "hidden" }}>
-      {culto.bannerImageUrl && <Image source={{ uri: culto.bannerImageUrl }} accessibilityLabel={`Arte de ${culto.title}`} style={{ width: "100%", aspectRatio: 16 / 9, backgroundColor: theme.colors.card }} resizeMode="contain" />}
+      {culto.bannerImageUrl && <Image source={{ uri: culto.bannerImageUrl }} accessibilityLabel={`Arte de ${culto.name}`} style={{ width: "100%", aspectRatio: 16 / 9, backgroundColor: theme.colors.card }} resizeMode="contain" />}
       <LinearGradient
         colors={[theme.colors.gradientFrom, theme.colors.gradientTo]}
         start={{ x: 0, y: 0 }}
@@ -349,7 +333,7 @@ function HeroCultoCard({ culto }: { culto: any }) {
           </View>
 
           <Text numberOfLines={2} style={styles.heroTitle}>
-            {culto.title}
+            {culto.name}
           </Text>
 
           <View style={styles.heroMetaRow}>
@@ -377,6 +361,8 @@ function HeroCultoCard({ culto }: { culto: any }) {
           <View style={{ marginTop: 20 }}>
             <SecondaryButton
               title="Ver detalhes"
+              onPress={() => router.push(`/igreja/cultos/${culto.id}`)}
+              style={{ backgroundColor: theme.colors.card, borderColor: theme.colors.borderSubtle }}
               variant="outline"
               height={44}
             />
