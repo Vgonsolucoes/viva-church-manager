@@ -1,5 +1,14 @@
 # Viva Church App — Mobile (Android + iOS)
 
+## Projeto ativo — 30/10/2026
+
+- Conta Expo: `vivachurch`.
+- Projeto: `@vivachurch/viva-church` — https://expo.dev/accounts/vivachurch/projects/viva-church
+- EAS projectId: `d62d3333-4241-4af1-aa51-678fc496b383`.
+- Versão do aplicativo: `0.2.0`. O pacote Android permanece `br.com.vivasede.app`.
+- O proprietário autorizou recriar o projeto porque não tem acesso à conta anterior `vgon`. A nova assinatura Android fica armazenada no EAS da conta `vivachurch`; um APK assinado com a chave anterior poderá precisar ser desinstalado antes de instalar o novo.
+- As notas sobre `projectId` vazio e Expo SDK 52 nas etapas históricas abaixo são antigas. Consulte `apps/mobile/app.json` e `apps/mobile/package.json` para a configuração atual.
+
 Aplicativo multiplataforma Expo SDK 52 (React Native + Expo Router 4, Zustand, TanStack Query).
 Integração com a API Web do Viva Church Manager (Next.js / Prisma / PostgreSQL).
 

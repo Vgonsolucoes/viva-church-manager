@@ -3,7 +3,7 @@
     "name": "Viva Church",
     "slug": "viva-church",
     "scheme": "vivachurch",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "icon": "./assets/icon.png",
@@ -71,10 +71,10 @@
     },
     "extra": {
       "eas": {
-        "projectId": "28de298c-2476-4f61-a73a-16964f17de18"
+        "projectId": "d62d3333-4241-4af1-aa51-678fc496b383"
       },
       "router": {}
     },
-    "owner": "vgon"
+    "owner": "vivachurch"
   }
 }
