@@ -103,7 +103,7 @@ const historyActionLabels = {
 } as const;
 
 type SearchParamsInput = Promise<Record<string, string | string[] | undefined>>;
-type PageView = "overview" | "meetings" | "reports" | "settings";
+type PageView = "overview" | "list" | "meetings" | "reports" | "settings";
 
 function getSearchValue(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
@@ -670,9 +670,10 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
   const currentMemberId = currentUser?.memberId ?? null;
 
   const searchParams = props.searchParams ? await props.searchParams : {};
-  const viewParam = getSearchValue(searchParams?.view);
+  const viewParam = getSearchValue(searchParams?.vinculo) ? "list" : getSearchValue(searchParams?.view);
   if (viewParam === "network") redirect("/admin/discipleships/network");
   const view: PageView =
+    viewParam === "list" ||
     viewParam === "meetings" ||
     viewParam === "reports" ||
     viewParam === "settings"
@@ -983,7 +984,7 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
 
   const buildListHref = (overrides: Record<string, string | null> = {}) => {
     const params = new URLSearchParams();
-    params.set("view", "overview");
+    params.set("view", "list");
     if (q) params.set("q", q);
     if (listStatus !== "active") params.set("status", listStatus);
     if (disciplerFilter) params.set("discipulador", disciplerFilter);
@@ -1166,7 +1167,8 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
     : "/admin/discipleships/network";
 
   const internalMenu = [
-    { key: "overview", label: "Visão Geral", icon: <Waypoints className="size-4" />, href: withScope("/admin/discipleships?view=overview") },
+    { key: "list", label: "Visão geral dos discipulados", icon: <Users className="size-4" />, href: withScope("/admin/discipleships?view=list") },
+    { key: "overview", label: "Cadastros e indicadores", icon: <Waypoints className="size-4" />, href: withScope("/admin/discipleships?view=overview") },
     { key: "network", label: "Rede de Discipulado", icon: <GitBranchPlus className="size-4" />, href: networkHref },
     { key: "meetings", label: "Encontros", icon: <CalendarClock className="size-4" />, href: withScope("/admin/discipleships?view=meetings") },
     { key: "reports", label: "Relatórios", icon: <ChartColumn className="size-4" />, href: withScope("/admin/discipleships?view=reports") },
@@ -1182,11 +1184,7 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
             Acompanhe a multiplicação espiritual da igreja com visão geral, rede em árvore, encontros, histórico e linhagem completa.
           </div>
         </div>
-        <div className="flex flex-wrap gap-2 text-xs">
-          <Badge className="bg-[rgba(88,167,255,0.12)]">Rede premium dark</Badge>
-          <Badge className="bg-[rgba(162,105,255,0.12)]">Perfil lateral</Badge>
-          <Badge className="bg-[rgba(34,197,94,0.12)]">Transferência com histórico</Badge>
-        </div>
+
       </div>
 
       <Card className="p-4">
@@ -1203,7 +1201,7 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
         ) : null}
       </Card>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className={cn("grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3", view === "list" && "hidden")}>
         <StatCard
           title="Total de discipuladores"
           value={activeDisciplersCount}
@@ -1269,13 +1267,13 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[290px_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 gap-4">
         <Card className="h-fit p-4">
           <div className="text-sm font-semibold">Menu do módulo</div>
           <div className="mt-1 text-xs text-muted-foreground">
             Navegue entre visão geral, rede, encontros, relatórios e configurações.
           </div>
-          <div className="mt-4 space-y-2">
+          <div className="mt-4 flex flex-wrap gap-2">
             {internalMenu.map((item) => {
               const active = item.key === view;
               return (
@@ -1296,7 +1294,7 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
             })}
           </div>
 
-          <div className="mt-4 rounded-2xl border border-border/70 bg-muted/10 p-4">
+          <div className={cn("mt-4 rounded-2xl border border-border/70 bg-muted/10 p-4", view === "list" && "hidden")}>
             <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Regras da rede
             </div>
@@ -1310,9 +1308,17 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
         </Card>
 
         <div className="min-w-0">
-          {view === "overview" ? (
-            <div className="grid grid-cols-1 gap-4 2xl:grid-cols-[minmax(0,1fr)_400px]">
-              {detailRow ? (
+          {view === "overview" || view === "list" ? (
+            <div className={cn("grid grid-cols-1 gap-4", view === "overview" && canWrite && "2xl:grid-cols-[minmax(0,1fr)_400px]")}>
+              {view === "overview" ? (
+                <Card className="p-6">
+                  <div className="text-lg font-semibold">Visão geral dos discipulados</div>
+                  <p className="mt-2 text-sm text-muted-foreground">Consulte os vínculos, presenças e próximos encontros em uma página dedicada.</p>
+                  <Link href={withScope("/admin/discipleships?view=list")} className="mt-4 inline-flex">
+                    <Button type="button">Abrir visão geral</Button>
+                  </Link>
+                </Card>
+              ) : detailRow ? (
                 <Card className="p-5">
                   <Link
                     href={buildListHref({ vinculo: null })}
@@ -1708,7 +1714,7 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
                 </Card>
               )}
 
-              {canWrite ? (
+              {canWrite && view === "overview" ? (
               <div className="space-y-4">
                 <Card className="p-5" id="discipleship-create-form">
                   <div className="text-sm font-semibold">Novo discipulado</div>

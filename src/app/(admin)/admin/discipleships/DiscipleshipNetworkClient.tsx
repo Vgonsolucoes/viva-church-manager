@@ -4,11 +4,14 @@ import "@xyflow/react/dist/style.css";
 
 import Image from "next/image";
 import Link from "next/link";
+import { useTheme } from "@/components/theme/ThemeProvider";
 import { motion } from "framer-motion";
 import {
   Background,
+  Handle,
   Controls,
   MiniMap,
+  Panel,
   ReactFlow,
   ReactFlowProvider,
   type Edge,
@@ -21,6 +24,10 @@ import {
 } from "@xyflow/react";
 import {
   CircleDashed,
+  Eye,
+  Maximize2,
+  Minimize2,
+  X,
   Filter,
   GitBranchPlus,
   History,
@@ -104,6 +111,7 @@ type FlowNodeData = {
   isCollapsed: boolean;
   onToggleCollapse: (memberId: string) => void;
   isSelected: boolean;
+  onShowDetails: (memberId: string) => void;
 };
 
 const levelTone = [
@@ -188,7 +196,7 @@ function buildLayout(roots: string[], childrenMap: Map<string, string[]>) {
   const positions = new Map<string, { x: number; y: number }>();
   let cursorX = 0;
   const gapX = 280;
-  const gapY = 210;
+  const gapY = 130;
 
   const place = (memberId: string, depth: number): number => {
     const children = childrenMap.get(memberId) ?? [];
@@ -214,109 +222,23 @@ function buildLayout(roots: string[], childrenMap: Map<string, string[]>) {
 }
 
 function NetworkNode(props: NodeProps<Node<FlowNodeData>>) {
-  const { member, isCollapsed, onToggleCollapse, isSelected } = props.data;
-  const levelColor = getLevelColor(member.level);
-  const roleLabel =
-    member.directCount > 0 && member.activeStatus
-      ? "Discipulador"
-      : member.activeStatus
-        ? "Discípulo"
-        : "Membro";
-
+  const { member, isCollapsed, onToggleCollapse, isSelected, onShowDetails } = props.data;
   return (
-    <div
-      className={cn(
-        "w-[240px] rounded-3xl border bg-card p-4 text-card-foreground shadow-[0_18px_70px_-42px_rgba(0,0,0,0.85)] backdrop-blur-xl transition-[transform,box-shadow,border-color]",
-        isSelected
-          ? "border-[rgba(88,167,255,0.55)] shadow-[0_18px_70px_-32px_rgba(88,167,255,0.72)]"
-          : "border-border/80",
+    <div className={cn("flex w-[240px] items-center gap-2 rounded-2xl border bg-card p-3 text-card-foreground shadow-sm", isSelected ? "border-primary ring-2 ring-primary/20" : "border-border")}>
+      <Handle type="target" position={Position.Top} />
+      {member.photoUrl ? (
+        <Image src={member.photoUrl} alt={member.fullName} width={40} height={40} className="size-10 shrink-0 rounded-full object-cover" />
+      ) : (
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+          {member.fullName.split(" ").filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase()}
+        </div>
       )}
-      style={{ boxShadow: `0 18px 70px -38px ${levelColor}55` }}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-3">
-          {member.photoUrl ? (
-            <Image
-              src={member.photoUrl}
-              alt={member.fullName}
-              width={44}
-              height={44}
-              className="size-11 rounded-2xl object-cover"
-            />
-          ) : (
-            <div
-              className="flex size-11 items-center justify-center rounded-2xl text-sm font-semibold"
-              style={{ backgroundColor: `${levelColor}25`, color: levelColor }}
-            >
-              {member.fullName
-                .split(" ")
-                .filter(Boolean)
-                .slice(0, 2)
-                .map((part) => part[0])
-                .join("")
-                .toUpperCase()}
-            </div>
-          )}
-          <div className="min-w-0">
-            <div className="truncate text-sm font-semibold">{member.fullName}</div>
-            <div className="mt-1 text-[11px] text-muted-foreground">
-              {roleLabel} • Nível {member.level}
-            </div>
-          </div>
-        </div>
-
-        {member.directCount > 0 ? (
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              onToggleCollapse(member.id);
-            }}
-            className="rounded-xl border border-border/80 bg-muted/10 p-2 text-muted-foreground hover:bg-muted/20 hover:text-foreground"
-            aria-label={isCollapsed ? "Expandir ramo" : "Recolher ramo"}
-          >
-            {isCollapsed ? <PlusSquare className="size-4" /> : <MinusSquare className="size-4" />}
-          </button>
-        ) : null}
+      <div className="min-w-0 flex-1 break-words text-sm font-semibold" title={member.fullName}>{member.fullName}</div>
+      <div className="flex shrink-0 flex-col gap-1">
+        <button type="button" className="nodrag nopan rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label={`Ver informações de ${member.fullName}`} onClick={event => { event.stopPropagation(); onShowDetails(member.id); }}><Eye className="size-4" /></button>
+        {member.directCount > 0 ? <button type="button" className="nodrag nopan rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label={isCollapsed ? "Expandir ramo" : "Recolher ramo"} aria-expanded={!isCollapsed} onClick={event => { event.stopPropagation(); onToggleCollapse(member.id); }}>{isCollapsed ? <PlusSquare className="size-4" /> : <MinusSquare className="size-4" />}</button> : null}
       </div>
-
-      <div className="mt-3 flex flex-wrap gap-2">
-        <Badge style={{ backgroundColor: `${levelColor}18`, borderColor: `${levelColor}35` }}>
-          {member.activeStatus ? statusLabel[member.activeStatus as Relationship["status"]] : "Sem vínculo"}
-        </Badge>
-        <Badge className="bg-muted/10">{member.directCount} diretos</Badge>
-        <Badge className="bg-muted/10">{member.indirectCount} indiretos</Badge>
-      </div>
-
-      <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
-        <div className="rounded-2xl border border-border/70 bg-muted/10 px-3 py-2">
-          <div className="text-muted-foreground">Início</div>
-          <div className="mt-1 font-semibold text-foreground">
-            {formatDate(member.activeStartedAt)}
-          </div>
-        </div>
-        <div className="rounded-2xl border border-border/70 bg-muted/10 px-3 py-2">
-          <div className="text-muted-foreground">Crescimento</div>
-          <div className="mt-1 font-semibold text-foreground">
-            +{member.growthScore}
-          </div>
-        </div>
-        <div className="col-span-2 rounded-2xl border border-border/70 bg-muted/10 px-3 py-2">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span>Progresso</span>
-            <span>{member.progress}%</span>
-          </div>
-          <div className="mt-2 h-2 rounded-full bg-muted/30">
-            <div
-              className="h-2 rounded-full"
-              style={{
-                width: `${Math.max(0, Math.min(member.progress, 100))}%`,
-                background: `linear-gradient(90deg, ${levelColor}, rgba(88,167,255,1))`,
-              }}
-            />
-          </div>
-        </div>
-      </div>
+      <Handle type="source" position={Position.Bottom} />
     </div>
   );
 }
@@ -329,11 +251,11 @@ function NetworkToolbar({ canCenter, onCenter }: { canCenter: boolean; onCenter:
   const flow = useReactFlow();
 
   return (
-    <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
-      <Button type="button" size="icon" variant="secondary" onClick={() => flow.zoomIn()}>
+    <Panel position="top-right" className="flex items-center gap-2 rounded-2xl border border-border bg-card p-2 shadow-sm">
+      <Button type="button" size="icon" variant="secondary" aria-label="Aproximar rede" onClick={() => flow.zoomIn()}>
         <ZoomIn className="size-4" />
       </Button>
-      <Button type="button" size="icon" variant="secondary" onClick={() => flow.zoomOut()}>
+      <Button type="button" size="icon" variant="secondary" aria-label="Afastar rede" onClick={() => flow.zoomOut()}>
         <ZoomOut className="size-4" />
       </Button>
       <Button type="button" size="sm" variant="secondary" onClick={() => flow.fitView({ padding: 0.2 })}>
@@ -342,7 +264,7 @@ function NetworkToolbar({ canCenter, onCenter }: { canCenter: boolean; onCenter:
       <Button type="button" size="sm" variant="secondary" disabled={!canCenter} onClick={onCenter}>
         Centralizar
       </Button>
-    </div>
+    </Panel>
   );
 }
 
@@ -367,6 +289,16 @@ function DiscipleshipNetworkCanvas(props: {
   initialMemberId?: string | null;
   initialDisciplerFilter?: string | null;
 }) {
+  const { resolvedTheme } = useTheme();
+  const [expanded, setExpanded] = useState(false);
+  useEffect(() => {
+    if (!expanded) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") setExpanded(false); };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => { document.body.style.overflow = previousOverflow; window.removeEventListener("keydown", closeOnEscape); };
+  }, [expanded]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | Relationship["status"]>("ACTIVE");
   const [disciplerFilter, setDisciplerFilter] = useState(props.initialDisciplerFilter ?? "ALL");
@@ -449,13 +381,14 @@ function DiscipleshipNetworkCanvas(props: {
 
   const visibleMemberIds = useMemo(() => {
     const ids = new Set<string>();
-    for (const relationship of visibleRelationships) {
-      ids.add(relationship.disciplerId);
-      ids.add(relationship.discipleId);
+    const hidden = collectHiddenDescendants(collapsedNodes, buildChildrenMap(filteredRelationships));
+    for (const relationship of filteredRelationships) {
+      if (!hidden.has(relationship.disciplerId)) ids.add(relationship.disciplerId);
+      if (!hidden.has(relationship.discipleId)) ids.add(relationship.discipleId);
     }
     if (disciplerFilter !== "ALL") ids.add(disciplerFilter);
     return ids;
-  }, [disciplerFilter, visibleRelationships]);
+  }, [collapsedNodes, disciplerFilter, filteredRelationships]);
 
   const positioned = useMemo(() => {
     const childrenMap = buildChildrenMap(visibleRelationships);
@@ -488,6 +421,7 @@ function DiscipleshipNetworkCanvas(props: {
             });
           },
           isSelected: selectedMemberId === memberId,
+          onShowDetails: setSelectedMemberId,
         },
       });
     }
@@ -533,7 +467,7 @@ function DiscipleshipNetworkCanvas(props: {
     setSelectedMemberId(match.id);
     const node = positioned.nodes.find((item) => item.id === match.id);
     if (node) {
-      setFocusTarget({ ts: Date.now(), x: node.position.x + 120, y: node.position.y + 90 });
+      setFocusTarget({ ts: Date.now(), x: node.position.x + 120, y: node.position.y + 35 });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
@@ -542,7 +476,7 @@ function DiscipleshipNetworkCanvas(props: {
     if (!selectedMemberId) return;
     const node = positioned.nodes.find((item) => item.id === selectedMemberId);
     if (node) {
-      setFocusTarget({ ts: Date.now(), x: node.position.x + 120, y: node.position.y + 90 });
+      setFocusTarget({ ts: Date.now(), x: node.position.x + 120, y: node.position.y + 35 });
     }
   }
 
@@ -598,11 +532,11 @@ function DiscipleshipNetworkCanvas(props: {
   );
 
   return (
-    <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+    <div className={cn("relative min-w-0", expanded && "fixed inset-0 z-[100] overflow-auto bg-background p-3 md:p-5")}>
       <Card className="min-w-0 p-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <div className="text-sm font-semibold">Rede de Discipulado</div>
+            <div className="flex items-center gap-3"><div className="text-sm font-semibold">Rede de Discipulado</div><Button type="button" size="sm" variant="secondary" onClick={() => setExpanded(value => !value)}>{expanded ? <Minimize2 className="mr-2 size-4" /> : <Maximize2 className="mr-2 size-4" />}{expanded ? "Sair da tela ampla" : "Tela ampla"}</Button></div>
             <div className="mt-1 text-xs text-muted-foreground">
               Navegue pela linhagem espiritual com zoom, arraste, filtros e expansão de ramos.
             </div>
@@ -676,19 +610,21 @@ function DiscipleshipNetworkCanvas(props: {
         </div>
 
         <div className="mt-3 rounded-3xl border border-border/80 bg-background p-3">
-          <div className="h-[720px] overflow-hidden rounded-3xl border border-border/70 bg-[radial-gradient(circle_at_top,var(--primary,rgba(88,167,255,0.10)),transparent_38%),var(--card,rgba(255,255,255,0.92))]">
+          <div className={cn("min-h-[320px] overflow-hidden rounded-3xl border border-border/70 bg-card", expanded ? "h-[calc(100dvh-250px)]" : "h-[75dvh]")}>
             <ReactFlowProvider>
               <FocusHandler target={focusTarget} />
               <ReactFlow
+                colorMode={resolvedTheme === "dark" ? "dark" : "light"}
                 nodes={positioned.nodes}
                 edges={positioned.edges}
                 nodeTypes={nodeTypes}
                 fitView
                 fitViewOptions={{ padding: 0.2 }}
-                minZoom={0.25}
+                minZoom={0.05}
                 maxZoom={1.6}
                 nodesDraggable
                 panOnDrag
+                onlyRenderVisibleElements
                 onNodeClick={(_, node) => setSelectedMemberId(node.id)}
                 defaultEdgeOptions={{ type: "smoothstep" }}
               >
@@ -713,7 +649,8 @@ function DiscipleshipNetworkCanvas(props: {
         </div>
       </Card>
 
-      <Card className="h-fit p-5">
+      <Card className={cn("absolute right-3 top-20 z-20 max-h-[calc(100%-6rem)] w-[min(380px,calc(100%-1.5rem))] overflow-y-auto p-5 shadow-xl", !selectedMember && "hidden")}>
+        <div className="mb-3 flex items-center justify-between"><div className="text-sm font-semibold">Informações do discipulado</div><Button type="button" size="icon" variant="secondary" aria-label="Fechar informações" onClick={() => setSelectedMemberId(null)}><X className="size-4" /></Button></div>
         {selectedMember ? (
           <motion.div
             key={selectedMember.id}
@@ -886,21 +823,21 @@ function DiscipleshipNetworkCanvas(props: {
             </div>
 
             <div className="grid grid-cols-1 gap-2">
-              <Link href={`?view=overview&discipler=${selectedMember.id}#discipleship-create-form`}>
+              <Link href={`/admin/discipleships?view=overview&discipler=${selectedMember.id}#discipleship-create-form`}>
                 <Button className="w-full">
                   <GitBranchPlus className="mr-2 size-4" />
                   Adicionar discípulo
                 </Button>
               </Link>
               {selectedMember.activeStatus ? (
-                <Link href={`?view=overview&member=${selectedMember.id}#discipleship-transfer-form`}>
+                <Link href={`/admin/discipleships?view=overview&member=${selectedMember.id}#discipleship-transfer-form`}>
                   <Button className="w-full" variant="secondary">
                     <History className="mr-2 size-4" />
                     Transferir discípulo
                   </Button>
                 </Link>
               ) : null}
-              <Link href={`?view=meetings&member=${selectedMember.id}#discipleship-meetings`}>
+              <Link href={`/admin/discipleships?view=meetings&member=${selectedMember.id}#discipleship-meetings`}>
                 <Button className="w-full" variant="secondary">
                   <CircleDashed className="mr-2 size-4" />
                   Ver histórico

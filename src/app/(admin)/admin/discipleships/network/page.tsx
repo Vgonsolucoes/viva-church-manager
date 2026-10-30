@@ -73,7 +73,6 @@ export default async function DiscipleshipsNetworkPage(props: { searchParams?: S
   const [members, rows, meetings, history, pastoralNotes] = await Promise.all([
     prisma.member.findMany({
       orderBy: { fullName: "asc" },
-      take: 500,
       select: {
         id: true,
         fullName: true,
@@ -86,7 +85,6 @@ export default async function DiscipleshipsNetworkPage(props: { searchParams?: S
     }),
     prisma.discipleship.findMany({
       orderBy: { updatedAt: "desc" },
-      take: 250,
       include: {
         disciple: { select: { id: true, fullName: true, photoUrl: true, phone: true, email: true, type: true } },
         discipler: { select: { id: true, fullName: true, photoUrl: true, phone: true, email: true, type: true } },
@@ -270,7 +268,7 @@ export default async function DiscipleshipsNetworkPage(props: { searchParams?: S
       <div className="flex flex-col gap-2 xl:flex-row xl:items-end xl:justify-between">
         <div>
           <Link
-            href="/admin/discipleships?view=overview"
+            href="/admin/discipleships?view=list"
             className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             <ArrowLeft className="size-4" />
@@ -290,6 +288,13 @@ export default async function DiscipleshipsNetworkPage(props: { searchParams?: S
           </span>
         </div>
       </div>
+
+      <nav aria-label="Menu do módulo Discipulados" className="flex flex-wrap gap-2 rounded-2xl border border-border bg-card p-3 text-sm">
+        <Link href="/admin/discipleships?view=list" className="rounded-xl border border-border px-4 py-2 hover:bg-muted">Visão geral dos discipulados</Link>
+        <span aria-current="page" className="rounded-xl bg-primary/10 px-4 py-2 text-primary">Rede de Discipulado</span>
+        <Link href="/admin/discipleships?view=overview" className="rounded-xl border border-border px-4 py-2 hover:bg-muted">Cadastros e indicadores</Link>
+        <Link href="/admin/discipleships?view=meetings" className="rounded-xl border border-border px-4 py-2 hover:bg-muted">Encontros</Link>
+      </nav>
 
       {networkIsEmpty ? (
         <div className="rounded-3xl border border-border/70 bg-card p-8 text-center text-sm text-muted-foreground">

@@ -229,7 +229,7 @@ export function AdminShell(props: {
 
   return (
     <div className="min-h-full w-full">
-      <div className="mx-auto flex w-full max-w-[1480px] gap-6 px-4 py-8">
+      <div className={cn("mx-auto flex w-full gap-6 px-4 py-8", pathname?.startsWith("/admin/discipleships") ? "max-w-none" : "max-w-[1480px]")}>
         <aside className="hidden w-64 shrink-0 lg:block">
           <div className="sticky top-6 space-y-4">
             <div className="rounded-3xl border border-border/80 bg-[rgba(11,23,48,0.60)] p-4 shadow-[0_18px_70px_-48px_rgba(88,167,255,0.7)] backdrop-blur-xl">
