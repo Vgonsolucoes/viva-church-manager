@@ -6,6 +6,15 @@ function load(file, deps={}) {
  {exports,require:id=>{if(id in deps)return deps[id];throw Error(id);},Date,Intl,URL,Request,console});return exports;
 }
 const recurrence=load('src/lib/weekly-services.ts');
+const imageUrls=load('src/lib/public-image-url.ts');
+test('Artwork uses the public reverse proxy host and preserves external image URLs',()=>{
+ const request=new Request('https://localhost:80/api/v1/events',{headers:{'x-forwarded-host':'viva.example','x-forwarded-proto':'https'}});
+ assert.equal(imageUrls.publicImageUrl('/uploads/banner_test.png',request),'https://viva.example/uploads/banner_test.png');
+ assert.equal(imageUrls.publicImageUrl('https://cdn.example/art.jpg',request),'https://cdn.example/art.jpg');
+ assert.equal(imageUrls.publicImageUrl(null,request),null);
+ const hostOnly=new Request('http://localhost:80/api/v1/events',{headers:{host:'viva.example','x-forwarded-proto':'https'}});
+ assert.equal(imageUrls.publicImageUrl('/uploads/art.png',hostOnly),'https://viva.example/uploads/art.png');
+});
 const configs=recurrence.WEEKLY_SERVICES.map(service=>({key:service.key,name:service.name,location:null,bannerImageUrl:null}));
 test('Mobile feeds separate services from events and preserve their artwork and chronological order',()=>{
  const {splitUpcomingEvents}=load('apps/mobile/src/utils/event-feed.ts');
@@ -50,6 +59,7 @@ test('Agenda defaults and event payload parse with the real mobile schema, inclu
   '@/server/db':{prisma:{event:{findMany:async()=>[{id:'viva-weekly-sunday-2026-11-01',name:'Culto de domingo',type:'SERVICE',startsAt:new Date('2026-11-01T21:00:00Z'),endsAt:null,location:null,responsible:null,bannerImageUrl:'/uploads/banner_test.png'}]}}},
   '@/server/session-helpers':{requireLoggedIn:async()=>({ok:true,ctx:{roles:[],user:{member:null}}})},
   '@/server/rbac':{hasPermission:()=>false},'@/server/weekly-services':{ensureWeeklyServices:async()=>{ensured++;}},'@/lib/weekly-services':recurrence,
+  '@/lib/public-image-url':imageUrls,
  });
  const response=await api.GET(new Request('https://church.example/api/v1/agenda'));
  assert.equal(response.status,200);assert.equal(ensured,1);const item=AgendaItemSchema.parse(response.body[0]);

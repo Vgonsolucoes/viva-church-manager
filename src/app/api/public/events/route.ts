@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
 import { ensureWeeklyServices } from "@/server/weekly-services";
+import { publicImageUrl } from "@/lib/public-image-url";
 
 export async function GET(req: Request) {
   await ensureWeeklyServices();
@@ -19,7 +20,7 @@ export async function GET(req: Request) {
       startsAt: e.startsAt,
       endsAt: e.endsAt,
       location: e.location,
-      bannerImageUrl: e.bannerImageUrl ? new URL(e.bannerImageUrl, req.url).toString() : null,
+      bannerImageUrl: publicImageUrl(e.bannerImageUrl, req),
       capacity: e.capacity,
       isPaid: e.isPaid,
       ticketPriceCents: e.ticketPriceCents,

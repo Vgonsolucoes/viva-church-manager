@@ -3,6 +3,7 @@ import { prisma } from "@/server/db";
 import { requireLoggedIn } from "@/server/session-helpers";
 import { hasPermission } from "@/server/rbac";
 import { ensureWeeklyServices } from "@/server/weekly-services";
+import { publicImageUrl } from "@/lib/public-image-url";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +37,7 @@ export async function GET(req: Request) {
       startsAt: e.startsAt,
       endsAt: e.endsAt,
       location: e.location,
-      bannerImageUrl: e.bannerImageUrl ? new URL(e.bannerImageUrl, req.url).toString() : null,
+      bannerImageUrl: publicImageUrl(e.bannerImageUrl, req),
       responsibleMemberId: e.responsibleMemberId,
       responsible: e.responsible
         ? {

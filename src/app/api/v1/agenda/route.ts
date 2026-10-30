@@ -6,6 +6,7 @@ import { requireLoggedIn } from "@/server/session-helpers";
 import { hasPermission } from "@/server/rbac";
 import { ensureWeeklyServices } from "@/server/weekly-services";
 import { churchAgendaRange, churchDateKey, churchDateTime } from "@/lib/weekly-services";
+import { publicImageUrl } from "@/lib/public-image-url";
 
 export const dynamic = "force-dynamic";
 
@@ -144,7 +145,7 @@ export async function GET(req: Request) {
         type: "event",
         title: e.name,
         category: ({ SERVICE: "CULTO", CONFERENCE: "CONFERENCIA", CELL: "CELULA" } as Record<string, string>)[e.type] ?? "EVENTO",
-        bannerImageUrl: e.bannerImageUrl ? new URL(e.bannerImageUrl, req.url).toString() : null,
+        bannerImageUrl: publicImageUrl(e.bannerImageUrl, req),
         startsAt: e.startsAt.toISOString(),
         endsAt: e.endsAt ? e.endsAt.toISOString() : null,
         location: e.location,
