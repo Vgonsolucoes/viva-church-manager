@@ -17,6 +17,8 @@ No menu **Cultos Fixos** (`/admin/cultos-fixos`), usuários com `events:write` p
 
 No aplicativo, **Próximos cultos** apresenta os cultos com arte em 16:9 e acesso aos detalhes. **Igreja → Cultos Fixos** lista as próximas datas. Itens `SERVICE` são separados das listas de **Eventos** pelo seletor compartilhado `splitUpcomingEvents`; a API mantém o contrato existente para compatibilidade.
 
+Domingo tem um cadastro compartilhado (`sunday`) para os horários 09h e 18h, com a mesma arte, nome e local. Os IDs das ocorrências de manhã (`sundayMorning`) e à noite (`sunday`) permanecem estáveis; as próximas ocorrências já criadas são sincronizadas, preservando o histórico. A antiga configuração matutina é apenas um fallback quando não existe configuração de domingo.
+
 O endpoint de agenda retorna os campos legados e os campos esperados pelo aplicativo (`category`, `entityType`, `entityId`, campos nulos e `bannerImageUrl`). O início do app encontra o próximo culto mesmo quando a semana atual termina antes dele.
 
 Testes: `node --test scripts/weekly-services-tests.cjs`.

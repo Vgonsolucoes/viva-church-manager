@@ -15,7 +15,26 @@ test('Artwork uses the public reverse proxy host and preserves external image UR
  const hostOnly=new Request('http://localhost:80/api/v1/events',{headers:{host:'viva.example','x-forwarded-proto':'https'}});
  assert.equal(imageUrls.publicImageUrl('/uploads/art.png',hostOnly),'https://viva.example/uploads/art.png');
 });
-const configs=recurrence.WEEKLY_SERVICES.map(service=>({key:service.key,name:service.name,location:null,bannerImageUrl:null}));
+const configs=recurrence.WEEKLY_SERVICES.filter(service=>service.key===service.configKey).map(service=>({key:service.configKey,name:service.name,location:null,bannerImageUrl:null}));
+test('One Sunday configuration shares its existing artwork with both hours and reconciles future morning services',async()=>{
+ const shared={name:'Culto de domingo',location:'Sede',bannerImageUrl:'/uploads/banner_sunday.png'};
+ const rows=[{key:'weekly-service:sunday',value:JSON.stringify(shared)},{key:'weekly-service:sundayMorning',value:JSON.stringify({name:'Culto de domingo · manhã',location:null,bannerImageUrl:'/uploads/old_morning.png'})}];
+ const events=[
+  {id:'viva-weekly-sundayMorning-2026-11-01',startsAt:new Date('2026-11-01T12:00:00Z'),name:'Culto de domingo · manhã',location:null,bannerImageUrl:'/uploads/old_morning.png'},
+  {id:'viva-weekly-sunday-2026-11-01',startsAt:new Date('2026-11-01T21:00:00Z'),...shared},
+  {id:'viva-weekly-sundayMorning-2026-10-25',startsAt:new Date('2026-10-25T12:00:00Z'),name:'Histórico',location:null,bannerImageUrl:'/uploads/history.png'},
+ ];
+ const db={appSetting:{findMany:async()=>rows},event:{findMany:async()=>events,createMany:async({data})=>events.push(...data),updateMany:async({where,data})=>{for(const event of events)if(where.id.in.includes(event.id))Object.assign(event,data);}}};
+ const service=load('src/server/weekly-services.ts',{'zod':require('zod'),'@/server/db':{prisma:db},'@/lib/weekly-services':recurrence});
+ const groups=await service.getWeeklyServices();assert.deepEqual(Array.from(groups,item=>item.key),['sunday','wednesday']);
+ await service.ensureWeeklyServices(new Date('2026-10-30T18:00:00Z'));
+ for(const id of ['viva-weekly-sundayMorning-2026-11-01','viva-weekly-sunday-2026-11-01']){
+  const event=events.find(event=>event.id===id);assert.equal(event.name,shared.name);assert.equal(event.bannerImageUrl,shared.bannerImageUrl);
+ }
+ assert.equal(events.find(event=>event.id==='viva-weekly-sundayMorning-2026-10-25').bannerImageUrl,'/uploads/history.png');
+ const nextSunday=events.filter(event=>event.startsAt.toISOString().startsWith('2026-11-08'));
+ assert.equal(nextSunday.length,2);assert.ok(nextSunday.every(event=>event.bannerImageUrl===shared.bannerImageUrl));
+});
 test('Mobile feeds separate services from events and preserve their artwork and chronological order',()=>{
  const {splitUpcomingEvents}=load('apps/mobile/src/utils/event-feed.ts');
  const entries=Object.freeze([

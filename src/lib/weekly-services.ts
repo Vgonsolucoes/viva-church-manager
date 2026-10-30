@@ -1,10 +1,10 @@
 export const CHURCH_TIME_ZONE = "America/Sao_Paulo";
 export const WEEKLY_SERVICES = [
-  { key: "sundayMorning", weekday: 0, time: "09:00", name: "Culto de domingo · manhã", label: "Todos os domingos · 09h" },
-  { key: "sunday", weekday: 0, time: "18:00", name: "Culto de domingo", label: "Todos os domingos · 18h" },
-  { key: "wednesday", weekday: 3, time: "20:00", name: "Culto de quarta-feira", label: "Todas as quartas-feiras · 20h" },
+  { key: "sundayMorning", configKey: "sunday", weekday: 0, time: "09:00", name: "Culto de domingo", label: "Todos os domingos · 09h e 18h" },
+  { key: "sunday", configKey: "sunday", weekday: 0, time: "18:00", name: "Culto de domingo", label: "Todos os domingos · 09h e 18h" },
+  { key: "wednesday", configKey: "wednesday", weekday: 3, time: "20:00", name: "Culto de quarta-feira", label: "Todas as quartas-feiras · 20h" },
 ] as const;
-export type WeeklyServiceKey = typeof WEEKLY_SERVICES[number]["key"];
+export type WeeklyServiceKey = typeof WEEKLY_SERVICES[number]["configKey"];
 export type WeeklyServiceConfig = { key: WeeklyServiceKey; name: string; location: string | null; bannerImageUrl: string | null };
 const formatter = new Intl.DateTimeFormat("en-CA", { timeZone: CHURCH_TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" });
 function parts(date: Date) { return Object.fromEntries(formatter.formatToParts(date).map(part => [part.type, part.value])); }
@@ -35,7 +35,7 @@ export function weeklyOccurrences(from: Date, to: Date, configs: WeeklyServiceCo
     const dateKey = day.toISOString().slice(0, 10);
     const services = WEEKLY_SERVICES.filter(service => service.weekday === day.getUTCDay());
     for (const service of services) {
-      const config = configs.find(config => config.key === service.key);
+      const config = configs.find(config => config.key === service.configKey);
       const startsAt = churchDateTime(dateKey, service.time);
       if (config && startsAt >= from && startsAt < to) result.push({ id: `viva-weekly-${service.key}-${dateKey}`, name: config.name, startsAt, location: config.location, bannerImageUrl: config.bannerImageUrl });
     }
