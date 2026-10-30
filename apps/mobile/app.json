@@ -3,7 +3,7 @@
     "name": "Viva Church",
     "slug": "viva-church",
     "scheme": "vivachurch",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "icon": "./assets/icon.png",
@@ -26,7 +26,7 @@
       "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#06101D"
+        "backgroundColor": "#F5F0EC"
       },
       "permissions": [
         "INTERNET",
@@ -53,7 +53,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/adaptive-icon.png",
+          "icon": "./assets/notification-icon.png",
           "color": "#06101D"
         }
       ],
