@@ -271,7 +271,6 @@ export default async function CoursesPage({ searchParams }: { searchParams: Prom
                           className="object-cover"
                           sizes="(max-width: 1280px) 100vw, 800px"
                           unoptimized
-                          loader={({ src }) => src}
                         />
                       </div>
                     </div>
