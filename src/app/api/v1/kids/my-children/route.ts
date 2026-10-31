@@ -33,12 +33,12 @@ export async function GET(req: Request) {
     | { phone: string }
   )[] = [];
   if (memberId) orConditions.push({ memberId });
-  if (memberName) {
+  if (ctx.member?.type !== "VISITOR" && memberName) {
     orConditions.push({
       fullName: { equals: memberName, mode: "insensitive" },
     });
   }
-  if (memberPhone) orConditions.push({ phone: memberPhone });
+  if (ctx.member?.type !== "VISITOR" && memberPhone) orConditions.push({ phone: memberPhone });
 
   const guardians = await prisma.childGuardian.findMany({
     where: { OR: orConditions },

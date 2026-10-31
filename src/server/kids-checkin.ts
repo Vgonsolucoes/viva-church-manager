@@ -20,10 +20,11 @@ export async function verifyKidsCheckinPointToken(token: string): Promise<boolea
 /**
  * Resolve os IDs das crianças vinculadas ao membro logado: primeiro pelo
  * vínculo direto ChildGuardian.memberId e, como fallback, pelo legado
- * (nome completo / telefone WhatsApp do responsável).
+ * (nome completo / telefone WhatsApp do responsável). Visitantes exigem
+ * vínculo direto: nome e telefone informados no cadastro público não provam parentesco.
  */
 export async function resolveGuardianChildIds(ctx: {
-  member: { id: string; fullName: string; phone: string | null } | null;
+  member: { id: string; fullName: string; phone: string | null; type?: string } | null;
 }): Promise<Set<string>> {
   const member = ctx.member;
   if (!member) return new Set();
@@ -33,12 +34,12 @@ export async function resolveGuardianChildIds(ctx: {
     | { fullName: { equals: string; mode: "insensitive" } }
     | { phone: string }
   )[] = [{ memberId: member.id }];
-  if (member.fullName) {
+  if (member.type !== "VISITOR" && member.fullName) {
     orConditions.push({
       fullName: { equals: member.fullName, mode: "insensitive" },
     });
   }
-  if (member.phone) orConditions.push({ phone: member.phone });
+  if (member.type !== "VISITOR" && member.phone) orConditions.push({ phone: member.phone });
 
   const guardians = await prisma.childGuardian.findMany({
     where: { OR: orConditions },

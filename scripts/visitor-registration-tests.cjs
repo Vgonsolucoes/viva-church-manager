@@ -25,3 +25,11 @@ test('Public route rejects malformed/oversized bodies and rate limits repeated a
  for(let i=0;i<5;i++)assert.equal((await route.POST(req('{}'))).status,201);
  assert.equal((await route.POST(req('{}'))).status,429);assert.equal(calls,5);
 });
+test('A new visitor cannot claim existing children through a matching name or phone',async()=>{
+ const calls=[];
+ const {resolveGuardianChildIds}=load('src/server/kids-checkin.ts',{crypto:{randomInt:()=>123456},jose:{jwtVerify:async()=>({})},'@/server/auth-jwt':{requireNextAuthSecret:()=>new Uint8Array()},'@/server/db':{prisma:{childGuardian:{findMany:async query=>{calls.push(query);return []}}}}});
+ await resolveGuardianChildIds({member:{id:'visitor-new',type:'VISITOR',fullName:'Same Name',phone:'11999991234'}});
+ assert.equal(calls[0].where.OR.length,1);assert.equal(calls[0].where.OR[0].memberId,'visitor-new');
+ const update=load('src/app/api/v1/kids/children/[id]/route.ts',{zod:require('zod'),'next/server':{NextResponse:{json:(body,options)=>({status:options.status})}},'@/server/rbac':{hasPermission:()=>false},'@/server/session-helpers':{requireLoggedIn:async()=>({ok:true,ctx:{permissions:[],member:{id:'visitor-new',type:'VISITOR',fullName:'Same Name',phone:'11999991234'}}})},'@/server/db':{prisma:{child:{findUnique:async()=>({id:'someone-elses-child',guardians:[{memberId:'another-member',fullName:'Same Name',phone:'11999991234'}]})}}}});
+ const response=await update.PUT(new Request('https://church.example/api/v1/kids/children/c1',{method:'PUT',body:'{}'}),{params:Promise.resolve({id:'c1'})});assert.equal(response.status,403);
+});

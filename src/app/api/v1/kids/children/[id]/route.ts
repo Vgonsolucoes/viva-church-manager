@@ -72,7 +72,7 @@ export async function PUT(req: Request, context: RouteContext) {
     (g) => g.memberId === ctx.member!.id,
   );
   const legacyMatched =
-    !linkedByMember &&
+    ctx.member.type !== "VISITOR" && !linkedByMember &&
     child.guardians.some(
       (g) =>
         (memberName &&

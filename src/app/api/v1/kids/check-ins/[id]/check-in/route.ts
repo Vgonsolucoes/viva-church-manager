@@ -27,16 +27,16 @@ export async function POST(
   if (!hasKidsWrite) {
     const memberName = ctx.member?.fullName;
     const memberPhone = ctx.member?.phone;
-    if (!memberName && !memberPhone) {
+    if (!ctx.member?.id) {
       return NextResponse.json({ error: "PERMISSION_DENIED" }, { status: 403 });
     }
-    const where: any = { childId, OR: [] };
-    if (memberName) {
+    const where: any = { childId, OR: [{ memberId: ctx.member!.id }] };
+    if (ctx.member?.type !== "VISITOR" && memberName) {
       where.OR.push({
         fullName: { equals: memberName, mode: "insensitive" },
       });
     }
-    if (memberPhone) {
+    if (ctx.member?.type !== "VISITOR" && memberPhone) {
       where.OR.push({ phone: memberPhone });
     }
     const guardian = await prisma.childGuardian.findFirst({ where });
