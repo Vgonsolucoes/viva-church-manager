@@ -617,3 +617,7 @@ Documentação cobre preparo, não execução de loja.
 - APIs e ações consultam os acessos atuais; o JWT não mantém uma concessão revogada. O APK renova o menu ao voltar ao aplicativo, ao atualizar a tela e ao abrir telas após 30 segundos. Ao mudar de permissões, limpa dados em memória de consultas anteriores.
 - Infantil no APK permite acessar somente filhos vinculados. Avisos de projeção exigem simultaneamente o módulo liberado e o vínculo ativo no ministério do canal.
 - Rotas web usam `src/proxy.ts` no runtime Node do Next 16. Telas e ações usam permissões efetivas; papéis originais continuam separados para identificar responsabilidades e Super Administrador.
+
+### Cadastro de Novo Visitante pelo APK
+
+A tela de login oferece **Criar cadastro** (`/cadastro`). Nome, CPF válido, e-mail, telefone e senha são obrigatórios; a confirmação da senha é conferida no aparelho. O endpoint público `POST /api/v1/auth/mobile/register` valida os dados novamente, armazena somente o hash bcrypt da senha e cria atomicamente Member (`VISITOR`, tipos `[VISITOR]`) + User (`MEMBER`, sem papéis administrativos). O novo usuário herda a política de Visitante do Controle de acessos. Não vincula nem altera cadastros existentes por CPF/e-mail. Após criar, o APK tenta entrar automaticamente; se a conexão falhar, apresenta a opção Entrar sem repetir o cadastro.

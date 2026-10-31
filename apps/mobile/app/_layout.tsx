@@ -124,7 +124,7 @@ function AuthGuard({
   useEffect(() => {
     if (!initialized) return;
     const inAuth =
-      typeof segments[0] === "string" && segments[0].startsWith("login");
+      typeof segments[0] === "string" && (segments[0].startsWith("login") || segments[0] === "cadastro");
     if (!accessToken && !inAuth) {
       router.replace("/login");
       setReady(true);
@@ -317,6 +317,7 @@ export default function RootLayout() {
               }}
             >
               <Stack.Screen name="login" options={{ headerShown: false }} />
+              <Stack.Screen name="cadastro" options={{ headerShown: false }} />
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
               <Stack.Screen name="igreja" options={{ headerShown: false }} />
               <Stack.Screen

@@ -199,8 +199,8 @@ export default function LoginScreen() {
 
           <View style={styles.footer}>
             <Text style={styles.footerText}>Ainda não tem uma conta? </Text>
-            <Pressable hitSlop={6}>
-              <Text style={styles.footerLink}>Fale com sua igreja</Text>
+            <Pressable hitSlop={6} accessibilityRole="button" onPress={() => router.push("/cadastro")}>
+              <Text style={styles.footerLink}>Criar cadastro</Text>
             </Pressable>
           </View>
         </ScrollView>
