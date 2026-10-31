@@ -10,7 +10,7 @@ export async function POST(req: Request) {
   for (const [key, value] of buckets) if (value.resetAt <= now) buckets.delete(key);
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "unknown";
   const bucket = buckets.get(ip) ?? { count: 0, resetAt: now + WINDOW };
-  if (bucket.count >= 5 || (!buckets.has(ip) && buckets.size >= 10_000)) return NextResponse.json({ error: "TOO_MANY_REQUESTS", message: "Muitas tentativas de cadastro. Aguarde alguns minutos e tente novamente." }, { status: 429, headers: { "Retry-After": String(Math.max(1, Math.ceil((bucket.resetAt - now) / 1000))) } });
+  if (bucket.count >= 5 || (!buckets.has(ip) && buckets.size >= 10_000)) return NextResponse.json({ error: "TOO_MANY_REQUESTS", message: "Muitas tentativas de cadastro. Aguarde alguns minutos e tente novamente." }, { status: 429 });
   bucket.count++;
   buckets.set(ip, bucket);
   if (Number(req.headers.get("content-length") ?? 0) > 8192) return NextResponse.json({ error: "INVALID_BODY", message: "Cadastro inválido." }, { status: 413 });
