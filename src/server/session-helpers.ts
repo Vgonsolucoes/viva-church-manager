@@ -75,10 +75,11 @@ export async function requireLoggedIn(req: Request): Promise<
   const mobile = req.headers.get("authorization")?.startsWith("Bearer ") ?? false;
   const rule = path.startsWith("/api/v1/agenda") ? "agenda" : path.startsWith("/api/v1/cells") || path.startsWith("/api/v1/cell-meetings") ? "cells" : path.startsWith("/api/v1/discipleship") ? "discipleships" : path.startsWith("/api/v1/projects") ? "projects" : path.startsWith("/api/v1/ministries") ? "ministries" : path.startsWith("/api/v1/schedules") || path.startsWith("/api/v1/volunteer") ? "schedules" : path.startsWith("/api/v1/kids") && !path.includes("/projection/") ? "kids" : path === "/api/notifications" ? "notifications" : undefined;
   if (mobile && rule && !modules.includes(rule)) return { ok: false, error: NextResponse.json({ error: "PERMISSION_DENIED" }, { status: 403 }) };
-  if (mobile && path === "/api/v1/projection/requests") {
+  if (path === "/api/v1/projection/requests") {
     const input = req.method === "GET" ? { channel: new URL(req.url).searchParams.get("channel") } : await req.clone().json().catch(() => null);
     const key = input?.channel === "PARKING" ? "parking" : "kidsProjection";
-    if (!modules.includes(key)) return { ok: false, error: NextResponse.json({ error: "PERMISSION_DENIED" }, { status: 403 }) };
+    const granted = mobile ? modules.includes(key) : ctx.access.webModules.includes(key === "parking" ? "parking" : "kids") && hasPermission(ctx.permissions, key === "parking" ? (req.method === "GET" ? "parking:read" : "parking:write") : (req.method === "GET" ? "kids:read" : "kids:write"));
+    if (!granted) return { ok: false, error: NextResponse.json({ error: "PERMISSION_DENIED" }, { status: 403 }) };
   }
   return { ok: true, ctx };
 }

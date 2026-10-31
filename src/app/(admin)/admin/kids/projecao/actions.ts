@@ -1,4 +1,5 @@
 "use server";
+import { assertWebPermission } from "@/server/access-control";
 
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
@@ -33,6 +34,7 @@ export async function sendProjectionMessage(
   _prev: KidsProjectionFormState,
   formData: FormData,
 ): Promise<KidsProjectionFormState> {
+  await assertWebPermission("kids:write");
   const session = await getServerSession(authOptions);
   if (!session?.uid || !(await getProjectionAccess(session.uid)).KIDS) {
     return initialError("Sem permissão para enviar mensagens à projeção.");

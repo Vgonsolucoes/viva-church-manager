@@ -46,6 +46,7 @@ export type PermissionKey =
   | "kids:manage"
   | "kids:projection:send"
   | "kids:projection:view"
+  | "parking:write"
   | "parking:read"
   | "parking:projection:view"
   | "projects:read"
@@ -357,7 +358,7 @@ export function hasPermission(subject: readonly string[], permission: Permission
 }
 
 export function allPermissionKeysArray(): PermissionKey[] {
-  const seen = new Set<PermissionKey>(["projects:read", "settings:read"]);
+  const seen = new Set<PermissionKey>(["projects:read", "settings:read", "parking:write"]);
   for (const perms of Object.values(rolePermissions)) {
     for (const p of perms) seen.add(p);
   }

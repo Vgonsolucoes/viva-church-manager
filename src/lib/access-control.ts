@@ -15,7 +15,7 @@ export const WEB_MODULES = [
   { key: "cells", label: "Células e reuniões", path: "/admin/cells", read: ["cells:read"], write: ["cells:write"] },
   { key: "discipleships", label: "Discipulados", path: "/admin/discipleships", read: ["discipleships:read", "discipleship:my:read"], write: ["discipleships:write", "discipleship:my:write"] },
   { key: "kids", label: "Ministério Infantil", path: "/admin/kids", read: ["kids:read"], write: ["kids:write", "kids:manage"] },
-  { key: "parking", label: "Estacionamento", path: "/admin/parking", read: ["parking:read"], write: [] },
+  { key: "parking", label: "Estacionamento", path: "/admin/parking", read: ["parking:read"], write: ["parking:write"] },
   { key: "lostfound", label: "Achados e perdidos", path: "/admin/lost-found", read: ["lostfound:read"], write: ["lostfound:write"] },
   { key: "assets", label: "Patrimônio", path: "/admin/assets", read: ["assets:read"], write: ["assets:write"] },
   { key: "finance", label: "Financeiro", path: "/admin/finance", read: ["finance:read"], write: ["finance:write"] },

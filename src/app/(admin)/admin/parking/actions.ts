@@ -1,10 +1,12 @@
 "use server";
+import { assertWebPermission } from "@/server/access-control";
 import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
 import { authOptions } from "@/server/auth";
 import { createProjectionRequest } from "@/server/projection-requests";
 
 export async function sendParkingNotice(_previous: { ok: boolean; message: string }, form: FormData) {
+  await assertWebPermission("parking:write");
   const session = await getServerSession(authOptions);
   if (!session?.uid) return { ok: false, message: "Faça login novamente." };
   const result = await createProjectionRequest(session.uid, {
