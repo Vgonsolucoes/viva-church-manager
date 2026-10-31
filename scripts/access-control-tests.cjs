@@ -42,3 +42,16 @@ test('Web route enforcement rejects direct URLs and read-only mutations using fr
  const config=rules.defaultAccessConfig();config.ministries.k={webEnabled:true,web:{kids:'read'},mobile:[],agendaScope:'own'};current={...resolve(identity('VOLUNTEER',[ministry('k','Kids')],['VOLUNTEER']),config),roles:['VOLUNTEER']};assert.equal((await proxy(req('/admin/kids','POST'))).status,403);
  current={...resolve(identity('VISITOR')),roles:['MEMBER']};assert.equal((await proxy(req('/admin/kids'))).status,307);
 });
+// Integration: the stored policy is reloaded on each operation, without trusting old token roles.
+test('Saving access requires super admin and the persisted policy is used by the next request',async()=>{
+ let actor={uid:'super',roles:['SUPER_ADMIN']},stored=null,writes=0;
+ const configStore={findUnique:async()=>stored,upsert:async({create,update})=>{stored={key:'user-access-control:v1',value:stored?update.value:create.value};writes++;return stored}};
+ const db={appSetting:configStore,user:{findUnique:async()=>({roles:[{role:'MEMBER'}],member:{type:'MEMBER',types:['MEMBER'],ministry:null,memberMinistries:[],ministriesLeading:[],volunteerProfile:null}})},ministry:{findUnique:async()=>null},$transaction:async fn=>fn({appSetting:configStore})};
+ const server=load('src/server/access-control.ts',{zod:require('zod'),'@/server/db':{prisma:db},'@/lib/access-control':rules});
+ const action=load('src/app/(admin)/admin/settings/access/actions.ts',{'next-auth':{getServerSession:async()=>actor},'next/cache':{revalidatePath:()=>{}},'@/server/auth':{authOptions:{}},'@/server/db':{prisma:db},'@/server/access-control':server,'@/lib/access-control':rules,'@/server/rbac':rbac,'@/server/audit':{logAudit:async()=>{}}});
+ const profile={webEnabled:false,web:{},mobile:['home','kids'],agendaScope:'own'};
+ assert.equal((await action.saveAccessProfile('types','MEMBER',profile)).ok,true);assert.equal(writes,1);
+ const actual=await server.getUserAccess('member-user');assert.deepEqual(Array.from(actual.mobileModules),['home','kids']);assert.equal(actual.webEnabled,false);assert.equal(actual.mobilePermissions.includes('calendar:read'),false);
+ actor={uid:'volunteer',roles:['VOLUNTEER']};assert.equal((await action.saveAccessProfile('types','MEMBER',{...profile,webEnabled:true,web:{finance:'write'}})).ok,false);assert.equal(writes,1);
+ actor={uid:'super',roles:['SUPER_ADMIN']};assert.equal((await action.saveAccessProfile('roles','SUPER_ADMIN',profile)).ok,false);assert.equal(writes,1);
+});
