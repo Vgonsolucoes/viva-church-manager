@@ -130,7 +130,12 @@ export async function GET(req: Request) {
     const eventWhere: Prisma.EventWhereInput = {
       startsAt: { gte: from, lt: to },
     };
-    if (ownAgenda || (!canCalendarRead && !canEventsRead)) {
+    if (ownAgenda) {
+      eventWhere.OR = [
+        { sales: { some: { createdById: ctx.user.id } } },
+        ...(memberId ? [{ responsibleMemberId: memberId }] : []),
+      ];
+    } else if (!canCalendarRead && !canEventsRead) {
       eventWhere.public = true;
     }
     const events = await prisma.event.findMany({
