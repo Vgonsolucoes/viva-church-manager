@@ -1,7 +1,8 @@
 import React from "react";
 import { Tabs } from "expo-router";
 import { ColorValue, Platform, StyleSheet, View, Text } from "react-native";
-import { Home, CalendarDays, ClipboardList, Church, User } from "lucide-react-native";
+import { Home, CalendarDays, ClipboardList, Baby, Church, User } from "lucide-react-native";
+import { useSessionStore } from "@/stores/session";
 import { useAppTheme } from "@/theme";
 import { useThemedStyles } from "@/theme";
 
@@ -31,6 +32,10 @@ function TabIcon({
 }
 
 export default function TabsLayout() {
+  const me = useSessionStore(s => s.me);
+  const modules = me?.access?.mobileModules;
+  const enabled = (key: string) => modules ? modules.includes(key) : true;
+  const showSchedules = modules ? modules.includes("schedules") : Boolean(me?.permissions.includes("schedules:read"));
   const theme = useAppTheme();
 
   return (
@@ -58,6 +63,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
+          href: enabled("home") ? undefined : null,
           title: "Início",
           tabBarLabel: "Início",
           tabBarIcon: ({ color, focused }) => (
@@ -68,6 +74,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="agenda"
         options={{
+          href: enabled("agenda") ? undefined : null,
           title: "Agenda",
           tabBarLabel: "Agenda",
           tabBarIcon: ({ color, focused }) => (
@@ -78,6 +85,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="escalas"
         options={{
+          href: showSchedules ? undefined : null,
           title: "Escalas",
           tabBarLabel: "Escalas",
           tabBarIcon: ({ color, focused }) => (
@@ -85,6 +93,7 @@ export default function TabsLayout() {
           ),
         }}
       />
+      <Tabs.Screen name="infantil" options={{ href: !showSchedules && enabled("kids") ? undefined : null, title: "Infantil", tabBarIcon: ({ color, focused }) => <TabIcon Icon={Baby} color={color} label="Infantil" focused={focused} /> }} />
       <Tabs.Screen
         name="igreja"
         options={{

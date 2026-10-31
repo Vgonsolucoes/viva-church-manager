@@ -21,7 +21,7 @@ export async function POST(
   if (!logged.ok) return logged.error;
   const { ctx } = logged;
 
-  const hasKidsWrite = hasPermission(ctx.roles, "kids:write");
+  const hasKidsWrite = hasPermission(ctx.permissions, "kids:write");
 
   let isGuardian = false;
   if (!hasKidsWrite) {

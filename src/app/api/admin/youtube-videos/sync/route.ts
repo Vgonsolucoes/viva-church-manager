@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 export async function POST() {
   const session = await getServerSession(authOptions);
   const roles = (session?.roles ?? []) as Parameters<typeof hasPermission>[0];
-  if (!hasPermission(roles, "youtube:write")) {
+  if (!hasPermission(session?.permissions ?? [], "youtube:write")) {
     return NextResponse.json({ ok: false, error: "Permissao insuficiente." }, { status: 403 });
   }
 

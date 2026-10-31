@@ -8,6 +8,7 @@ declare module "next-auth" {
   }
 
   interface Session extends DefaultSession {
+    permissions?: import("@/server/rbac").PermissionKey[];
     uid?: string;
     roles?: RoleKey[];
     user?: DefaultSession["user"] & {

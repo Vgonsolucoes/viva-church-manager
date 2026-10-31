@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 export default async function KidsHorariosPage() {
   const session = await getServerSession(authOptions);
-  const canWrite = hasPermission((session?.roles ?? []) as RoleKey[], "kids:write");
+  const canWrite = hasPermission(session?.permissions ?? [], "kids:write");
 
   const [services, activeResult] = await Promise.all([
     prisma.kidsServiceSchedule.findMany({

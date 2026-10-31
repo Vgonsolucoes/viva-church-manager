@@ -14,8 +14,8 @@ export async function POST(req: NextRequest) {
     const auth = await requireLoggedIn(req);
     if (!auth.ok) return auth.error;
     if (
-      !hasPermission(auth.ctx.roles, "kids:checkin:self") &&
-      !hasPermission(auth.ctx.roles, "kids:write")
+      !hasPermission(auth.ctx.permissions, "kids:checkin:self") &&
+      !hasPermission(auth.ctx.permissions, "kids:write")
     ) {
       const denied = requirePermission(auth.ctx, "kids:checkin:self");
       if (denied) return denied;

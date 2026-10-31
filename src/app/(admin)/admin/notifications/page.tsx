@@ -1,3 +1,4 @@
+import { assertWebPermission } from "@/server/access-control";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { z } from "zod";
@@ -77,6 +78,7 @@ const deepLinkOptions = [
 
 async function createNotification(formData: FormData) {
   "use server";
+  await assertWebPermission("notifications:write");
 
   const session = await getServerSession(authOptions);
   const parsed = createSchema.safeParse({
@@ -164,6 +166,7 @@ const markReadSchema = z.object({
 
 async function markRead(formData: FormData) {
   "use server";
+  await assertWebPermission("notifications:write");
 
   const session = await getServerSession(authOptions);
   const parsed = markReadSchema.safeParse({ deliveryId: formData.get("deliveryId") });

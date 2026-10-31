@@ -1,5 +1,6 @@
+import { MobileAccessGuard } from "@/components/MobileAccessGuard";
 import React, { useEffect, useState, useRef } from "react";
-import { View, StyleSheet, Text, Animated, Platform, Image } from "react-native";
+import { View, StyleSheet, Text, Animated, Platform, Image, AppState } from "react-native";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
@@ -102,7 +103,17 @@ function AuthGuard({
 
   const segments = useSegments();
   const router = useRouter();
-  const { accessToken, initialized } = useSessionStore();
+  const { accessToken, initialized, me } = useSessionStore();
+  const accessSnapshot = useRef("");
+  const signature = me ? JSON.stringify([me.id, me.permissions, me.access]) : "";
+  useEffect(() => {
+    if (accessSnapshot.current && accessSnapshot.current !== signature) queryClient.clear();
+    accessSnapshot.current = signature;
+  }, [signature]);
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", state => { if (state === "active" && accessToken) void useSessionStore.getState().refreshMe(true); });
+    return () => subscription.remove();
+  }, [accessToken]);
   const [ready, setReady] = useState(false);
   const [splashDone, setSplashDone] = useState(false);
 
@@ -148,7 +159,7 @@ function AuthGuard({
   return (
     <>
       <PushIntegrationRuntime fontsReady={fontsReady} />
-      {children}
+      <MobileAccessGuard>{children}</MobileAccessGuard>
     </>
   );
 }

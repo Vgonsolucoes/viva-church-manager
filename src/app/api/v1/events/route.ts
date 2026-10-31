@@ -13,7 +13,7 @@ export async function GET(req: Request) {
   const { ctx } = auth;
   await ensureWeeklyServices();
 
-  const canWrite = hasPermission(ctx.roles, "events:write");
+  const canWrite = hasPermission(ctx.permissions, "events:write");
   const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
 
   const events = await prisma.event.findMany({

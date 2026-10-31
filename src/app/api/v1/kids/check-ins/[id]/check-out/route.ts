@@ -32,7 +32,7 @@ export async function POST(
     return NextResponse.json({ error: "INVALID_BODY" }, { status: 400 });
   }
 
-  const hasKidsWrite = hasPermission(ctx.roles, "kids:write");
+  const hasKidsWrite = hasPermission(ctx.permissions, "kids:write");
 
   // Lazy close: se a sessão já foi encerrada ao fim do culto, o check-out
   // não deve ser apresentado como retirada pelo responsável.

@@ -14,7 +14,7 @@ import { z } from "zod";
 async function saveArtwork(form: FormData) {
   "use server";
   const session = await getServerSession(authOptions);
-  if (!session?.uid || !hasPermission(session.roles ?? [], "events:write")) throw new Error("Sem permissão para editar cultos.");
+  if (!session?.uid || !hasPermission(session.permissions ?? [], "events:write")) throw new Error("Sem permissão para editar cultos.");
   const key = z.enum(["sunday", "wednesday"]).parse(form.get("key"));
   const name = z.string().trim().min(2).max(150).parse(form.get("name"));
   const location = z.string().trim().max(200).parse(form.get("location") ?? "");
@@ -29,7 +29,7 @@ async function saveArtwork(form: FormData) {
 }
 export async function WeeklyServices() {
   const session = await getServerSession(authOptions);
-  const canWrite = hasPermission(session?.roles ?? [], "events:write");
+  const canWrite = hasPermission(session?.permissions ?? [], "events:write");
   const services = await getWeeklyServices();
   return <section className="space-y-4">
     <div><h1 className="text-xl font-semibold">Cultos Fixos</h1><p className="mt-1 text-sm text-muted-foreground">Horários semanais e artes dos próximos cultos · horário de Brasília · disponíveis no aplicativo.</p></div>

@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function FixedServicesPage() {
   const session = await getServerSession(authOptions);
   if (!session?.uid) redirect("/login");
-  if (!hasPermission(session.roles ?? [], "events:read") && !hasPermission(session.roles ?? [], "events:write")) redirect("/admin");
+  if (!hasPermission(session.permissions ?? [], "events:read") && !hasPermission(session.permissions ?? [], "events:write")) redirect("/admin");
   await ensureWeeklyServices();
   return <WeeklyServices />;
 }

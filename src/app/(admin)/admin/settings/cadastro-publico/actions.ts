@@ -1,4 +1,5 @@
 "use server";
+import { assertWebPermission } from "@/server/access-control";
 
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
@@ -20,10 +21,11 @@ export type PublicRegistrationActionResult = {
 export async function setPublicRegistrationEnabled(
   enabled: boolean,
 ): Promise<PublicRegistrationActionResult> {
+  await assertWebPermission("settings:manage");
   try {
     const session = await getServerSession(authOptions);
     const roles = (session?.roles ?? []) as RoleKey[];
-    if (!session?.uid || !hasPermission(roles, "settings:manage")) {
+    if (!session?.uid || !hasPermission(session?.permissions ?? [], "settings:manage")) {
       return {
         ok: false,
         error: "Você não tem permissão para alterar as configurações do sistema.",

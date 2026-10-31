@@ -1,3 +1,4 @@
+import { assertWebPermission } from "@/server/access-control";
 import crypto from "crypto";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
@@ -33,6 +34,7 @@ const createChildSchema = z.object({
 
 async function createChild(formData: FormData) {
   "use server";
+  await assertWebPermission("kids:write");
 
   const session = await getServerSession(authOptions);
   const parsed = createChildSchema.safeParse({
@@ -77,6 +79,7 @@ const checkInSchema = z.object({
 
 async function checkIn(formData: FormData) {
   "use server";
+  await assertWebPermission("kids:write");
 
   const session = await getServerSession(authOptions);
   const parsed = checkInSchema.safeParse({ childId: formData.get("childId") });
@@ -108,6 +111,7 @@ const checkOutSchema = z.object({
 
 async function checkOut(formData: FormData) {
   "use server";
+  await assertWebPermission("kids:write");
 
   const session = await getServerSession(authOptions);
   const parsed = checkOutSchema.safeParse({ checkInId: formData.get("checkInId") });

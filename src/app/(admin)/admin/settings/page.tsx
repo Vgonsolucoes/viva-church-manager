@@ -12,6 +12,7 @@ export default async function SettingsPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Link href="/admin/settings/access" className="group"><Card className="h-full p-5 transition-colors group-hover:border-ring/50"><div className="text-sm font-semibold">Controle de acessos de usuário</div><p className="mt-2 text-xs text-muted-foreground">Permissões da web e do APK por tipo de cadastro e ministério.</p></Card></Link>
         <Link href="/admin/settings/whatsapp" className="group">
           <Card className="h-full p-5 transition-colors group-hover:border-ring/50">
             <div className="flex items-center gap-3">

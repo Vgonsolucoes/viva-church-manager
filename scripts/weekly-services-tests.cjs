@@ -76,7 +76,7 @@ test('Agenda defaults and event payload parse with the real mobile schema, inclu
  const api=load('src/app/api/v1/agenda/route.ts',{
   'next/server':{NextResponse:{json:(body,options)=>({body,status:options?.status??200})}},'zod':require('zod'),
   '@/server/db':{prisma:{event:{findMany:async()=>[{id:'viva-weekly-sunday-2026-11-01',name:'Culto de domingo',type:'SERVICE',startsAt:new Date('2026-11-01T21:00:00Z'),endsAt:null,location:null,responsible:null,bannerImageUrl:'/uploads/banner_test.png'}]}}},
-  '@/server/session-helpers':{requireLoggedIn:async()=>({ok:true,ctx:{roles:[],user:{member:null}}})},
+  '@/server/session-helpers':{requireLoggedIn:async()=>({ok:true,ctx:{roles:[],permissions:[],access:{agendaScope:"own"},user:{member:null}}})},
   '@/server/rbac':{hasPermission:()=>false},'@/server/weekly-services':{ensureWeeklyServices:async()=>{ensured++;}},'@/lib/weekly-services':recurrence,
   '@/lib/public-image-url':imageUrls,
  });

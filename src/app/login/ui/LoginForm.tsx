@@ -34,7 +34,7 @@ export function LoginForm() {
     setLoading(false);
 
     if (!res || res.error) {
-      setError("E-mail ou senha inválidos.");
+      setError(res?.error?.includes("Acesso disponível") ? res.error : "E-mail ou senha inválidos.");
       return;
     }
 

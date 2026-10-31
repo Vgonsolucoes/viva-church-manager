@@ -173,7 +173,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       set({ me: null });
       return null;
     }
-    if (!force && me) return me;
+    if (!force && me && Date.now() - new Date(me.syncedAt).getTime() < 30_000) return me;
     set({ loading: true });
     try {
       const fresh = await getMe();

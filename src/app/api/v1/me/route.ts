@@ -1,12 +1,8 @@
+import { getUserAccess } from "@/server/access-control";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/server/db";
-import {
-  hasPermission,
-  allPermissionKeysArray,
-  type PermissionKey,
-  type RoleKey,
-} from "@/server/rbac";
+import type { RoleKey } from "@/server/rbac";
 import { readSessionOrBearer } from "@/server/auth-jwt";
 
 import { getProjectionAccess } from "@/server/projection-access";
@@ -41,6 +37,7 @@ const MeResponseSchema = z.object({
   member: MemberShape.nullable(),
   ministries: z.array(z.object({ id: z.string(), name: z.string() })),
   leadingCellIds: z.array(z.string()),
+  access: z.object({ memberType: z.string().nullable(), mobileModules: z.array(z.string()), agendaScope: z.enum(["own", "all"]) }),
   projectionAccess: z.object({ KIDS: z.boolean(), PARKING: z.boolean() }),
   syncedAt: z.coerce.date(),
 });
@@ -72,8 +69,9 @@ export async function GET(req: Request) {
   }
 
   const roles = user.roles.map((r: { role: string }) => r.role) as RoleKey[];
-  const permKeys = allPermissionKeysArray() as PermissionKey[];
-  const permissions = permKeys.filter((p) => hasPermission(roles, p));
+  const access = await getUserAccess(user.id);
+  if (!access) return NextResponse.json({ error: "USER_NOT_FOUND" }, { status: 404 });
+  const permissions = access.mobilePermissions;
 
   const ministries = (user.member?.memberMinistries ?? []).map((m: { ministry: { id: string; name: string } }) => ({
     id: m.ministry.id,
@@ -109,6 +107,7 @@ export async function GET(req: Request) {
         }
       : null,
     ministries,
+    access: { memberType: access.memberType, mobileModules: access.mobileModules, agendaScope: access.agendaScope },
     leadingCellIds: (user.member?.cellLeading ?? []).map((c: { id: string }) => c.id),
     projectionAccess: await getProjectionAccess(user.id),
     syncedAt: new Date(),

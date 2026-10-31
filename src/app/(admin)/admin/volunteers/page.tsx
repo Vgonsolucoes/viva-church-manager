@@ -1,3 +1,4 @@
+import { assertWebPermission } from "@/server/access-control";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { z } from "zod";
@@ -20,6 +21,7 @@ const createVolunteerSchema = z.object({
 
 async function createVolunteer(formData: FormData) {
   "use server";
+  await assertWebPermission("volunteers:write");
 
   const session = await getServerSession(authOptions);
   const parsed = createVolunteerSchema.safeParse({

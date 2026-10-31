@@ -41,7 +41,7 @@ const STATUS_BADGE_CLASS: Record<string, string> = {
 
 export default async function KidsImpressaoPage() {
   const session = await getServerSession(authOptions);
-  const canWrite = hasPermission((session?.roles ?? []) as RoleKey[], "kids:write");
+  const canWrite = hasPermission(session?.permissions ?? [], "kids:write");
 
   const [config, recentJobs, pendingCount] = await Promise.all([
     getKidsPrintConfig(),

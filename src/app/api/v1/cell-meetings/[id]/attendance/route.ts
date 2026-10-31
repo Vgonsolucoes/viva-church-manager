@@ -50,7 +50,7 @@ export async function POST(
 
   const isLeader =
     ctx.member?.id === cellMeeting.cell.leaderId;
-  const canWriteCells = hasPermission(ctx.roles, "cells:write");
+  const canWriteCells = hasPermission(ctx.permissions, "cells:write");
 
   if (!isLeader && !canWriteCells) {
     return NextResponse.json({ error: "PERMISSION_DENIED" }, { status: 403 });

@@ -77,15 +77,16 @@ export async function GET(req: Request) {
   const { from, to } = churchAgendaRange(range);
   await ensureWeeklyServices();
 
-  const canCalendarRead = hasPermission(ctx.roles, "calendar:read");
-  const canEventsRead = hasPermission(ctx.roles, "events:read");
-  const canSchedulesRead = hasPermission(ctx.roles, "schedules:read");
+  const ownAgenda = ctx.access.agendaScope !== "all";
+  const canCalendarRead = hasPermission(ctx.permissions, "calendar:read");
+  const canEventsRead = hasPermission(ctx.permissions, "events:read");
+  const canSchedulesRead = hasPermission(ctx.permissions, "schedules:read");
   const memberId = ctx.member?.id ?? ctx.user.member?.id;
 
   const items: AgendaItem[] = [];
 
   if (categoryAllowed(categories, "schedule")) {
-    if (canCalendarRead || canSchedulesRead) {
+    if (!ownAgenda && (canCalendarRead || canSchedulesRead)) {
       const schedules = await prisma.schedule.findMany({
         where: {
           startsAt: { gte: from, lt: to },
@@ -129,7 +130,7 @@ export async function GET(req: Request) {
     const eventWhere: Prisma.EventWhereInput = {
       startsAt: { gte: from, lt: to },
     };
-    if (!canCalendarRead && !canEventsRead) {
+    if (ownAgenda || (!canCalendarRead && !canEventsRead)) {
       eventWhere.public = true;
     }
     const events = await prisma.event.findMany({
@@ -173,7 +174,7 @@ export async function GET(req: Request) {
           });
         }
       }
-      if (canCalendarRead) {
+      if (!ownAgenda && canCalendarRead) {
         const allCells = await prisma.cell.findMany();
         const existingCellIds = new Set(items.filter((i) => i.type === "cell").map((i) => i.id));
         for (const c of allCells) {

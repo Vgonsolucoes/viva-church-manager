@@ -1,4 +1,5 @@
 "use server";
+import { assertWebPermission } from "@/server/access-control";
 
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
@@ -16,7 +17,7 @@ const initialError = (error: string): KidsServiceFormState => ({ ok: false, mess
 async function requireKidsWrite() {
   const session = await getServerSession(authOptions);
   const roles = (session?.roles ?? []) as RoleKey[];
-  if (!session?.uid || !hasPermission(roles, "kids:write")) return null;
+  if (!session?.uid || !hasPermission(session?.permissions ?? [], "kids:write")) return null;
   return session;
 }
 
@@ -42,6 +43,7 @@ export async function createKidsService(
   _prev: KidsServiceFormState,
   formData: FormData,
 ): Promise<KidsServiceFormState> {
+  await assertWebPermission("kids:write");
   const session = await requireKidsWrite();
   if (!session) return initialError("Sem permissão para gerenciar os horários dos cultos.");
 
@@ -97,6 +99,7 @@ export async function toggleKidsServiceActive(
   _prev: KidsServiceFormState,
   formData: FormData,
 ): Promise<KidsServiceFormState> {
+  await assertWebPermission("kids:write");
   const session = await requireKidsWrite();
   if (!session) return initialError("Sem permissão para gerenciar os horários dos cultos.");
 
@@ -142,6 +145,7 @@ export async function deleteKidsService(
   _prev: KidsServiceFormState,
   formData: FormData,
 ): Promise<KidsServiceFormState> {
+  await assertWebPermission("kids:write");
   const session = await requireKidsWrite();
   if (!session) return initialError("Sem permissão para gerenciar os horários dos cultos.");
 

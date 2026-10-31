@@ -1,4 +1,5 @@
 "use server";
+import { assertWebPermission } from "@/server/access-control";
 
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
@@ -23,7 +24,7 @@ const initialError = (error: string): KidsPrintConfigFormState => ({
 async function requireKidsWrite() {
   const session = await getServerSession(authOptions);
   const roles = (session?.roles ?? []) as RoleKey[];
-  if (!session?.uid || !hasPermission(roles, "kids:write")) return null;
+  if (!session?.uid || !hasPermission(session?.permissions ?? [], "kids:write")) return null;
   return session;
 }
 
@@ -38,6 +39,7 @@ export async function saveKidsPrintConfig(
   _prev: KidsPrintConfigFormState,
   formData: FormData,
 ): Promise<KidsPrintConfigFormState> {
+  await assertWebPermission("kids:write");
   const session = await requireKidsWrite();
   if (!session) return initialError("Sem permissão para configurar a impressão do Kids.");
 
@@ -80,6 +82,7 @@ export async function saveKidsPrintConfig(
 
 /** Reenvia uma etiqueta para a fila (FAILED/CANCELLED/PRINTED → PENDING). */
 export async function retryKidsPrintJob(formData: FormData) {
+  await assertWebPermission("kids:write");
   const session = await requireKidsWrite();
   if (!session) return;
 
@@ -108,6 +111,7 @@ export async function retryKidsPrintJob(formData: FormData) {
 
 /** Cancela uma etiqueta pendente (não será impressa). */
 export async function cancelKidsPrintJob(formData: FormData) {
+  await assertWebPermission("kids:write");
   const session = await requireKidsWrite();
   if (!session) return;
 

@@ -16,7 +16,7 @@ export async function GET(req: Request) {
   }
 
   const memberId = ctx.member.id;
-  const canWriteCells = hasPermission(ctx.roles, "cells:write");
+  const canWriteCells = hasPermission(ctx.permissions, "cells:write");
 
   const cells = await prisma.cell.findMany({
     where: {

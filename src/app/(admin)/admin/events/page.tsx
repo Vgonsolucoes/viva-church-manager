@@ -1,3 +1,4 @@
+import { assertWebPermission } from "@/server/access-control";
 import Image from "next/image";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
@@ -60,6 +61,7 @@ function parseOptionalPositiveInt(raw: string | undefined) {
 
 async function createEvent(formData: FormData) {
   "use server";
+  await assertWebPermission("events:write");
 
   const session = await getServerSession(authOptions);
   const parsed = createEventSchema.safeParse({
@@ -136,6 +138,7 @@ async function createEvent(formData: FormData) {
 
 async function createSale(formData: FormData) {
   "use server";
+  await assertWebPermission("events:write");
 
   const session = await getServerSession(authOptions);
   const parsed = createSaleSchema.safeParse({

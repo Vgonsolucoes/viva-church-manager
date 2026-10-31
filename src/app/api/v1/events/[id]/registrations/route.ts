@@ -32,7 +32,7 @@ export async function POST(
     );
   }
 
-  const canWrite = hasPermission(ctx.roles, "events:write");
+  const canWrite = hasPermission(ctx.permissions, "events:write");
   if (!event.public && !canWrite) {
     return NextResponse.json({ error: "PERMISSION_DENIED" }, { status: 403 });
   }

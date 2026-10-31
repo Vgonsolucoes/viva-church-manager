@@ -1,3 +1,7 @@
+import Link from "next/link";
+import { Card } from "@/components/ui/Card";
+import { getUserAccess } from "@/server/access-control";
+import { WEB_MODULES } from "@/lib/access-control";
 import { endOfMonth, startOfMonth } from "date-fns";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/server/auth";
@@ -15,6 +19,10 @@ function monthRange(date = new Date()) {
 export default async function AdminDashboardPage() {
   await ensureWeeklyServices();
   const session = await getServerSession(authOptions);
+  if (!session?.roles?.includes("SUPER_ADMIN")) {
+    const access = session?.uid ? await getUserAccess(session.uid) : null;
+    return <div className="space-y-5"><h1 className="text-xl font-semibold">Olá, {session?.user?.name ?? "bem-vindo"}</h1><p className="text-sm text-muted-foreground">Acesse os módulos liberados para o seu cadastro e seus ministérios.</p><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{WEB_MODULES.filter(m => m.key !== "dashboard" && access?.webModules.includes(m.key)).map(m => <Link key={m.key} href={m.path}><Card className="p-5 font-medium transition-colors hover:border-primary">{m.label}</Card></Link>)}</div></div>;
+  }
   const now = new Date();
 
   // Lazy close: mantém o contador "Crianças no Kids" coerente após o fim do culto.

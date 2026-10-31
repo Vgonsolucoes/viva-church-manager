@@ -47,6 +47,7 @@ export type PermissionKey =
   | "kids:read"
   | "kids:write"
   | "kids:checkin:self"
+  | "projects:read"
   | "assets:read"
   | "assets:write"
   | "lostfound:read"
@@ -90,6 +91,7 @@ export const MeSchema = z.object({
   member: MemberPayloadSchema.nullable(),
   ministries: z.array(z.object({ id: z.string(), name: z.string() })),
   leadingCellIds: z.array(z.string()),
+  access: z.object({ memberType: z.string().nullable(), mobileModules: z.array(z.string()), agendaScope: z.enum(["own", "all"]) }).optional(),
   projectionAccess: z.object({ KIDS: z.boolean(), PARKING: z.boolean() }).default({ KIDS: false, PARKING: false }),
   syncedAt: z.coerce.date(),
 });

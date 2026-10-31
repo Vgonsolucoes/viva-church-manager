@@ -1,4 +1,5 @@
 "use client";
+import { WEB_MODULES } from "@/lib/access-control";
 
 import Image from "next/image";
 import Link from "next/link";
@@ -43,12 +44,6 @@ type NavItem = {
     | Parameters<typeof hasPermission>[1]
     | Array<Parameters<typeof hasPermission>[1]>;
 };
-
-function allowsItem(roles: RoleKey[], permission: NavItem["permission"]) {
-  return Array.isArray(permission)
-    ? permission.some((p) => hasPermission(roles, p))
-    : hasPermission(roles, permission);
-}
 
 const navItems: NavItem[] = [
   {
@@ -194,6 +189,8 @@ export function AdminShell(props: {
     email?: string | null;
     image?: string | null;
     roles: RoleKey[];
+    permissions: string[];
+    webModules: string[];
     unreadNotifications: number;
     projectionAccess?: { KIDS: boolean; PARKING: boolean };
   };
@@ -204,8 +201,8 @@ export function AdminShell(props: {
   const [query, setQuery] = useState("");
   const [range, setRange] = useState<"today" | "week" | "month">("today");
 
-  const allowed = navItems.filter((i) => allowsItem(props.user.roles, i.permission) || (i.href === "/admin/parking" && props.user.projectionAccess?.PARKING));
-  const allowedExtra = extraItems.filter((i) => allowsItem(props.user.roles, i.permission));
+  const allowed = navItems.filter(i => WEB_MODULES.some(m => m.path === i.href && props.user.webModules.includes(m.key)));
+  const allowedExtra = extraItems.filter(i => WEB_MODULES.some(m => m.path === i.href && props.user.webModules.includes(m.key)));
 
   const initials = useMemo(() => {
     const name = props.user.name?.trim() || props.user.email?.trim() || "U";

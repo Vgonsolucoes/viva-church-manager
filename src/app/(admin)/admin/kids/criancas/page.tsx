@@ -42,7 +42,7 @@ export default async function KidsCriancasPage(props: {
 
   const session = await getServerSession(authOptions);
   // Dados médicos/sensíveis apenas para a equipe do Ministério Infantil.
-  const canSeeSensitive = hasPermission((session?.roles ?? []) as RoleKey[], "kids:write");
+  const canSeeSensitive = hasPermission(session?.permissions ?? [], "kids:write");
 
   const children = await prisma.child.findMany({
     where: query

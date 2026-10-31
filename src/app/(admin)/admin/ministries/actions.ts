@@ -35,7 +35,7 @@ async function requireMinistriesWrite(): Promise<
   if (!session?.uid) {
     return { ok: false, error: "Sessão expirada. Faça login novamente." };
   }
-  if (!hasPermission(roles, "ministries:write")) {
+  if (!hasPermission(session?.permissions ?? [], "ministries:write")) {
     return { ok: false, error: "Você não tem permissão para gerenciar ministérios." };
   }
   return { ok: true, actorUserId: session.uid };

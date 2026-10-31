@@ -1,3 +1,4 @@
+import { assertWebPermission } from "@/server/access-control";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { z } from "zod";
@@ -19,6 +20,7 @@ const createSchema = z.object({
 
 async function createItem(formData: FormData) {
   "use server";
+  await assertWebPermission("lostfound:write");
 
   const session = await getServerSession(authOptions);
   const parsed = createSchema.safeParse({
@@ -57,6 +59,7 @@ const updateSchema = z.object({
 
 async function updateStatus(formData: FormData) {
   "use server";
+  await assertWebPermission("lostfound:write");
 
   const session = await getServerSession(authOptions);
   const parsed = updateSchema.safeParse({

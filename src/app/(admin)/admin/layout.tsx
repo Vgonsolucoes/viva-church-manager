@@ -1,10 +1,11 @@
 import { getServerSession } from "next-auth";
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { authOptions } from "@/server/auth";
 import { prisma } from "@/server/db";
 import { hasPermission } from "@/server/rbac";
 import { safeImageSrcOrUndefined } from "@/lib/safe-image-src";
+import { getUserAccess } from "@/server/access-control";
 import { getProjectionAccess } from "@/server/projection-access";
 
 export const dynamic = "force-dynamic";
@@ -14,8 +15,10 @@ export default async function AdminLayout(props: { children: React.ReactNode }) 
     const session = await getServerSession(authOptions);
     if (!session) redirect("/login");
 
+    const access = session.uid ? await getUserAccess(session.uid) : null;
+    if (!access?.webEnabled) redirect("/login?error=WebAccessDenied");
     const roles = session.roles ?? [];
-    if (!hasPermission(roles, "admin:access")) redirect("/app");
+    if (!hasPermission(session?.permissions ?? [], "admin:access")) redirect("/app");
 
     const unreadNotifications = session.uid
       ? await prisma.notificationDelivery.count({
@@ -46,6 +49,8 @@ export default async function AdminLayout(props: { children: React.ReactNode }) 
           email: session.user?.email,
           image: resolvedAvatar ?? undefined,
           roles,
+          permissions: access.webPermissions,
+          webModules: access.webModules,
           unreadNotifications,
           projectionAccess: session.uid ? await getProjectionAccess(session.uid) : undefined,
         }}
@@ -54,6 +59,7 @@ export default async function AdminLayout(props: { children: React.ReactNode }) 
       </AdminShell>
     );
   } catch (err) {
+    unstable_rethrow(err);
     console.error("[admin] AdminLayout SSR render falhou:", err);
     return (
       <div className="min-h-screen bg-background text-foreground">
@@ -70,7 +76,7 @@ export default async function AdminLayout(props: { children: React.ReactNode }) 
               Ir para login
             </a>
           </div>
-          {props.children}
+
         </div>
       </div>
     );

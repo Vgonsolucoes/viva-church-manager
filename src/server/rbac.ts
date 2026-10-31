@@ -48,6 +48,7 @@ export type PermissionKey =
   | "kids:projection:view"
   | "parking:read"
   | "parking:projection:view"
+  | "projects:read"
   | "assets:read"
   | "assets:write"
   | "lostfound:read"
@@ -59,6 +60,7 @@ export type PermissionKey =
   | "notifications:read"
   | "notifications:write"
   | "reports:view"
+  | "settings:read"
   | "settings:manage"
   | "pastoral:notes:read"
   | "pastoral:notes:write"
@@ -350,12 +352,12 @@ export const rolePermissions: Record<RoleKey, PermissionKey[]> = {
   ],
 };
 
-export function hasPermission(roles: RoleKey[], permission: PermissionKey) {
-  return roles.some((r) => rolePermissions[r]?.includes(permission));
+export function hasPermission(subject: readonly string[], permission: PermissionKey) {
+  return subject.some(value => value === permission || rolePermissions[value as RoleKey]?.includes(permission));
 }
 
 export function allPermissionKeysArray(): PermissionKey[] {
-  const seen = new Set<PermissionKey>();
+  const seen = new Set<PermissionKey>(["projects:read", "settings:read"]);
   for (const perms of Object.values(rolePermissions)) {
     for (const p of perms) seen.add(p);
   }

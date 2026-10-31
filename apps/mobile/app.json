@@ -3,7 +3,7 @@
     "name": "Viva Church",
     "slug": "viva-church",
     "scheme": "vivachurch",
-    "version": "0.3.2",
+    "version": "0.4.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "icon": "./assets/icon.png",

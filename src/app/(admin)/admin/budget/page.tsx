@@ -1,3 +1,4 @@
+import { assertWebPermission } from "@/server/access-control";
 import { endOfMonth, startOfMonth } from "date-fns";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
@@ -28,6 +29,7 @@ const upsertSchema = z.object({
 
 async function upsertPlan(formData: FormData) {
   "use server";
+  await assertWebPermission("budget:write");
 
   const session = await getServerSession(authOptions);
   const parsed = upsertSchema.safeParse({

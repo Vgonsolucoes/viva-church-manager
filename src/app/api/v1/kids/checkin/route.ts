@@ -62,7 +62,7 @@ export async function POST(req: Request) {
   // um novo check-in com "já está no Kids".
   await closeEndedKidsSessions();
 
-  const canWrite = hasPermission(ctx.roles, "kids:write");
+  const canWrite = hasPermission(ctx.permissions, "kids:write");
   const allowedChildIds = canWrite ? null : await resolveGuardianChildIds(ctx);
 
   const uniqueChildIds = [...new Set(parsed.data.childIds)];

@@ -84,7 +84,7 @@ export async function POST(req: Request) {
   if (!logged.ok) return logged.error;
   const { ctx } = logged;
 
-  if (!hasPermission(ctx.roles, "kids:checkin:self")) {
+  if (!hasPermission(ctx.permissions, "kids:checkin:self")) {
     const err = requirePermission(ctx, "kids:checkin:self");
     if (err) return err;
   }

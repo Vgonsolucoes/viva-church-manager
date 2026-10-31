@@ -1,3 +1,4 @@
+import { assertWebPermission } from "@/server/access-control";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { z } from "zod";
@@ -22,6 +23,7 @@ const createCellSchema = z.object({
 
 async function createCell(formData: FormData) {
   "use server";
+  await assertWebPermission("cells:write");
 
   const session = await getServerSession(authOptions);
   const parsed = createCellSchema.safeParse({
@@ -67,6 +69,7 @@ const createMeetingSchema = z.object({
 
 async function createMeeting(formData: FormData) {
   "use server";
+  await assertWebPermission("cells:write");
 
   const session = await getServerSession(authOptions);
   const parsed = createMeetingSchema.safeParse({

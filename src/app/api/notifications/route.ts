@@ -1,13 +1,16 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/server/db";
-import { readSessionOrBearer } from "@/server/auth-jwt";
+import { requireLoggedIn, requirePermission } from "@/server/session-helpers";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
-  const session = await readSessionOrBearer(req);
-  if (!session?.uid) return NextResponse.json({ ok: false }, { status: 401 });
+  const auth = await requireLoggedIn(req);
+  if (!auth.ok) return auth.error;
+  const denied = requirePermission(auth.ctx, "notifications:read");
+  if (denied) return denied;
+  const session = { uid: auth.ctx.user.id };
 
   const deliveries = await prisma.notificationDelivery.findMany({
     where: { userId: session.uid },
@@ -35,8 +38,11 @@ export async function GET(req: Request) {
 const readSchema = z.object({ deliveryId: z.string().min(1) });
 
 export async function POST(req: Request) {
-  const session = await readSessionOrBearer(req);
-  if (!session?.uid) return NextResponse.json({ ok: false }, { status: 401 });
+  const auth = await requireLoggedIn(req);
+  if (!auth.ok) return auth.error;
+  const denied = requirePermission(auth.ctx, "notifications:read");
+  if (denied) return denied;
+  const session = { uid: auth.ctx.user.id };
 
   const body = await req.json().catch(() => null);
   const parsed = readSchema.safeParse(body);

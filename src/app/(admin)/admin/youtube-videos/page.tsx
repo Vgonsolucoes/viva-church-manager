@@ -10,8 +10,8 @@ export const dynamic = "force-dynamic";
 export default async function YoutubeVideosAdminPage() {
   const session = await getServerSession(authOptions);
   const roles = (session?.roles ?? []) as Parameters<typeof hasPermission>[0];
-  const canRead = hasPermission(roles, "youtube:read");
-  const canWrite = hasPermission(roles, "youtube:write");
+  const canRead = hasPermission(session?.permissions ?? [], "youtube:read");
+  const canWrite = hasPermission(session?.permissions ?? [], "youtube:write");
 
   const videosDb = canRead
     ? await prisma.youtubeVideo.findMany({

@@ -8,8 +8,8 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const logged = await requireLoggedIn(req);
   if (!logged.ok) return logged.error;
-  const kids = hasPermission(logged.ctx.roles, "kids:projection:view");
-  const parking = hasPermission(logged.ctx.roles, "parking:projection:view");
+  const kids = hasPermission(logged.ctx.permissions, "kids:projection:view");
+  const parking = hasPermission(logged.ctx.permissions, "parking:projection:view");
   if (!kids && !parking) return NextResponse.json({ error: "PERMISSION_DENIED" }, { status: 403 });
   const [kidsMessages, parkingMessages] = await Promise.all([
     kids ? listPendingProjectionMessages(50) : [],

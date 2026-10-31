@@ -9,7 +9,7 @@ export async function GET(req: Request) {
   if (!logged.ok) return logged.error;
   const { ctx } = logged;
 
-  const permErr = requirePermission(ctx, "calendar:read");
+  const permErr = requirePermission(ctx, "projects:read");
   if (permErr) return permErr;
 
   const projects = await prisma.fundraisingProject.findMany({

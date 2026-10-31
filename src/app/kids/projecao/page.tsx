@@ -20,7 +20,7 @@ export default async function KidsProjecaoPage() {
   }
 
   const roles = (session.roles ?? []) as RoleKey[];
-  if (!hasPermission(roles, "kids:projection:view") && !hasPermission(roles, "parking:projection:view")) {
+  if (!hasPermission(session?.permissions ?? [], "kids:projection:view") && !hasPermission(session?.permissions ?? [], "parking:projection:view")) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-black p-6 text-white">
         <div className="max-w-md rounded-2xl border border-red-500/40 bg-red-500/10 p-6 text-center">

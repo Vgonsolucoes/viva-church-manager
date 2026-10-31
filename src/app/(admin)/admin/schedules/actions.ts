@@ -1,4 +1,5 @@
 "use server";
+import { assertWebPermission } from "@/server/access-control";
 
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
@@ -51,6 +52,7 @@ function parseStartsAt(raw: string) {
 }
 
 export async function createSchedule(formData: FormData) {
+  await assertWebPermission("schedules:write");
   const session = await getServerSession(authOptions);
   const parsed = baseScheduleSchema.safeParse({
     title: formData.get("title"),
@@ -102,6 +104,7 @@ export async function updateSchedule(
   _prev: ScheduleFormState,
   formData: FormData,
 ): Promise<ScheduleFormState> {
+  await assertWebPermission("schedules:write");
   const fail = (error: string): ScheduleFormState => ({
     ok: false,
     message: "",
@@ -180,6 +183,7 @@ const addAssignmentSchema = z.object({
 });
 
 export async function addAssignment(formData: FormData) {
+  await assertWebPermission("schedules:write");
   const session = await getServerSession(authOptions);
   const parsed = addAssignmentSchema.safeParse({
     scheduleId: formData.get("scheduleId"),

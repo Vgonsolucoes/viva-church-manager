@@ -29,8 +29,8 @@ export default async function KidsProjecaoAdminPage() {
   const roles = (session?.roles ?? []) as RoleKey[];
   if (!session?.uid) redirect("/login");
   const canSend = (await getProjectionAccess(session.uid)).KIDS;
-  if (!canSend && !hasPermission(roles, "kids:read") && !hasPermission(roles, "kids:projection:view")) redirect("/admin");
-  const canViewScreen = hasPermission(roles, "kids:projection:view");
+  if (!canSend && !hasPermission(session?.permissions ?? [], "kids:read") && !hasPermission(session?.permissions ?? [], "kids:projection:view")) redirect("/admin");
+  const canViewScreen = hasPermission(session?.permissions ?? [], "kids:projection:view");
 
   // Lazy close: crianças de cultos já encerrados não devem ser elegíveis para chamado.
   await closeEndedKidsSessions();

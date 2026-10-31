@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 export default async function CadastroPublicoSettingsPage() {
   const session = await getServerSession(authOptions);
-  const canManage = hasPermission((session?.roles ?? []) as RoleKey[], "settings:manage");
+  const canManage = hasPermission(session?.permissions ?? [], "settings:manage");
   const enabled = await isPublicMemberRegistrationEnabled();
 
   return (

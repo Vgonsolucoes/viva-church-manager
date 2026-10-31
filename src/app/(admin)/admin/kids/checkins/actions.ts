@@ -1,4 +1,5 @@
 "use server";
+import { assertWebPermission } from "@/server/access-control";
 
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
@@ -9,9 +10,10 @@ import { hasPermission, type RoleKey } from "@/server/rbac";
 import { KIDS_CLOSE_REASON_CHECKED_OUT } from "@/server/kids-close";
 
 export async function checkOutFromPanel(formData: FormData) {
+  await assertWebPermission("kids:write");
   const session = await getServerSession(authOptions);
   const roles = (session?.roles ?? []) as RoleKey[];
-  if (!session?.uid || !hasPermission(roles, "kids:write")) return;
+  if (!session?.uid || !hasPermission(session?.permissions ?? [], "kids:write")) return;
 
   const checkInId = String(formData.get("checkInId") ?? "");
   if (!checkInId) return;

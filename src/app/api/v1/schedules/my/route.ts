@@ -14,7 +14,7 @@ export async function GET(req: Request) {
     return NextResponse.json([]);
   }
 
-  const canRead = hasPermission(ctx.roles as any, "schedules:read");
+  const canRead = hasPermission(ctx.permissions, "schedules:read");
   if (!canRead) {
     if (!ctx.volunteerProfile) {
       return NextResponse.json({ error: "PERMISSION_DENIED" }, { status: 403 });

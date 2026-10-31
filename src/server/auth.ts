@@ -3,6 +3,8 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import type { RoleKey } from "@/server/rbac";
 import { verifyUserCredentials } from "@/server/auth-jwt";
 
+import { getUserAccess } from "@/server/access-control";
+
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
@@ -19,6 +21,8 @@ export const authOptions: NextAuthOptions = {
           credentials?.password ?? "",
         );
         if (!user) return null;
+        const access = await getUserAccess(user.id);
+        if (!access?.webEnabled) throw new Error("Acesso disponível apenas pelo aplicativo. Procure a administração se precisar de acesso à web.");
         return {
           id: user.id,
           name: user.name,
@@ -42,7 +46,9 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       session.uid = token.uid;
-      session.roles = (token.roles ?? []) as RoleKey[];
+      const access = token.uid ? await getUserAccess(token.uid) : null;
+      session.roles = access?.roles ?? [];
+      session.permissions = access?.webEnabled ? access.webPermissions : [];
       if (session.user && token.picture) {
         session.user.image = token.picture;
       }

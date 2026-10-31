@@ -1,3 +1,4 @@
+import { assertWebPermission } from "@/server/access-control";
 import { endOfMonth, startOfMonth } from "date-fns";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
@@ -33,6 +34,7 @@ function parseMoneyToCents(raw: string) {
 
 async function createTransaction(formData: FormData) {
   "use server";
+  await assertWebPermission("finance:write");
 
   const session = await getServerSession(authOptions);
   const parsed = createTxSchema.safeParse({

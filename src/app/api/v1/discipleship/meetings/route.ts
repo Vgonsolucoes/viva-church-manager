@@ -44,8 +44,8 @@ export async function POST(req: Request) {
     );
   }
 
-  const canWriteAll = hasPermission(ctx.roles, "discipleships:write");
-  const canWriteMy = hasPermission(ctx.roles, "discipleship:my:write");
+  const canWriteAll = hasPermission(ctx.permissions, "discipleships:write");
+  const canWriteMy = hasPermission(ctx.permissions, "discipleship:my:write");
   const isDiscipler = ctx.member?.id === discipleship.disciplerId;
 
   if (!canWriteAll && !(canWriteMy && isDiscipler)) {

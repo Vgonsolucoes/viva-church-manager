@@ -134,7 +134,7 @@ async function createJourney(formData: FormData) {
   "use server";
 
   const session = await getServerSession(authOptions);
-  if (!session || !hasPermission(session.roles ?? [], "followup:write")) return;
+  if (!session || !hasPermission(session.permissions ?? [], "followup:write")) return;
 
   const parsed = createJourneySchema.safeParse({
     memberId: formData.get("memberId"),
@@ -219,7 +219,7 @@ async function updateJourney(formData: FormData) {
   "use server";
 
   const session = await getServerSession(authOptions);
-  if (!session || !hasPermission(session.roles ?? [], "followup:write")) return;
+  if (!session || !hasPermission(session.permissions ?? [], "followup:write")) return;
 
   const parsed = updateJourneySchema.safeParse({
     journeyId: formData.get("journeyId"),
@@ -366,7 +366,7 @@ async function recordCourseCompletion(formData: FormData) {
   "use server";
 
   const session = await getServerSession(authOptions);
-  if (!session || !hasPermission(session.roles ?? [], "followup:write")) return;
+  if (!session || !hasPermission(session.permissions ?? [], "followup:write")) return;
 
   const courseId = formData.get("courseId") as string;
   const memberId = formData.get("memberId") as string;
@@ -408,7 +408,7 @@ async function revokeCourseCompletion(formData: FormData) {
   "use server";
 
   const session = await getServerSession(authOptions);
-  if (!session || !hasPermission(session.roles ?? [], "followup:write")) return;
+  if (!session || !hasPermission(session.permissions ?? [], "followup:write")) return;
 
   const courseId = formData.get("courseId") as string;
   const memberId = formData.get("memberId") as string;
@@ -446,11 +446,11 @@ export default async function AcompanhamentoPage(props: {
   searchParams?: Promise<Record<string, string | string[]>>;
 }) {
   const session = await getServerSession(authOptions);
-  if (!session || !hasPermission(session.roles ?? [], "followup:read")) {
+  if (!session || !hasPermission(session.permissions ?? [], "followup:read")) {
     redirect("/admin");
   }
 
-  const canWrite = hasPermission(session.roles ?? [], "followup:write");
+  const canWrite = hasPermission(session.permissions ?? [], "followup:write");
 
   await ensureRequiredCourses();
 

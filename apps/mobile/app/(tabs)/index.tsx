@@ -101,7 +101,7 @@ export default function HomeScreen() {
   } = useQuery({
     queryKey: ["my-schedules-home"],
     queryFn: () => listMySchedules(),
-    enabled: initialized && !!me,
+    enabled: initialized && !!me && (!me.access || me.access.mobileModules.includes("schedules")),
     staleTime: 60_000,
   });
 
@@ -114,7 +114,7 @@ export default function HomeScreen() {
   } = useQuery<CellDetail | null>({
     queryKey: ["my-cell-home"],
     queryFn: () => getMyCell(),
-    enabled: initialized && !!me,
+    enabled: initialized && !!me && (!me.access || me.access.mobileModules.includes("cells")),
     staleTime: 5 * 60_000,
   });
 
@@ -142,11 +142,11 @@ export default function HomeScreen() {
   const onRefresh = useCallback(async () => {
     await Promise.all([
       refreshMe(true),
-      refetchSchedules(),
-      refetchCell(),
+      ...(!me?.access || me.access.mobileModules.includes("schedules") ? [refetchSchedules()] : []),
+      ...(!me?.access || me.access.mobileModules.includes("cells") ? [refetchCell()] : []),
       refetchEvents(),
     ]);
-  }, [refreshMe, refetchSchedules, refetchCell, refetchEvents]);
+  }, [refreshMe, refetchSchedules, refetchCell, refetchEvents, me?.access]);
 
   const feed = useMemo(() => splitUpcomingEvents(eventsList ?? []), [eventsList]);
 

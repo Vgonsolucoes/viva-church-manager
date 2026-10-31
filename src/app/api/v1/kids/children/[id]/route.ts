@@ -80,7 +80,7 @@ export async function PUT(req: Request, context: RouteContext) {
             memberName.trim().toLowerCase()) ||
         (memberPhone && g.phone === memberPhone),
     );
-  const canManage = hasPermission(ctx.roles, "kids:write");
+  const canManage = hasPermission(ctx.permissions, "kids:write");
 
   if (!linkedByMember && !legacyMatched && !canManage) {
     return NextResponse.json({ error: "PERMISSION_DENIED" }, { status: 403 });

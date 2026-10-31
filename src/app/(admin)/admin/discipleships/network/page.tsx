@@ -52,8 +52,8 @@ export default async function DiscipleshipsNetworkPage(props: { searchParams?: S
   const session = await getServerSession(authOptions);
   if (!session) redirect("/admin");
   const roles = session.roles ?? [];
-  const canViewAll = hasPermission(roles, "discipleships:read");
-  const canViewMine = hasPermission(roles, "discipleship:my:read");
+  const canViewAll = hasPermission(session?.permissions ?? [], "discipleships:read");
+  const canViewMine = hasPermission(session?.permissions ?? [], "discipleship:my:read");
   if (!canViewAll && !canViewMine) redirect("/admin");
 
   // O membro do usuário autenticado é sempre resolvido no backend (nunca vem do navegador).

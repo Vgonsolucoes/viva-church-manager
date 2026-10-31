@@ -16,11 +16,12 @@ async function isMinistryLeaderOfSchedule(
     volunteerProfile: { id: string; ministryId?: string | null } | null;
     user: { id: string; member?: { memberMinistries: { ministry: { id: string } }[] } | null };
     roles: string[];
+    permissions: string[];
     member: { memberMinistries: { ministry: { id: string; name: string } }[] } | null;
   },
   scheduleMinistryId: string | null
 ): Promise<boolean> {
-  const canWrite = hasPermission(ctx.roles as any, "schedules:write");
+  const canWrite = hasPermission(ctx.permissions, "schedules:write");
   if (canWrite) return true;
 
   if (!scheduleMinistryId) return false;
@@ -63,7 +64,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
 
   const { status } = parsed.data;
-  const canWrite = hasPermission(ctx.roles as any, "schedules:write");
+  const canWrite = hasPermission(ctx.permissions, "schedules:write");
   const isLeader = await isMinistryLeaderOfSchedule(ctx, substitutionRequest.assignment.schedule.ministryId);
 
   if (status === "VOLUNTEER_B_ACCEPTED") {

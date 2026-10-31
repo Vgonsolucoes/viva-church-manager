@@ -19,7 +19,7 @@ const originalLoad = Module._load;
 Module._load = function(request, parent, isMain) {
   if (request === '@/server/db') return { prisma: db };
   if (request === '@/server/session-helpers') return { requireLoggedIn: async () => authUid
-    ? { ok: true, ctx: { user: { id: authUid }, roles: authRoles } }
+    ? { ok: true, ctx: { user: { id: authUid }, roles: authRoles, permissions: require("../src/server/rbac.ts").allPermissionKeysArray().filter(p => require("../src/server/rbac.ts").hasPermission(authRoles,p)) } }
     : { ok: false, error: new Response(null, { status: 401 }) } };
   if (request === '@/server/audit') return { logAudit: async () => {} };
   if (request === '@/server/kids-services') return { getActiveKidsService: async () => ({ ok: true, service: { id: 'service-1' } }) };

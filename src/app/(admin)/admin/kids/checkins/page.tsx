@@ -32,7 +32,7 @@ function initialsOf(name: string): string {
 
 export default async function KidsCheckinsPage() {
   const session = await getServerSession(authOptions);
-  const canWrite = hasPermission((session?.roles ?? []) as RoleKey[], "kids:write");
+  const canWrite = hasPermission(session?.permissions ?? [], "kids:write");
 
   // Lazy close: encerra administrativamente sessões de cultos já finalizados
   // antes de montar a visão do painel.

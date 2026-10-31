@@ -44,7 +44,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 
   const isOwner = !!ctx.volunteerProfile && assignment.volunteerId === ctx.volunteerProfile.id;
-  const canWrite = hasPermission(ctx.roles as any, "schedules:write");
+  const canWrite = hasPermission(ctx.permissions, "schedules:write");
 
   if (!isOwner && !canWrite) {
     const perm = requirePermission(ctx, "schedules:write");

@@ -196,7 +196,7 @@ async function createDiscipleship(formData: FormData) {
   "use server";
 
   const session = await getServerSession(authOptions);
-  if (!session || !hasPermission(session.roles ?? [], "discipleships:write")) return;
+  if (!session || !hasPermission(session.permissions ?? [], "discipleships:write")) return;
   const parsed = createSchema.safeParse({
     discipleId: formData.get("discipleId"),
     disciplerId: formData.get("disciplerId"),
@@ -272,7 +272,7 @@ async function updateStatus(formData: FormData) {
   "use server";
 
   const session = await getServerSession(authOptions);
-  if (!session || !hasPermission(session.roles ?? [], "discipleships:write")) return;
+  if (!session || !hasPermission(session.permissions ?? [], "discipleships:write")) return;
   const parsed = statusSchema.safeParse({
     id: formData.get("id"),
     status: formData.get("status"),
@@ -354,8 +354,8 @@ async function registerMeeting(formData: FormData) {
 
   const session = await getServerSession(authOptions);
   if (!session) return;
-  const canWriteAll = hasPermission(session.roles ?? [], "discipleships:write");
-  const canWriteMine = hasPermission(session.roles ?? [], "discipleship:my:write");
+  const canWriteAll = hasPermission(session.permissions ?? [], "discipleships:write");
+  const canWriteMine = hasPermission(session.permissions ?? [], "discipleship:my:write");
   if (!canWriteAll && !canWriteMine) return;
   const parsed = meetingSchema.safeParse({
     discipleshipId: formData.get("discipleshipId"),
@@ -460,7 +460,7 @@ async function transferDisciple(formData: FormData) {
   "use server";
 
   const session = await getServerSession(authOptions);
-  if (!session || !hasPermission(session.roles ?? [], "discipleships:write")) return;
+  if (!session || !hasPermission(session.permissions ?? [], "discipleships:write")) return;
   const parsed = transferSchema.safeParse({
     discipleshipId: formData.get("discipleshipId"),
     newDisciplerId: formData.get("newDisciplerId"),
@@ -545,7 +545,7 @@ async function endDiscipleship(formData: FormData) {
   "use server";
 
   const session = await getServerSession(authOptions);
-  if (!session || !hasPermission(session.roles ?? [], "discipleships:write")) return;
+  if (!session || !hasPermission(session.permissions ?? [], "discipleships:write")) return;
   const parsed = endSchema.safeParse({
     id: formData.get("id"),
     reason: formData.get("reason"),
@@ -656,11 +656,11 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
   const session = await getServerSession(authOptions);
   if (!session) redirect("/admin");
   const roles = session.roles ?? [];
-  const canViewAll = hasPermission(roles, "discipleships:read");
-  const canViewMine = hasPermission(roles, "discipleship:my:read");
+  const canViewAll = hasPermission(session?.permissions ?? [], "discipleships:read");
+  const canViewMine = hasPermission(session?.permissions ?? [], "discipleship:my:read");
   if (!canViewAll && !canViewMine) redirect("/admin");
-  const canWrite = hasPermission(roles, "discipleships:write");
-  const canRegisterMeeting = canWrite || hasPermission(roles, "discipleship:my:write");
+  const canWrite = hasPermission(session?.permissions ?? [], "discipleships:write");
+  const canRegisterMeeting = canWrite || hasPermission(session?.permissions ?? [], "discipleship:my:write");
 
   // O membro do usuário autenticado é sempre resolvido no backend (nunca vem do navegador).
   const currentUser = await prisma.user.findUnique({

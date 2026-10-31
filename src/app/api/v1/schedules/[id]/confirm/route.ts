@@ -17,7 +17,7 @@ async function findAssignmentWithAccess(
   if (!assignment) return { assignment: null, isOwner: false, canWrite: false };
 
   const isOwner = !!ctx.volunteerProfile && assignment.volunteerId === ctx.volunteerProfile.id;
-  const canWrite = hasPermission(ctx.roles as any, "schedules:write");
+  const canWrite = hasPermission(ctx.permissions, "schedules:write");
 
   return { assignment, isOwner, canWrite };
 }

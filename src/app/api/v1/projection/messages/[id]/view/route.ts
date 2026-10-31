@@ -13,7 +13,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const channel = projectionChannelSchema.safeParse(body?.channel);
   if (!channel.success) return NextResponse.json({ error: "Canal inválido." }, { status: 400 });
   const permission = channel.data === "KIDS" ? "kids:projection:view" : "parking:projection:view";
-  if (!hasPermission(logged.ctx.roles, permission)) return NextResponse.json({ error: "PERMISSION_DENIED" }, { status: 403 });
+  if (!hasPermission(logged.ctx.permissions, permission)) return NextResponse.json({ error: "PERMISSION_DENIED" }, { status: 403 });
   const { id } = await params;
   const result = channel.data === "KIDS"
     ? await markProjectionMessageViewed(id, logged.ctx.user.id)

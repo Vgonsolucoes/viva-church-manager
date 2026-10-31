@@ -1,4 +1,5 @@
 "use server";
+import { assertWebPermission } from "@/server/access-control";
 
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/server/auth";
@@ -32,6 +33,7 @@ function mapError(error: unknown): string {
 }
 
 export async function whatsappGetStatus(): Promise<WhatsAppActionResult> {
+  await assertWebPermission("settings:manage");
   if (!(await requireSession())) {
     return { ok: false, configured: false, exists: false, state: "unknown", qrcodeBase64: null, error: "Sessão expirada. Faça login novamente." };
   }
@@ -55,6 +57,7 @@ export async function whatsappGetStatus(): Promise<WhatsAppActionResult> {
 }
 
 export async function whatsappCreateAndGetQr(): Promise<WhatsAppActionResult> {
+  await assertWebPermission("settings:manage");
   if (!(await requireSession())) {
     return { ok: false, configured: false, exists: false, state: "unknown", qrcodeBase64: null, error: "Sessão expirada. Faça login novamente." };
   }
@@ -95,6 +98,7 @@ export async function whatsappCreateAndGetQr(): Promise<WhatsAppActionResult> {
 }
 
 export async function whatsappRefreshQr(): Promise<WhatsAppActionResult> {
+  await assertWebPermission("settings:manage");
   if (!(await requireSession())) {
     return { ok: false, configured: false, exists: false, state: "unknown", qrcodeBase64: null, error: "Sessão expirada. Faça login novamente." };
   }
@@ -114,6 +118,7 @@ export async function whatsappRefreshQr(): Promise<WhatsAppActionResult> {
 }
 
 export async function whatsappDisconnect(): Promise<WhatsAppActionResult> {
+  await assertWebPermission("settings:manage");
   if (!(await requireSession())) {
     return { ok: false, configured: false, exists: false, state: "unknown", qrcodeBase64: null, error: "Sessão expirada. Faça login novamente." };
   }
@@ -126,6 +131,7 @@ export async function whatsappDisconnect(): Promise<WhatsAppActionResult> {
 }
 
 export async function whatsappDeleteInstance(): Promise<WhatsAppActionResult> {
+  await assertWebPermission("settings:manage");
   if (!(await requireSession())) {
     return { ok: false, configured: false, exists: false, state: "unknown", qrcodeBase64: null, error: "Sessão expirada. Faça login novamente." };
   }

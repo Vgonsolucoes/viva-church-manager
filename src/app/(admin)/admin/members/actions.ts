@@ -1,4 +1,5 @@
 "use server";
+import { assertWebPermission } from "@/server/access-control";
 
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
@@ -287,6 +288,7 @@ export async function createMember(
   _prevState: MemberActionResult,
   formData: FormData,
 ): Promise<MemberActionResult> {
+  await assertWebPermission("members:write");
   try {
     const session = await getServerSession(authOptions);
     const parsed = createMemberSchema.safeParse({
@@ -543,6 +545,7 @@ export async function updateMember(
   _prevState: MemberActionResult,
   formData: FormData,
 ): Promise<MemberActionResult> {
+  await assertWebPermission("members:write");
   try {
     const session = await getServerSession(authOptions);
     const parsed = updateMemberSchema.safeParse({

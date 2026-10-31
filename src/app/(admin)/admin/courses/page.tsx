@@ -94,7 +94,7 @@ async function saveCourse(formData: FormData) {
   "use server";
 
   const session = await getServerSession(authOptions);
-  if (!session?.uid || !hasPermission(session.roles ?? [], "courses:write")) return;
+  if (!session?.uid || !hasPermission(session.permissions ?? [], "courses:write")) return;
 
   const courseId = String(formData.get("courseId") ?? "");
   const existing = courseId ? await prisma.course.findUnique({ where: { id: courseId } }) : null;
@@ -220,7 +220,7 @@ function inputDate(value: Date | null | undefined) {
 export default async function CoursesPage({ searchParams }: { searchParams: Promise<{ edit?: string; saved?: string; error?: string }> }) {
   const query = await searchParams;
   const session = await getServerSession(authOptions);
-  const canWrite = hasPermission(session?.roles ?? [], "courses:write");
+  const canWrite = hasPermission(session?.permissions ?? [], "courses:write");
 
   // Garante que os cursos predefinidos da trilha obrigatória existam
   await ensureRequiredCourses();

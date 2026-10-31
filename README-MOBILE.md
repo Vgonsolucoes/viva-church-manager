@@ -606,3 +606,14 @@ Documentação cobre preparo, não execução de loja.
 4. **Expo Doctor** não rodou no sandbox TRAE (bloqueio à pasta .expo); validar na máquina do dev com `npx expo-doctor` 1x antes release.
 5. **Apple Push Key (.p8)** ainda não anexada ao Expo; vincular quando conta Apple Developer disponível.
 6. **Keystore Android**: EAS cloud cria upload keystore automaticamente na 1ª build; após 1ª Play Store NÃO PERCA. Faça backup (exp.dev → credentials → backup keystore file + senhas).
+
+## Controle de acessos (web e APK)
+
+- Configure em **Configurações → Controle de acessos de usuário**. Somente o Super Administrador pode salvar as regras; seu acesso total é preservado.
+- Regras persistem em `AppSetting.user-access-control:v1`, sem migração. Cada perfil salvo substitui o padrão daquele tipo, ministério ou responsabilidade. Ministérios ativos e perfis se somam; Visitante e Novo Membro usam somente sua regra de tipo, salvo Super Administrador.
+- Padrões de Acolher: Agenda, Membros, Acompanhamento, Voluntários, Células e reuniões, Achados e perdidos. Kids: Ministério Infantil, Agenda, Achados e perdidos. Estacionamento mantém Estacionamento, Agenda e Achados e perdidos.
+- Membro, Visitante e Novo Membro recebem Início, agenda pessoal, Cultos Fixos, Eventos, Células, Discipulado, Projetos, Oração, Infantil e Notificações. O terceiro ícone será Infantil quando Escalas não estiver liberado. Perfil pessoal permanece disponível.
+- Agenda pessoal filtra escalas pelo voluntário autenticado, células e discipulado por vínculo; inclui eventos públicos da igreja. A opção Agenda geral pode ser liberada explicitamente.
+- APIs e ações consultam os acessos atuais; o JWT não mantém uma concessão revogada. O APK renova o menu ao voltar ao aplicativo, ao atualizar a tela e ao abrir telas após 30 segundos. Ao mudar de permissões, limpa dados em memória de consultas anteriores.
+- Infantil no APK permite acessar somente filhos vinculados. Avisos de projeção exigem simultaneamente o módulo liberado e o vínculo ativo no ministério do canal.
+- Rotas web usam `src/proxy.ts` no runtime Node do Next 16. Telas e ações usam permissões efetivas; papéis originais continuam separados para identificar responsabilidades e Super Administrador.

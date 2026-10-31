@@ -49,7 +49,7 @@ const MENU: MenuItemDef[] = [
   {
     key: "projects",
     href: "/igreja/projetos",
-    anyPermission: ["assets:read"],
+    anyPermission: ["projects:read"],
   },
   {
     key: "prayer",
@@ -95,7 +95,8 @@ export default function IgrejaScreen() {
 
   const visibleItems = useMemo(() => {
     return MENU.filter((item) => {
-      if (item.projectionChannel) return Boolean(me?.projectionAccess?.[item.projectionChannel]);
+      if (item.projectionChannel) return Boolean(me?.projectionAccess?.[item.projectionChannel]) && (!me?.access || me.access.mobileModules.includes(item.key));
+      if (me?.access) return me.access.mobileModules.includes(item.key);
       if (isSuper) return true;
       if (item.requirePermission) {
         if (!hasPermission(permissions, item.requirePermission)) return false;
@@ -105,7 +106,7 @@ export default function IgrejaScreen() {
       }
       return true;
     });
-  }, [permissions, isSuper, me?.projectionAccess]);
+  }, [permissions, isSuper, me?.projectionAccess, me?.access]);
 
   const onRefresh = useCallback(async () => {
     await refetch();
