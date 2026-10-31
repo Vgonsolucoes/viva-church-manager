@@ -28,7 +28,7 @@ export default async function KidsProjecaoAdminPage() {
   const session = await getServerSession(authOptions);
   const roles = (session?.roles ?? []) as RoleKey[];
   if (!session?.uid) redirect("/login");
-  const canSend = (await getProjectionAccess(session.uid)).KIDS;
+  const canSend = (await getProjectionAccess(session.uid)).KIDS && hasPermission(session.permissions ?? [], "kids:write");
   if (!canSend && !hasPermission(session?.permissions ?? [], "kids:read") && !hasPermission(session?.permissions ?? [], "kids:projection:view")) redirect("/admin");
   const canViewScreen = hasPermission(session?.permissions ?? [], "kids:projection:view");
 

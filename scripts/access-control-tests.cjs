@@ -55,3 +55,11 @@ test('Saving access requires super admin and the persisted policy is used by the
  actor={uid:'volunteer',roles:['VOLUNTEER']};assert.equal((await action.saveAccessProfile('types','MEMBER',{...profile,webEnabled:true,web:{finance:'write'}})).ok,false);assert.equal(writes,1);
  actor={uid:'super',roles:['SUPER_ADMIN']};assert.equal((await action.saveAccessProfile('roles','SUPER_ADMIN',profile)).ok,false);assert.equal(writes,1);
 });
+test('Direct projection API honors APK module revocation and read-only web grants',async()=>{
+ let access={...resolve(identity('VOLUNTEER',[ministry('k','Kids')],['VOLUNTEER'])),roles:['VOLUNTEER']};
+ const helpers=load('src/server/session-helpers.ts',{'next/server':{NextResponse:{json:(body,options)=>({status:options.status,body})}},'@/server/db':{prisma:{user:{findUnique:async()=>({id:'u1',roles:[{role:'VOLUNTEER'}],member:{id:'m1',memberMinistries:[],volunteerProfile:null}})}}},'@/server/access-control':{getUserAccess:async()=>access},'./auth-jwt':{readSessionOrBearer:async()=>({uid:'u1'})},'@/server/rbac':rbac});
+ const request=(method,mobile)=>new Request('https://viva.example/api/v1/projection/requests?channel=KIDS',{method,headers:{...(mobile?{Authorization:'Bearer valid-token'}:{}),'Content-Type':'application/json'},...(method==='POST'?{body:JSON.stringify({channel:'KIDS',childId:'child1'})}:{})});
+ assert.equal((await helpers.requireLoggedIn(request('POST',true))).ok,true);
+ access={...access,mobileModules:access.mobileModules.filter(key=>key!=='kidsProjection')};assert.equal((await helpers.requireLoggedIn(request('POST',true))).error.status,403);
+ access={...access,webPermissions:['admin:access','kids:read'],webModules:['kids']};assert.equal((await helpers.requireLoggedIn(request('GET',false))).ok,true);assert.equal((await helpers.requireLoggedIn(request('POST',false))).error.status,403);
+});
