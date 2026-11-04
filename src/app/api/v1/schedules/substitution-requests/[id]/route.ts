@@ -65,7 +65,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const { status } = parsed.data;
   const canWrite = hasPermission(ctx.permissions, "schedules:write");
-  const isLeader = await isMinistryLeaderOfSchedule(ctx, substitutionRequest.assignment.schedule.ministryId);
+  const isLeader = await isMinistryLeaderOfSchedule(ctx, substitutionRequest.assignment.ministryId ?? substitutionRequest.assignment.schedule.ministryId);
 
   if (status === "VOLUNTEER_B_ACCEPTED") {
     if (!ctx.volunteerProfile || substitutionRequest.toVolunteerId !== ctx.volunteerProfile.id) {
@@ -109,11 +109,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
           scheduleId: substitutionRequest.assignment.schedule.id,
           volunteerId: substitutionRequest.toVolunteerId,
           roleName: originalAssignment.roleName,
+          ministryId: originalAssignment.ministryId ?? substitutionRequest.assignment.schedule.ministryId,
           status: "CONFIRMED",
           confirmedAt: new Date(),
           justification: JSON.stringify({ reason: "SUBSTITUTION_APPROVED" }),
         },
         update: {
+          ministryId: originalAssignment.ministryId ?? substitutionRequest.assignment.schedule.ministryId,
           status: "CONFIRMED",
           confirmedAt: new Date(),
           justification: JSON.stringify({ reason: "SUBSTITUTION_APPROVED" }),

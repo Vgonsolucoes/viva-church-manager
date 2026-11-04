@@ -39,9 +39,12 @@ export async function GET(req: Request) {
       },
     },
     include: {
+      ministry: true,
       schedule: {
         include: {
           ministry: true,
+          event: { select: { location: true } },
+          course: { select: { location: true } },
         },
       },
       substitutionRequests: {
@@ -63,6 +66,12 @@ export async function GET(req: Request) {
 
   const result = assignments.map((a: any) => ({
     ...a,
+    schedule: {
+      ...a.schedule,
+      ministry: a.ministry ?? a.schedule.ministry,
+      ministryId: a.ministryId ?? a.schedule.ministryId,
+      location: a.schedule.event?.location ?? a.schedule.course?.location ?? null,
+    },
     substitutionRequested: a.substitutionRequests.length > 0,
     substitutionRequests: undefined,
   }));

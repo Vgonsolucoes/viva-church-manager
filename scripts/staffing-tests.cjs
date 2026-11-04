@@ -30,3 +30,11 @@ test('A new dated course opens its linked scheduling pendency',async()=>{
  const form=new FormData();for(const [key,value] of Object.entries({courseId:'',title:'Curso Integração',description:'',details:'',instructorName:'',startsAt:'2026-11-09T19:00',endsAt:'',location:'Sede',bannerImageUrl:'',audience:'BOTH',trackOrder:''}))form.set(key,value);
  await assert.rejects(exports.saveCourse(form),/\/admin\/schedules\?month=2026-11.*focus=staffing-course-course-new/);assert.equal(linked.id,created.id);assert.equal(created.startsAt.toISOString(),'2026-11-09T22:00:00.000Z');
 });
+test('Mobile assignments keep their serving ministry and provide the location required by the current APK',async()=>{
+ const item={id:'a1',scheduleId:'s1',volunteerId:'v1',roleName:'Recepção',status:'PENDING',confirmedAt:null,ministryId:'acolher',ministry:{id:'acolher'},schedule:{id:'s1',title:'Culto',startsAt:now,endsAt:null,ministryId:null,ministry:null,event:{location:'Sede'},course:null},substitutionRequests:[]};
+ const route=load('src/app/api/v1/schedules/my/route.ts',{'next/server':{NextResponse:{json:value=>value}},'@/server/db':{prisma:{scheduleAssignment:{findMany:async()=>[item]}}},'@/server/session-helpers':{requireLoggedIn:async()=>({ok:true,ctx:{volunteerProfile:{id:'v1'},permissions:['schedules:read']}})},'@/server/rbac':{hasPermission:()=>true}});
+ const result=await route.GET({url:'https://church.test/api/v1/schedules/my'});
+ const mobile=load('apps/mobile/src/types/index.ts',{zod:require('zod')});
+ const parsed=mobile.ScheduleAssignmentSchema.parse(result[0]);assert.equal(parsed.schedule.ministryId,'acolher');assert.equal(parsed.schedule.location,'Sede');
+ item.schedule.event=null;assert.equal((await route.GET({url:'https://church.test/api/v1/schedules/my'}))[0].schedule.location,null);
+});
