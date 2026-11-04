@@ -1,3 +1,7 @@
+import { syncStaffingSchedule } from "@/server/staffing";
+import { staffingUrl } from "@/lib/staffing";
+import { hasPermission } from "@/server/rbac";
+import { redirect } from "next/navigation";
 import { assertWebPermission } from "@/server/access-control";
 import Image from "next/image";
 import { revalidatePath } from "next/cache";
@@ -72,11 +76,11 @@ async function createEvent(formData: FormData) {
     location: formData.get("location"),
     bannerImageUrl: formData.get("bannerImageUrl"),
     capacity: formData.get("capacity"),
-    isPaid: formData.get("isPaid"),
+    isPaid: formData.get("isPaid") ?? undefined,
     ticketPrice: formData.get("ticketPrice"),
-    allowPix: formData.get("allowPix"),
-    allowCreditCard: formData.get("allowCreditCard"),
-    public: formData.get("public"),
+    allowPix: formData.get("allowPix") ?? undefined,
+    allowCreditCard: formData.get("allowCreditCard") ?? undefined,
+    public: formData.get("public") ?? undefined,
   });
   if (!parsed.success) return;
 
@@ -100,8 +104,8 @@ async function createEvent(formData: FormData) {
     data: {
       name: parsed.data.name.trim(),
       type: parsed.data.type,
-      startsAt: new Date(parsed.data.startsAt),
-      endsAt: parsed.data.endsAt ? new Date(parsed.data.endsAt) : null,
+      startsAt: new Date(`${parsed.data.startsAt}-03:00`),
+      endsAt: parsed.data.endsAt ? new Date(`${parsed.data.endsAt}-03:00`) : null,
       location: parsed.data.location ? parsed.data.location.trim() : null,
       bannerImageUrl,
       capacity,
@@ -133,7 +137,10 @@ async function createEvent(formData: FormData) {
     },
   });
 
+  const staffingId = await syncStaffingSchedule(event);
   revalidatePath("/admin/events");
+  revalidatePath("/admin/schedules");
+  if (staffingId && hasPermission(session?.permissions ?? [], "schedules:read")) redirect(staffingUrl(staffingId, event.startsAt));
 }
 
 async function createSale(formData: FormData) {

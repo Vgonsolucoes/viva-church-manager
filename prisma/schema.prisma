@@ -262,6 +262,7 @@ model Ministry {
   memberMinistries MemberMinistry[]
   volunteers VolunteerProfile[]
   schedules  Schedule[]
+  scheduleAssignments ScheduleAssignment[]
   pastorResponsibilities PastorProfile[] @relation("MinistryPastorResponsibility")
   budgetPlans            BudgetPlan[]    @relation("BudgetPlanMinistry")
   financeTransactions    FinanceTransaction[] @relation("FinanceTransactionMinistry")
@@ -443,6 +444,8 @@ model Schedule {
   endsAt      DateTime?
   ministryId  String?
   eventId     String?
+  courseId    String?
+  staffingCompletedAt DateTime?
   notes       String?
   createdById String?
   createdAt   DateTime      @default(now())
@@ -450,11 +453,14 @@ model Schedule {
 
   ministry   Ministry? @relation(fields: [ministryId], references: [id], onDelete: SetNull)
   event      Event?    @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  course     Course?   @relation(fields: [courseId], references: [id], onDelete: SetNull)
   createdBy  User?     @relation("ScheduleCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   assignments ScheduleAssignment[]
 
   @@index([startsAt])
   @@index([kind])
+  @@index([eventId])
+  @@index([courseId])
 }
 
 model ScheduleAssignment {
@@ -462,18 +468,21 @@ model ScheduleAssignment {
   scheduleId  String
   volunteerId String
   roleName    String
+  ministryId  String?
   status      AssignmentStatus @default(PENDING)
   justification String?
   confirmedAt DateTime?
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
 
+  ministry  Ministry?        @relation(fields: [ministryId], references: [id], onDelete: SetNull)
   schedule  Schedule         @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
   volunteer VolunteerProfile @relation(fields: [volunteerId], references: [id], onDelete: Cascade)
   substitutionRequests ScheduleSubstitutionRequest[] @relation("SubstitutionAssignment")
 
   @@index([scheduleId])
   @@index([volunteerId])
+  @@index([ministryId])
   @@index([status])
   @@unique([scheduleId, volunteerId, roleName])
 }
@@ -559,6 +568,7 @@ model Course {
 
   createdBy      User?             @relation("CourseCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   completions    CourseCompletion[]
+  schedules      Schedule[]
 
   @@index([startsAt])
   @@index([audience])

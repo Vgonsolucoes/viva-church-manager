@@ -1,3 +1,4 @@
+import { syncStaffingSchedule } from "@/server/staffing";
 import { z } from "zod";
 import { prisma } from "@/server/db";
 import { WEEKLY_SERVICES, weeklyOccurrences, type WeeklyServiceConfig } from "@/lib/weekly-services";
@@ -30,6 +31,7 @@ export async function ensureWeeklyServices(now = new Date()) {
     const occupied = new Set(existing.map(event => event.startsAt.toISOString()));
     const occurrences = weeklyOccurrences(from, to, configs).filter(event => !occupied.has(event.startsAt.toISOString()));
     if (occurrences.length) await prisma.event.createMany({ data: occurrences.map(event => ({ ...event, type: "SERVICE" as const, public: true, ministriesInvolved: [] })), skipDuplicates: true });
+    for (const event of occurrences) await syncStaffingSchedule({ ...event, type: "SERVICE", endsAt: null }, now);
     // Reconcile already-created future occurrences when series are grouped or
     // their shared artwork changes; preserve IDs, past services and manual events.
     for (const config of configs) {

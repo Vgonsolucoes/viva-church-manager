@@ -11,7 +11,7 @@ export default async function CalendarAdminPage() {
   const [events, schedules, courses] = await Promise.all([
     prisma.event.findMany({ where: { startsAt: { gte: now } }, orderBy: { startsAt: "asc" }, take: 20 }),
     prisma.schedule.findMany({
-      where: { startsAt: { gte: now } },
+      where: { startsAt: { gte: now }, OR: [{ id: { not: { startsWith: "staffing-" } } }, { assignments: { some: {} } }] },
       orderBy: { startsAt: "asc" },
       take: 20,
       include: { ministry: true },

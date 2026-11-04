@@ -90,6 +90,7 @@ export async function GET(req: Request) {
       const schedules = await prisma.schedule.findMany({
         where: {
           startsAt: { gte: from, lt: to },
+          OR: [{ id: { not: { startsWith: "staffing-" } } }, { assignments: { some: {} } }],
         },
         include: { ministry: true },
       });

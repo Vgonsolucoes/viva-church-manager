@@ -621,3 +621,11 @@ Documentação cobre preparo, não execução de loja.
 ### Cadastro de Novo Visitante pelo APK
 
 A tela de login oferece **Criar cadastro** (`/cadastro`). Nome, CPF válido, e-mail, telefone e senha são obrigatórios; a confirmação da senha é conferida no aparelho. O endpoint público `POST /api/v1/auth/mobile/register` valida os dados novamente, armazena somente o hash bcrypt da senha e cria atomicamente Member (`VISITOR`, tipos `[VISITOR]`) + User (`MEMBER`, sem papéis administrativos). O novo usuário herda a política de Visitante do Controle de acessos. Não vincula nem altera cadastros existentes por CPF/e-mail. Após criar, o APK tenta entrar automaticamente; se a conexão falhar, apresenta a opção Entrar sem repetir o cadastro.
+
+## Pendências de escala por culto, evento e curso
+
+Em `/admin/schedules`, o mês atual é exibido por padrão no fuso de Brasília. Outros meses ficam recolhidos e podem ser abertos por links. Ao criar um culto/evento ou um curso aberto/com execução futura, o sistema cria uma escala vinculada e abre a pendência para quem pode consultar Escalas. Os cultos fixos também entram automaticamente; a tela recupera eventuais pendências não geradas durante o cadastro.
+
+A equipe é montada por ministério, usando os vínculos principal e adicionais do voluntário. O ministério atendido fica registrado em cada alocação. A montagem pode ser concluída manualmente ou reaberta. Recusas e pedidos de substituição voltam a sinalizar revisão. As quantidades mínimas por ministério permanecem sem definição até serem informadas pela igreja. Alterar a data na origem mantém a equipe, reabre a montagem e pede nova confirmação. Pendências sem alocações não são publicadas como escalas extras na agenda geral.
+
+A migração `20261104120000_schedule_staffing` acrescenta vínculo de curso, data de conclusão da montagem e ministério da alocação. Não é necessário novo APK: os voluntários recebem suas alocações pelos serviços existentes.

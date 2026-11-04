@@ -3,7 +3,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript');
 function load(file, deps={}) {
  const exports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText,
- {exports,require:id=>{if(id in deps)return deps[id];throw Error(id);},Date,Intl,URL,Request,console});return exports;
+ {exports,require:id=>{if(id==='@/server/staffing')return {syncStaffingSchedule:async()=>null};if(id in deps)return deps[id];throw Error(id);},Date,Intl,URL,Request,console});return exports;
 }
 const recurrence=load('src/lib/weekly-services.ts');
 const imageUrls=load('src/lib/public-image-url.ts');

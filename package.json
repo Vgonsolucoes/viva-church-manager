@@ -14,7 +14,8 @@
     "prisma:studio": "prisma studio",
     "kids:smoke": "tsx scripts/kids-smoke.ts",
     "test:projection": "node --test scripts/projection-tests.cjs",
-    "test:theme": "node --test scripts/theme-tests.cjs"
+    "test:theme": "node --test scripts/theme-tests.cjs",
+    "test:staffing": "node --test scripts/staffing-tests.cjs"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

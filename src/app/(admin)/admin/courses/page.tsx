@@ -1,3 +1,5 @@
+import { syncStaffingSchedule } from "@/server/staffing";
+import { staffingUrl } from "@/lib/staffing";
 import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -204,10 +206,13 @@ async function saveCourse(formData: FormData) {
     },
   });
 
+  const staffingId = await syncStaffingSchedule(course);
+  revalidatePath("/admin/schedules");
   revalidatePath("/admin/courses");
   revalidatePath("/admin/calendar");
   revalidatePath("/app/calendar");
   revalidatePath("/admin/notifications");
+  if (!existing && staffingId && hasPermission(session.permissions ?? [], "schedules:read")) redirect(staffingUrl(staffingId, course.startsAt));
   if (existing) redirect("/admin/courses?saved=1");
 }
 

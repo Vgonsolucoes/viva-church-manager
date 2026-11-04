@@ -43,6 +43,8 @@ function hasCurrentClient(client: PrismaClient | undefined) {
     { model: "Member", field: "cpf" },
     { model: "Event", field: "bannerImageUrl" },
     { model: "Course", field: "bannerImageUrl" },
+    { model: "Schedule", field: "courseId" },
+    { model: "ScheduleAssignment", field: "ministryId" },
     { model: "FollowUpJourney", field: "stage" },
   ] as const;
 
