@@ -40,7 +40,10 @@ export default async function RafflePage({ params }: { params: Promise<{ id: str
           <Badge>{availableCount} disponíveis</Badge><Badge>{paid} pagos</Badge><Badge>{raffle.tickets.length - paid} pendentes</Badge>
           <Badge>Arrecadado: {currency.format((raffle.result?.raisedCents ?? paid * raffle.priceCents) / 100)}</Badge>
         </div>
-        {(open || raffle.result) && <Link className="text-sm font-semibold text-primary" href={`/admin/sorteio/${id}/apuracao`}>{raffle.result ? "Ver relatório" : "Abrir tela de apuração"}</Link>}
+        <div className="flex flex-wrap items-center gap-4">
+          {canWrite && !raffle.result && <Link className="text-sm font-semibold text-primary" href={`/admin/sorteio/${id}/sortear`}>Sortear número</Link>}
+          {(open || raffle.result) && <Link className="text-sm font-semibold text-primary" href={`/admin/sorteio/${id}/apuracao`}>{raffle.result ? "Ver relatório" : "Abrir tela de apuração"}</Link>}
+        </div>
       </Card>
       {canWrite && !raffle.authorization && (
         <Card className="space-y-3 p-4">

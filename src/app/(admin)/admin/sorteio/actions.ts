@@ -1,5 +1,6 @@
 "use server";
 
+import { randomInt } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -15,6 +16,25 @@ const price = z.string().trim().regex(/^\d{1,5}(?:[,.]\d{1,2})?$/)
   .pipe(z.number().min(1).max(100000));
 const createSchema = z.object({ title: text(120), prize: text(240), firstNumber: number, lastNumber: number, price });
 const reservationSchema = z.object({ number, memberId: z.string().max(100), participantName: z.string().trim().max(160) });
+
+export async function simulateRaffle(id: string) {
+  await assertWebPermission("raffles:write");
+  const raffle = await prisma.raffle.findUnique({
+    where: { id },
+    select: { firstNumber: true, lastNumber: true, result: { select: { raffleId: true } } },
+  });
+  if (!raffle || raffle.result) return { error: "Este sorteio não está disponível para simulação." };
+  const tickets = await prisma.raffleTicket.findMany({
+    where: {
+      raffleId: id,
+      paidAt: { not: null },
+      number: { gte: raffle.firstNumber, lte: raffle.lastNumber },
+    },
+    select: { number: true },
+  });
+  if (!tickets.length) return { error: "Nenhum número pago na faixa cadastrada." };
+  return { number: tickets[randomInt(tickets.length)].number };
+}
 
 export async function createRaffle(form: FormData) {
   const session = await assertWebPermission("raffles:write");
