@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 
 const createVolunteerSchema = z.object({
   memberId: z.string().min(1),
-  ministryName: z.string().optional().or(z.literal("")),
+  ministryId: z.string(),
   availability: z.string().optional().or(z.literal("")),
   skills: z.string().optional().or(z.literal("")),
 });
@@ -26,7 +26,7 @@ async function createVolunteer(formData: FormData) {
   const session = await getServerSession(authOptions);
   const parsed = createVolunteerSchema.safeParse({
     memberId: formData.get("memberId"),
-    ministryName: formData.get("ministryName"),
+    ministryId: formData.get("ministryId") ?? "",
     availability: formData.get("availability"),
     skills: formData.get("skills"),
   });
@@ -36,35 +36,31 @@ async function createVolunteer(formData: FormData) {
     where: { id: parsed.data.memberId },
     select: {
       id: true,
-      fullName: true,
-      email: true,
-      phone: true,
-      ministryId: true,
       type: true,
       types: true,
     },
   });
   if (!member) return;
 
-  const ministry =
-    parsed.data.ministryName && parsed.data.ministryName.trim().length
-      ? await prisma.ministry.upsert({
-          where: { name: parsed.data.ministryName.trim() },
-          update: {},
-          create: { name: parsed.data.ministryName.trim() },
-        })
-      : null;
+  const ministryId = parsed.data.ministryId;
+  if (ministryId) {
+    const ministry = await prisma.ministry.findUnique({
+      where: { id: ministryId, active: true },
+      select: { id: true },
+    });
+    if (!ministry) return;
+  }
 
   const updatedMember = await prisma.member.update({
     where: { id: member.id },
     data: {
       type: "VOLUNTEER",
       types: Array.from(new Set([...(member.types.length ? member.types : [member.type]), "VOLUNTEER"])),
-      ministryId: ministry?.id ?? member.ministryId ?? null,
-      memberMinistries: ministry?.id
+      ministryId: ministryId || undefined,
+      memberMinistries: ministryId
         ? {
             createMany: {
-              data: [{ ministryId: ministry.id }],
+              data: [{ ministryId }],
               skipDuplicates: true,
             },
           }
@@ -75,7 +71,7 @@ async function createVolunteer(formData: FormData) {
   const volunteer = await prisma.volunteerProfile.upsert({
     where: { memberId: member.id },
     update: {
-      ministryId: ministry?.id ?? undefined,
+      ministryId: ministryId || undefined,
       availability: parsed.data.availability ? parsed.data.availability.trim() : null,
       skills: parsed.data.skills
         ? parsed.data.skills
@@ -86,7 +82,7 @@ async function createVolunteer(formData: FormData) {
     },
     create: {
       memberId: member.id,
-      ministryId: ministry?.id ?? null,
+      ministryId: ministryId || null,
       availability: parsed.data.availability ? parsed.data.availability.trim() : null,
       skills: parsed.data.skills
         ? parsed.data.skills
@@ -116,7 +112,7 @@ async function createVolunteer(formData: FormData) {
 }
 
 export default async function VolunteersPage() {
-  const [members, volunteers] = await Promise.all([
+  const [members, volunteers, ministries] = await Promise.all([
     prisma.member.findMany({
       orderBy: { fullName: "asc" },
       take: 500,
@@ -129,6 +125,11 @@ export default async function VolunteersPage() {
       orderBy: { updatedAt: "desc" },
       take: 80,
       include: { ministry: true, volunteerProfile: { include: { ministry: true } } },
+    }),
+    prisma.ministry.findMany({
+      where: { active: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
     }),
   ]);
 
@@ -197,10 +198,22 @@ export default async function VolunteersPage() {
                 ))}
               </select>
             </div>
-            <div className="space-y-2">
-              <div className="text-xs font-medium text-muted-foreground">Ministério</div>
-              <Input name="ministryName" placeholder="Ex: Louvor" />
-            </div>
+            <label className="block space-y-2">
+              <span className="text-xs font-medium text-muted-foreground">Ministério</span>
+              <select
+                name="ministryId"
+                className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm"
+                defaultValue=""
+              >
+                <option value="">Selecione um ministério (opcional)</option>
+                {ministries.map((ministry) => (
+                  <option key={ministry.id} value={ministry.id}>{ministry.name}</option>
+                ))}
+              </select>
+              {!ministries.length && (
+                <span className="block text-xs text-muted-foreground">Nenhum ministério ativo cadastrado.</span>
+              )}
+            </label>
             <div className="space-y-2">
               <div className="text-xs font-medium text-muted-foreground">Disponibilidade</div>
               <Input name="availability" placeholder="Ex: Domingos à noite" />
