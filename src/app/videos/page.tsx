@@ -1,5 +1,5 @@
-import { prisma } from "@/server/db";
 import { getYoutubeConfig } from "@/server/youtube";
+import { listPublicYoutubeVideos } from "@/server/youtube-library";
 import { VideosPublicClient, type PublicYoutubeVideo } from "./VideosPublicClient";
 
 export const dynamic = "force-dynamic";
@@ -11,11 +11,7 @@ export const metadata = {
 };
 
 export default async function PublicVideosPage() {
-  const videos = await prisma.youtubeVideo.findMany({
-    where: { visibleOnSite: true },
-    orderBy: { publishedAt: "desc" },
-    take: 200,
-  });
+  const videos = await listPublicYoutubeVideos(200);
 
   const cfg = getYoutubeConfig();
 

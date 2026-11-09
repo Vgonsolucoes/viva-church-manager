@@ -17,7 +17,6 @@ export async function PATCH(
   props: { params: Promise<{ id: string }> },
 ) {
   const session = await getServerSession(authOptions);
-  const roles = (session?.roles ?? []) as Parameters<typeof hasPermission>[0];
   if (!hasPermission(session?.permissions ?? [], "youtube:write")) {
     return NextResponse.json({ ok: false, error: "Permissao insuficiente." }, { status: 403 });
   }
@@ -39,7 +38,7 @@ export async function PATCH(
 
   const updated = await prisma.youtubeVideo.update({
     where: { id: existing.id },
-    data: { visibleOnSite: parsed.data.visibleOnSite },
+    data: { visibleOnSite: parsed.data.visibleOnSite, visibilityCustomized: true },
   });
 
   await logAudit({

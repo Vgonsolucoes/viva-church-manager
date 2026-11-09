@@ -1113,6 +1113,7 @@ model YoutubeVideo {
   duration       String?
   viewCount      Int?              @default(0)
   visibleOnSite  Boolean         @default(false)
+  visibilityCustomized Boolean   @default(false)
   syncStatus     YoutubeSyncStatus @default(SYNCED)
   syncError      String?
   syncedById     String?

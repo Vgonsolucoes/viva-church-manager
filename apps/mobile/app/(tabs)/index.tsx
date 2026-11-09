@@ -30,6 +30,8 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { LoadingSkeleton, SkeletonCardLines } from "@/components/LoadingSkeleton";
 import { EventCard, EventCardData } from "@/components/EventCard";
 import { ErrorState } from "@/components/ErrorState";
+import { RecentYoutubeVideos } from "@/components/RecentYoutubeVideos";
+import { listRecentVideos } from "@/services/api/videos";
 
 function greeting() {
   const h = new Date().getHours();
@@ -91,6 +93,13 @@ export default function HomeScreen() {
   const styles = useThemedStyles(createStyles, theme);
 
   const { me, initialized, refreshMe } = useAuth();
+  const canReadVideos = !!me && (me.permissions?.includes("youtube:read") ?? false);
+  const recentVideos = useQuery({
+    queryKey: ["recent-youtube-videos"],
+    queryFn: listRecentVideos,
+    enabled: initialized && canReadVideos,
+    staleTime: 5 * 60_000,
+  });
 
   const {
     data: schedules,
@@ -132,7 +141,7 @@ export default function HomeScreen() {
   });
 
   const isLoadingAny = schedulesLoading || cellLoading || eventsLoading;
-  const isFetchingAny = schedulesFetching || cellFetching || eventsFetching;
+  const isFetchingAny = schedulesFetching || cellFetching || eventsFetching || recentVideos.isFetching;
 
   const firstError =
     (eventsError as Error | null) ||
@@ -145,8 +154,9 @@ export default function HomeScreen() {
       ...(!me?.access || me.access.mobileModules.includes("schedules") ? [refetchSchedules()] : []),
       ...(!me?.access || me.access.mobileModules.includes("cells") ? [refetchCell()] : []),
       refetchEvents(),
+      ...(canReadVideos ? [recentVideos.refetch()] : []),
     ]);
-  }, [refreshMe, refetchSchedules, refetchCell, refetchEvents, me?.access]);
+  }, [refreshMe, refetchSchedules, refetchCell, refetchEvents, me?.access, canReadVideos, recentVideos.refetch]);
 
   const feed = useMemo(() => splitUpcomingEvents(eventsList ?? []), [eventsList]);
 
@@ -277,6 +287,7 @@ export default function HomeScreen() {
                 )}
               />
             )}
+            {canReadVideos && <RecentYoutubeVideos data={recentVideos.data} />}
           </View>
         )}
 

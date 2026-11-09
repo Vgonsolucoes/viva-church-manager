@@ -9,6 +9,8 @@ export type YoutubeVideoItem = {
 };
 
 const DEFAULT_MAX_RESULTS = 50;
+const VIVA_CHANNEL_ID = "UCFWGgHlwx3OrxkYiynAkMZQ";
+const VIVA_CHANNEL_HANDLE = "@viva_sede";
 
 function getEnvChannelHandle(): string | null {
   const raw = process.env.YOUTUBE_CHANNEL_HANDLE;
@@ -29,7 +31,7 @@ export function getYoutubeConfig() {
     channelHandle: getEnvChannelHandle(),
     channelId: getEnvChannelId(),
     hasApiKey: Boolean(getEnvApiKey()),
-    defaultHandle: getEnvChannelHandle() ?? "@viva_sede",
+    defaultHandle: getEnvChannelHandle() ?? VIVA_CHANNEL_HANDLE,
   };
 }
 
@@ -38,8 +40,8 @@ async function resolveChannelIdByHandle(apiKey: string, handle: string): Promise
   try {
     const url =
       `https://www.googleapis.com/youtube/v3/channels` +
-      `?part=id&id=&forHandle=${encodeURIComponent(cleanHandle)}&key=${encodeURIComponent(apiKey)}`;
-    const res = await fetch(url, { next: { revalidate: 86400 } });
+      `?part=id&forHandle=${encodeURIComponent(cleanHandle)}&key=${encodeURIComponent(apiKey)}`;
+    const res = await fetch(url, { next: { revalidate: 86400 }, signal: AbortSignal.timeout(5000) });
     if (!res.ok) return null;
     const data = (await res.json()) as { items?: Array<{ id: string }> };
     return data.items?.[0]?.id ?? null;
@@ -59,7 +61,7 @@ export async function resolveChannelId(): Promise<string | null> {
     if (fromHandle) return fromHandle;
   }
 
-  return null;
+  return !handle || handle.toLowerCase() === VIVA_CHANNEL_HANDLE ? VIVA_CHANNEL_ID : null;
 }
 
 async function fetchFromDataApi(
@@ -72,7 +74,7 @@ async function fetchFromDataApi(
   const playlistUrl =
     `https://www.googleapis.com/youtube/v3/channels` +
     `?part=contentDetails&id=${encodeURIComponent(channelId)}&key=${encodeURIComponent(apiKey)}`;
-  const playlistRes = await fetch(playlistUrl, { next: { revalidate: 3600 } });
+  const playlistRes = await fetch(playlistUrl, { next: { revalidate: 3600 }, signal: AbortSignal.timeout(5000) });
   if (!playlistRes.ok) return [];
   const playlistData = (await playlistRes.json()) as {
     items?: Array<{
@@ -89,14 +91,14 @@ async function fetchFromDataApi(
 
   while (total < maxResults) {
     const qs = new URLSearchParams({
-      part: "snippet,contentDetails,statistics",
+      part: "snippet,contentDetails,status",
       playlistId: uploadsPlaylistId,
       maxResults: String(Math.min(50, maxResults - total)),
       key: apiKey,
     });
     if (pageToken) qs.set("pageToken", pageToken);
     const url = `https://www.googleapis.com/youtube/v3/playlistItems?${qs.toString()}`;
-    const res = await fetch(url, { next: { revalidate: 1800 } });
+    const res = await fetch(url, { next: { revalidate: 1800 }, signal: AbortSignal.timeout(5000) });
     if (!res.ok) break;
     const data = (await res.json()) as {
       items?: Array<{
@@ -107,7 +109,7 @@ async function fetchFromDataApi(
           thumbnails?: Record<string, { url?: string }>;
           publishedAt?: string;
         };
-        contentDetails?: { duration?: string; videoId?: string };
+        contentDetails?: { videoPublishedAt?: string; videoId?: string };
         status?: { privacyStatus?: string };
       }>;
       nextPageToken?: string;
@@ -118,18 +120,19 @@ async function fetchFromDataApi(
       const snippet = entry.snippet ?? {};
       const videoId =
         snippet.resourceId?.videoId ?? entry.contentDetails?.videoId ?? null;
-      if (!videoId) continue;
+      if (!videoId || entry.status?.privacyStatus !== "public") continue;
       const thumbs = snippet.thumbnails ?? {};
       const thumbnailUrl =
         thumbs.maxres?.url ?? thumbs.standard?.url ?? thumbs.high?.url ?? thumbs.medium?.url ?? thumbs.default?.url ?? null;
-      const publishedAt = snippet.publishedAt ? new Date(snippet.publishedAt) : new Date();
+      const publishedAt = new Date(entry.contentDetails?.videoPublishedAt ?? snippet.publishedAt ?? "");
+      if (!Number.isFinite(publishedAt.getTime())) continue;
       items.push({
         youtubeId: videoId,
         title: snippet.title?.trim() ?? "Sem título",
         description: snippet.description ?? null,
         thumbnailUrl,
         publishedAt,
-        duration: entry.contentDetails?.duration ?? null,
+        duration: null,
         viewCount: null,
       });
     }
@@ -193,7 +196,8 @@ async function parseRssXml(xml: string): Promise<YoutubeVideoItem[]> {
         getText(entry["yt:videoId"] ?? entry["videoId"]);
       if (!ytVideoId) continue;
       const title = getText(entry["title"]).trim() || "Sem título";
-      const publishedAt = new Date(getText(entry["published"]) || Date.now());
+      const publishedAt = new Date(getText(entry["published"]));
+      if (!Number.isFinite(publishedAt.getTime())) continue;
       let thumbnail = getAttr(entry["media:thumbnail"] ?? entry["thumbnail"], "url");
       if (!thumbnail) {
         thumbnail = `https://i.ytimg.com/vi/${ytVideoId}/hqdefault.jpg`;
@@ -231,28 +235,32 @@ async function fetchFromRssFeed(
   if (!channelId) return [];
   const url = `https://www.youtube.com/feeds/videos.xml?channel_id=${encodeURIComponent(channelId)}`;
   try {
-    const res = await fetch(url, { next: { revalidate: 1800 } });
+    const res = await fetch(url, { next: { revalidate: 1800 }, signal: AbortSignal.timeout(5000) });
     if (!res.ok) return [];
     const xml = await res.text();
     const parsed = await parseRssXml(xml);
-    return parsed.slice(0, maxResults);
+    return parsed.sort((a, b) => b.publishedAt.getTime() - a.publishedAt.getTime()).slice(0, maxResults);
   } catch {
     return [];
   }
 }
 
 export async function fetchChannelVideos(
-  options?: { maxResults?: number },
+  options?: { maxResults?: number; preferRss?: boolean },
 ): Promise<YoutubeVideoItem[]> {
   const max = options?.maxResults ?? DEFAULT_MAX_RESULTS;
   const channelId = await resolveChannelId();
   if (!channelId) return [];
 
+  if (options?.preferRss) {
+    const fromRss = await fetchFromRssFeed(channelId, max);
+    if (fromRss.length || !getEnvApiKey()) return fromRss;
+  }
   if (getEnvApiKey()) {
-    const fromApi = await fetchFromDataApi(channelId, max);
+    const fromApi = await fetchFromDataApi(channelId, max).catch(() => []);
     if (fromApi.length) return fromApi;
   }
-  return fetchFromRssFeed(channelId, max);
+  return options?.preferRss ? [] : fetchFromRssFeed(channelId, max);
 }
 
 export function getYoutubeEmbedUrl(youtubeId: string): string {

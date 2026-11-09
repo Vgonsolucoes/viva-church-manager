@@ -144,12 +144,6 @@ const navItems: NavItem[] = [
     permission: "lostfound:read",
   },
   {
-    href: "/admin/youtube-videos",
-    label: "Vídeos YouTube",
-    icon: <Film className="size-4" />,
-    permission: "youtube:read",
-  },
-  {
     href: "/admin/reports",
     label: "Relatórios",
     icon: <Receipt className="size-4" />,
@@ -164,6 +158,12 @@ const navItems: NavItem[] = [
 ];
 
 const extraItems: NavItem[] = [
+  {
+    href: "/admin/youtube-videos",
+    label: "Vídeos YouTube",
+    icon: <Film className="size-4" />,
+    permission: "youtube:read",
+  },
   {
     href: "/admin/sorteio",
     label: "Sorteio",

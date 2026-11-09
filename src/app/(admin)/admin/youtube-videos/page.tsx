@@ -3,15 +3,16 @@ import { prisma } from "@/server/db";
 import { hasPermission } from "@/server/rbac";
 import { authOptions } from "@/server/auth";
 import { getYoutubeConfig, resolveChannelId } from "@/server/youtube";
+import { refreshYoutubeLibrary } from "@/server/youtube-library";
 import { YoutubeVideosClient, type YoutubeVideoRow } from "./YoutubeVideosClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function YoutubeVideosAdminPage() {
   const session = await getServerSession(authOptions);
-  const roles = (session?.roles ?? []) as Parameters<typeof hasPermission>[0];
   const canRead = hasPermission(session?.permissions ?? [], "youtube:read");
   const canWrite = hasPermission(session?.permissions ?? [], "youtube:write");
+  if (canRead) await refreshYoutubeLibrary();
 
   const videosDb = canRead
     ? await prisma.youtubeVideo.findMany({
