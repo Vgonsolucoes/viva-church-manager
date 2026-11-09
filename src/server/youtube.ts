@@ -13,13 +13,14 @@ const VIVA_CHANNEL_ID = "UCFWGgHlwx3OrxkYiynAkMZQ";
 const VIVA_CHANNEL_HANDLE = "@viva_sede";
 
 function getEnvChannelHandle(): string | null {
-  const raw = process.env.YOUTUBE_CHANNEL_HANDLE;
+  const raw = process.env.YOUTUBE_CHANNEL_HANDLE?.trim();
   if (!raw) return null;
   return raw.startsWith("@") ? raw : `@${raw}`;
 }
 
 function getEnvChannelId(): string | null {
-  return process.env.YOUTUBE_CHANNEL_ID || null;
+  const id = process.env.YOUTUBE_CHANNEL_ID?.trim();
+  return id && /^UC[A-Za-z0-9_-]{22}$/.test(id) ? id : null;
 }
 
 function getEnvApiKey(): string | null {
