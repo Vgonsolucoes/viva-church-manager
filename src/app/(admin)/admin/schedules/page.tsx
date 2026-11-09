@@ -49,14 +49,54 @@ export default async function SchedulesPage({ searchParams }: { searchParams: Pr
         const state = staffingState(s);
         const automatic = s.id.startsWith("staffing-");
         const source = s.courseId ? "Curso" : s.event?.type === "SERVICE" ? "Culto" : s.eventId ? "Evento" : ({ SERVICE: "Culto", EVENT: "Evento", CELL: "Célula", MEETING: "Reunião", REHEARSAL: "Ensaio", OTHER: "Outro" } as Record<string,string>)[s.kind];
-        const counts = new Map<string, Set<string>>();
-        for (const a of s.assignments) { if (a.status === "DECLINED" || a.status === "NO_SHOW") continue; const label = a.ministry?.name ?? s.ministry?.name ?? "Sem ministério informado"; if (!counts.has(label)) counts.set(label, new Set()); counts.get(label)!.add(a.volunteerId); }
+        const showCoverage = source === "Culto" || source === "Evento";
+        const counts = new Map<string | null, { name: string; volunteers: Set<string> }>();
+        for (const assignment of s.assignments) {
+          if (assignment.status === "DECLINED" || assignment.status === "NO_SHOW") continue;
+          const ministry = assignment.ministry ?? s.ministry;
+          const ministryId = ministry?.id ?? null;
+          const count = counts.get(ministryId) ?? {
+            name: ministry?.name ?? "Sem ministério informado",
+            volunteers: new Set<string>(),
+          };
+          count.volunteers.add(assignment.volunteerId);
+          counts.set(ministryId, count);
+        }
         return <Card key={s.id} id={"schedule-" + s.id} className={"scroll-mt-5 p-5 " + (query.focus === s.id ? "ring-2 ring-primary" : "")}>
           <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="mb-2 flex flex-wrap gap-2"><Badge>{source}</Badge><Badge>{state.label}</Badge></div><h3 className="font-semibold">{s.title}</h3><p className="mt-1 text-xs text-muted-foreground">{dateFormat.format(s.startsAt)}{s.ministry ? " · " + s.ministry.name : ""}</p></div>{canWrite && !automatic ? <ScheduleEditModal schedule={{ id: s.id, title: s.title, kind: s.kind, startsAtLocal: toLocalInputValue(s.startsAt), ministryId: s.ministryId, assignmentsCount: s.assignments.length }} ministries={s.ministry && !ministries.some(m => m.id === s.ministryId) ? [...ministries, { id: s.ministry.id, name: s.ministry.name + " (inativo)" }] : ministries} /> : null}</div>
           {automatic ? <p className="mt-2 text-xs text-muted-foreground">Vinculada ao {s.courseId ? "curso" : "culto / evento"}. O título e a data acompanham o cadastro de origem.</p> : null}
-          <div className="mt-3 flex flex-wrap gap-2">{[...counts.entries()].map(([ministry, ids]) => <Badge key={ministry}>{ministry}: {ids.size} voluntário(s)</Badge>)}</div>
+          {showCoverage ? (
+            <div className="mt-4 space-y-2">
+              <h4 className="text-sm font-medium">Cobertura por ministério</h4>
+              <p className="text-xs text-muted-foreground">Mínimo de 1 voluntário por ministério ativo.</p>
+              {ministries.length ? (
+                <ul className="flex flex-wrap gap-2">
+                  {ministries.map((ministry) => {
+                    const count = counts.get(ministry.id)?.volunteers.size ?? 0;
+                    return (
+                      <li key={ministry.id}>
+                        <Badge className={count
+                          ? "gap-1.5 border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200"
+                          : "gap-1.5 border-red-300 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-200"}>
+                          <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-current" />
+                          {ministry.name} · {count ? `${count} ${count === 1 ? "escalado" : "escalados"}` : "Sem voluntário"}
+                        </Badge>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : <p className="text-xs text-muted-foreground">Nenhum ministério ativo cadastrado.</p>}
+            </div>
+          ) : (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {[...counts.entries()].map(([id, { name, volunteers }]) => (
+                <Badge key={id ?? "unassigned"}>{name}: {volunteers.size} voluntário(s)</Badge>
+              ))}
+            </div>
+          )}
           <div className="mt-3 space-y-2">{s.assignments.map(a => <div key={a.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-muted/10 px-3 py-2"><div><div className="text-sm font-medium">{a.volunteer.member.fullName}</div><p className="text-xs text-muted-foreground">{a.ministry?.name ?? s.ministry?.name ?? "Sem ministério informado"} · {a.roleName}</p></div><div className="flex items-center gap-2"><Badge>{a.substitutionRequests.length ? "Substituição solicitada" : statusLabels[a.status] ?? a.status}</Badge>{canWrite ? <form action={removeAssignment}><input type="hidden" name="assignmentId" value={a.id} /><Button type="submit" size="sm" variant="ghost" aria-label={"Remover " + a.volunteer.member.fullName}>Remover</Button></form> : null}</div></div>)}{!s.assignments.length ? <p className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">Equipe ainda não escalada. Selecione o ministério e os voluntários que vão servir.</p> : null}</div>
-          {canWrite ? <><AssignmentForm scheduleId={s.id} defaultMinistryId={s.ministryId} ministries={ministries} volunteers={volunteerOptions} /><StaffingControls scheduleId={s.id} completed={state.key === "complete"} /></> : <p className="mt-3 text-xs text-muted-foreground">Quantidade mínima por ministério: aguardando definição.</p>}
+          {canWrite && <><AssignmentForm scheduleId={s.id} defaultMinistryId={s.ministryId} ministries={ministries} volunteers={volunteerOptions} /><StaffingControls scheduleId={s.id} completed={state.key === "complete"} /></>}
+          {!showCoverage && <p className="mt-3 text-xs text-muted-foreground">Quantidade mínima por ministério: aguardando definição.</p>}
         </Card>;
       }) : <Card className="p-6 text-sm text-muted-foreground">Nenhuma escala neste mês.</Card>}
     </div>

@@ -26,9 +26,8 @@ export function AssignmentForm({ scheduleId, defaultMinistryId, ministries, volu
 }
 export function StaffingControls({ scheduleId, completed }: { scheduleId: string; completed: boolean }) {
   const [state, action, pending] = useActionState(changeStaffingState, initial);
-  return <form action={action} className="mt-4 flex flex-wrap items-center justify-between gap-3">
+  return <form action={action} className="mt-4 flex flex-wrap items-center justify-end gap-3">
     <input type="hidden" name="scheduleId" value={scheduleId} /><input type="hidden" name="intent" value={completed ? "reopen" : "complete"} />
-    <p className="text-xs text-muted-foreground">Quantidade mínima por ministério: aguardando definição.</p>
     <Button type="submit" variant={completed ? "outline" : "secondary"} disabled={pending}>{pending ? "Salvando..." : completed ? "Reabrir montagem" : "Concluir montagem"}</Button>
     {state.error || state.message ? <p role={state.error ? "alert" : "status"} className={`w-full text-sm ${state.error ? "text-destructive" : "text-muted-foreground"}`}>{state.error || state.message}</p> : null}
   </form>;
