@@ -132,12 +132,6 @@ const navItems: NavItem[] = [
     permission: "finance:read",
   },
   {
-    href: "/admin/sorteio",
-    label: "Sorteio",
-    icon: <Ticket className="size-4" />,
-    permission: "raffles:read",
-  },
-  {
     href: "/admin/assets",
     label: "Patrimônio",
     icon: <Package className="size-4" />,
@@ -170,6 +164,12 @@ const navItems: NavItem[] = [
 ];
 
 const extraItems: NavItem[] = [
+  {
+    href: "/admin/sorteio",
+    label: "Sorteio",
+    icon: <Ticket className="size-4" />,
+    permission: "raffles:read",
+  },
   {
     href: "/admin/discipleships",
     label: "Discipulados",
