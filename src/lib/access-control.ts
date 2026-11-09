@@ -19,6 +19,7 @@ export const WEB_MODULES = [
   { key: "lostfound", label: "Achados e perdidos", path: "/admin/lost-found", read: ["lostfound:read"], write: ["lostfound:write"] },
   { key: "assets", label: "Patrimônio", path: "/admin/assets", read: ["assets:read"], write: ["assets:write"] },
   { key: "finance", label: "Financeiro", path: "/admin/finance", read: ["finance:read"], write: ["finance:write"] },
+  { key: "raffles", label: "Sorteio", path: "/admin/sorteio", read: ["raffles:read"], write: ["raffles:write"] },
   { key: "budget", label: "Orçamento", path: "/admin/budget", read: ["budget:read"], write: ["budget:write"] },
   { key: "notifications", label: "Notificações", path: "/admin/notifications", read: ["notifications:read"], write: ["notifications:write"] },
   { key: "youtube", label: "Vídeos YouTube", path: "/admin/youtube-videos", read: ["youtube:read"], write: ["youtube:write"] },
@@ -42,6 +43,7 @@ export const MOBILE_MODULES = [
   { key: "notifications", label: "Notificações", permissions: ["notifications:read"] },
   { key: "ministries", label: "Meus ministérios", permissions: ["ministries:read"] },
   { key: "qr", label: "Leitor de QR Code", permissions: [] },
+  { key: "raffles", label: "Sorteio (meus números)", permissions: [] },
 ] as const;
 export type WebModule = typeof WEB_MODULES[number]["key"];
 export type MobileModule = typeof MOBILE_MODULES[number]["key"];
@@ -61,7 +63,15 @@ export function defaultRoleProfile(role: RoleKey): AccessProfile {
   const permissions = rolePermissions[role] ?? [];
   return { webEnabled: role === "PROJECTION" || permissions.includes("admin:access"), web: Object.fromEntries(WEB_MODULES.flatMap(entry => (permissions.some(p => (entry.read as readonly string[]).includes(p)) || (entry.key === "settings" && permissions.includes("settings:manage"))) ? [[entry.key, permissions.some(p => (entry.write as readonly string[]).includes(p)) ? "write" : "read"]] : [])), mobile: [...DEFAULT_MOBILE, "schedules", "ministries", "qr"], agendaScope: "own" };
 }
-export function defaultAccessConfig(): AccessConfig { return { version: 1, types: Object.fromEntries(Object.keys(MEMBER_TYPES).map(key => [key, key === "VOLUNTEER" ? { ...defaultProfile(), mobile: [...DEFAULT_MOBILE, "schedules", "ministries"] } : defaultProfile()])), ministries: {}, roles: {} }; }
+export function defaultAccessConfig(): AccessConfig {
+  const types = Object.fromEntries(Object.keys(MEMBER_TYPES).map(key => {
+    const profile = defaultProfile();
+    if (key !== "VISITOR" && key !== "NEW_MEMBER") profile.mobile.push("raffles");
+    if (key === "VOLUNTEER") profile.mobile.push("schedules", "ministries");
+    return [key, profile];
+  }));
+  return { version: 1, types, ministries: {}, roles: {} };
+}
 export function resolveAccess(identity: AccessIdentity, config: AccessConfig) {
   if (identity.roles.includes("SUPER_ADMIN")) return { webEnabled: true, webModules: WEB_MODULES.map(m => m.key), webPermissions: allPermissionKeysArray(), mobileModules: MOBILE_MODULES.map(m => m.key), mobilePermissions: allPermissionKeysArray(), agendaScope: "all" as const };
   const profile = config.types[identity.type ?? "MEMBER"] ?? defaultProfile();

@@ -13,6 +13,7 @@ import {
   Car,
   Megaphone,
   CalendarRange,
+  Ticket,
   type LucideIcon,
 } from "lucide-react-native";
 import { useAppTheme } from "@/theme";
@@ -21,6 +22,7 @@ import { useThemedStyles } from "@/theme";
 export type MinistryKey =
   | "services"
   | "events"
+  | "raffles"
   | "cells"
   | "discipleships"
   | "ministries"
@@ -34,6 +36,7 @@ export type MinistryKey =
 
 const createMAP = (theme: ReturnType<typeof useAppTheme>): Record<MinistryKey, { label: string; Icon: LucideIcon; bgTint: string; bgTintAlpha: string; labelColor: string }> => ({
   services: { label: "Cultos Fixos", Icon: Church, bgTint: theme.colors.primary500, bgTintAlpha: theme.colors.borderPrimary, labelColor: theme.colors.foreground },
+  raffles: { label: "Sorteio", Icon: Ticket, bgTint: theme.colors.primary500, bgTintAlpha: theme.colors.borderPrimary, labelColor: theme.colors.foreground },
   events: {
     label: "Eventos",
     Icon: CalendarDays,

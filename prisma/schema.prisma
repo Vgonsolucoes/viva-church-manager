@@ -321,11 +321,53 @@ model Member {
   assignedFollowUpJourneys   FollowUpJourney[] @relation("FollowUpJourneyAssignedTo")
   childGuardians             ChildGuardian[]
   courseCompletions          CourseCompletion[]
+  raffleTickets              RaffleTicket[]
 
   @@index([fullName])
   @@index([email])
   @@index([cpf])
   @@index([type])
+}
+
+model Raffle {
+  id                String   @id @default(cuid())
+  title             String
+  prize             String
+  firstNumber       Int
+  lastNumber        Int
+  priceCents        Int
+  authorization     String?
+  createdAt         DateTime @default(now())
+  tickets           RaffleTicket[]
+  result            RaffleResult?
+}
+
+model RaffleTicket {
+  id              String   @id @default(cuid())
+  raffleId        String
+  number          Int
+  memberId        String?
+  participantName String
+  paidAt          DateTime?
+  createdAt       DateTime @default(now())
+  raffle          Raffle   @relation(fields: [raffleId], references: [id])
+  member          Member?  @relation(fields: [memberId], references: [id], onDelete: SetNull)
+
+  @@unique([raffleId, number])
+  @@index([memberId, createdAt])
+}
+
+model RaffleResult {
+  raffleId       String   @id
+  winningNumber  Int
+  winnerName     String
+  reference      String
+  paidCount      Int
+  reservedCount  Int
+  raisedCents    Int
+  recordedById   String
+  recordedAt     DateTime @default(now())
+  raffle         Raffle   @relation(fields: [raffleId], references: [id])
 }
 
 model MemberMinistry {

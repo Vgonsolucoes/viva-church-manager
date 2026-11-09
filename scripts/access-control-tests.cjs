@@ -6,7 +6,7 @@ const identity=(type='MEMBER',ministries=[],roles=['MEMBER'])=>({type,ministries
 const ministry=(id,name,active=true)=>({id,name,active});
 const resolve=(id,config=rules.defaultAccessConfig())=>rules.resolveAccess(id,config);
 test('Members, visitors and new members get the requested APK modules and no administrative permissions',()=>{
- for(const type of ['MEMBER','VISITOR','NEW_MEMBER']){const access=resolve(identity(type));assert.equal(access.webEnabled,false);assert.deepEqual(Array.from(access.mobileModules),Array.from(rules.DEFAULT_MOBILE));assert.equal(access.agendaScope,'own');assert.equal(access.mobilePermissions.includes('kids:checkin:self'),true);for(const denied of ['kids:write','members:read','finance:read','settings:manage'])assert.equal(access.mobilePermissions.includes(denied),false);}
+ for(const type of ['MEMBER','VISITOR','NEW_MEMBER']){const access=resolve(identity(type));assert.equal(access.webEnabled,false);const expected=type==='MEMBER'?[...rules.DEFAULT_MOBILE,'raffles']:Array.from(rules.DEFAULT_MOBILE);assert.deepEqual(Array.from(access.mobileModules),expected);assert.equal(access.agendaScope,'own');assert.equal(access.mobilePermissions.includes('kids:checkin:self'),true);for(const denied of ['kids:write','members:read','finance:read','settings:manage','raffles:write'])assert.equal(access.mobilePermissions.includes(denied),false);}
 });
 test('Visitors and new members cannot inherit web privileges from a ministry or stale staff role',()=>{
  for(const type of ['VISITOR','NEW_MEMBER']){const access=resolve(identity(type,[ministry('kids','Ministério Kids')],['KIDS_MINISTRY','SECRETARY']));assert.equal(access.webEnabled,false);assert.equal(access.webPermissions.length,0);}

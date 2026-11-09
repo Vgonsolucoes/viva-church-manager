@@ -24,6 +24,7 @@ interface MenuItemDef {
 
 const MENU: MenuItemDef[] = [
   { key: "services", href: "/igreja/cultos" },
+  { key: "raffles", href: "/igreja/sorteio" },
   { key: "parking", href: "/igreja/avisos-projecao?channel=PARKING", projectionChannel: "PARKING" },
   { key: "kidsProjection", href: "/igreja/avisos-projecao?channel=KIDS", projectionChannel: "KIDS" },
   {
@@ -97,6 +98,7 @@ export default function IgrejaScreen() {
     return MENU.filter((item) => {
       if (item.projectionChannel) return Boolean(me?.projectionAccess?.[item.projectionChannel]) && (!me?.access || me.access.mobileModules.includes(item.key));
       if (me?.access) return me.access.mobileModules.includes(item.key);
+      if (item.key === "raffles") return false;
       if (isSuper) return true;
       if (item.requirePermission) {
         if (!hasPermission(permissions, item.requirePermission)) return false;

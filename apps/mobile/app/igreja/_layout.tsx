@@ -25,6 +25,7 @@ export default function IgrejaLayout() {
     >
       <Stack.Screen name="avisos-projecao" options={{ headerShown: false }} />
       <Stack.Screen name="cultos" options={{ title: "Próximos cultos" }} />
+      <Stack.Screen name="sorteio" options={{ title: "Sorteio" }} />
       <Stack.Screen name="cultos/[id]" options={{ title: "Detalhe do culto" }} />
       <Stack.Screen
         name="eventos"

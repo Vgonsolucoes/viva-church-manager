@@ -35,5 +35,5 @@ export async function assertWebPermission(permission: import("@/server/rbac").Pe
   const { authOptions } = await import("@/server/auth");
   const session = await getServerSession(authOptions);
   if (!session?.uid || !session.permissions?.includes(permission)) throw new Error("Você não tem permissão para esta operação.");
-  return session;
+  return { ...session, uid: session.uid };
 }

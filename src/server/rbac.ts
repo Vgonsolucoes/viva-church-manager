@@ -56,6 +56,8 @@ export type PermissionKey =
   | "lostfound:write"
   | "finance:read"
   | "finance:write"
+  | "raffles:read"
+  | "raffles:write"
   | "budget:read"
   | "budget:write"
   | "notifications:read"
@@ -73,6 +75,8 @@ export type PermissionKey =
 
 export const rolePermissions: Record<RoleKey, PermissionKey[]> = {
   SUPER_ADMIN: [
+    "raffles:read",
+    "raffles:write",
     "parking:read",
     "parking:projection:view",
     "admin:access",
@@ -256,6 +260,8 @@ export const rolePermissions: Record<RoleKey, PermissionKey[]> = {
     "kids:checkin:self",
   ],
   FINANCE: [
+    "raffles:read",
+    "raffles:write",
     "admin:access",
     "dashboard:view",
     "finance:read",

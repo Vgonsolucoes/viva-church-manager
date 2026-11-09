@@ -34,7 +34,7 @@ function hasModelField(client: PrismaClient | undefined, modelName: string, fiel
 function hasCurrentClient(client: PrismaClient | undefined) {
   if (!client) return false;
 
-  const requiredDelegates = ["course", "eventSale", "memberMinistry", "followUpJourney"] as const;
+  const requiredDelegates = ["course", "eventSale", "memberMinistry", "followUpJourney", "raffle", "raffleTicket", "raffleResult"] as const;
   const delegatesOk = requiredDelegates.every((delegate) => delegate in client);
   if (!delegatesOk) return false;
 

@@ -21,6 +21,7 @@ import {
   Package,
   PiggyBank,
   Receipt,
+  Ticket,
   Search,
   Waypoints,
   ChartColumn,
@@ -129,6 +130,12 @@ const navItems: NavItem[] = [
     label: "Financeiro",
     icon: <PiggyBank className="size-4" />,
     permission: "finance:read",
+  },
+  {
+    href: "/admin/sorteio",
+    label: "Sorteio",
+    icon: <Ticket className="size-4" />,
+    permission: "raffles:read",
   },
   {
     href: "/admin/assets",
