@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo } from "react";
 import { Pressable, StyleSheet, Text, View, FlatList, Dimensions, Image } from "react-native";
 import { useQuery } from "@tanstack/react-query";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Clock, MapPin } from "lucide-react-native";
@@ -29,7 +30,6 @@ import { Badge } from "@/components/Badge";
 import { StatusBadge } from "@/components/StatusBadge";
 import { LoadingSkeleton, SkeletonCardLines } from "@/components/LoadingSkeleton";
 import { EventCard, EventCardData } from "@/components/EventCard";
-import { ErrorState } from "@/components/ErrorState";
 import { RecentYoutubeVideos } from "@/components/RecentYoutubeVideos";
 import { listRecentVideos } from "@/services/api/videos";
 
@@ -143,11 +143,6 @@ export default function HomeScreen() {
   const isLoadingAny = schedulesLoading || cellLoading || eventsLoading;
   const isFetchingAny = schedulesFetching || cellFetching || eventsFetching || recentVideos.isFetching;
 
-  const firstError =
-    (eventsError as Error | null) ||
-    (schedulesError as Error | null) ||
-    (cellError as Error | null);
-
   const onRefresh = useCallback(async () => {
     await Promise.all([
       refreshMe(true),
@@ -195,7 +190,7 @@ export default function HomeScreen() {
   );
 
   return (
-    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+    <SafeAreaView edges={["top"]} style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <View style={styles.headerBar}>
         <View style={{ flex: 1 }}>{headerLeft}</View>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}><ThemeToggle />{headerRight}</View>
@@ -209,15 +204,11 @@ export default function HomeScreen() {
         refreshing={isFetchingAny && !isLoading}
         onRefresh={onRefresh}
       >
-        {firstError && !isLoading ? (
-          <View style={{ marginBottom: 16 }}>
-            <ErrorState
-              title="Erro ao carregar"
-              message={firstError.message || "Arraste para atualizar."}
-              onRetry={onRefresh}
-            />
+        {canReadVideos && (
+          <View style={{ marginBottom: 20 }}>
+            <RecentYoutubeVideos data={recentVideos.data} loading={recentVideos.isLoading} />
           </View>
-        ) : null}
+        )}
 
         {isLoading ? (
           <View style={{ gap: 16 }}>
@@ -248,7 +239,9 @@ export default function HomeScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ gap: 12, paddingRight: 8 }}
               renderItem={({ item }) => <View style={{ width: SCREEN_WIDTH * 0.84 }}><HeroCultoCard culto={item} /></View>}
-            /> : <HeroCultoCard />}
+            /> : eventsError ? (
+              <Text style={{ color: theme.colors.foregroundMuted }}>Não foi possível carregar os cultos. Arraste para atualizar.</Text>
+            ) : <HeroCultoCard />}
 
             <View style={{ flexDirection: "row", gap: 12 }}>
               <View style={{ flex: 1 }}>
@@ -258,6 +251,11 @@ export default function HomeScreen() {
                 <MyCellCard cell={myCell} />
               </View>
             </View>
+            {(schedulesError || cellError) && (
+              <Text style={{ color: theme.colors.foregroundMuted }}>
+                Não foi possível atualizar alguns dados pessoais. Arraste para tentar novamente.
+              </Text>
+            )}
 
             <SectionHeader
               title="Eventos"
@@ -265,7 +263,9 @@ export default function HomeScreen() {
               onActionPress={() => router.push("/igreja/eventos")}
             />
 
-            {upcomingEvents.length === 0 ? (
+            {upcomingEvents.length === 0 && eventsError ? (
+              <Text style={{ color: theme.colors.foregroundMuted }}>Não foi possível carregar os eventos. Arraste para atualizar.</Text>
+            ) : upcomingEvents.length === 0 ? (
               <AppCard variant="default">
                 <EmptyState
                   title="Nenhum evento próximo"
@@ -287,13 +287,12 @@ export default function HomeScreen() {
                 )}
               />
             )}
-            {canReadVideos && <RecentYoutubeVideos data={recentVideos.data} />}
           </View>
         )}
 
         <View style={{ height: 24 }} />
       </ScreenContainer>
-    </View>
+    </SafeAreaView>
   );
 }
 

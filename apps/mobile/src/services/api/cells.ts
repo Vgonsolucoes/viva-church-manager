@@ -1,4 +1,4 @@
-import { api } from "@/services/api/client";
+import { ApiError, api } from "@/services/api/client";
 import {
   CellPublicSchema,
   CellDetailSchema,
@@ -17,10 +17,14 @@ export async function listPublicCells(): Promise<CellPublic[]> {
 }
 
 export async function getMyCell(): Promise<CellDetail | null> {
-  const res = await api.get<unknown>("/api/v1/cells/my");
-  const arr = Array.isArray(res) ? res : [];
-  if (arr.length === 0) return null;
-  const raw = arr[0] as Record<string, unknown>;
+  const res = await api.get<unknown>("/api/v1/cells/my").catch((error: unknown) => {
+    if (error instanceof ApiError && error.status === 404) return null;
+    throw error;
+  });
+  if (res == null) return null;
+  if (!Array.isArray(res)) return CellDetailSchema.parse(res);
+  if (res.length === 0) return null;
+  const raw = res[0] as Record<string, unknown>;
   const nextMeetingDate =
     raw.nextMeetingAt !== undefined && raw.nextMeetingAt !== null
       ? new Date(String(raw.nextMeetingAt))

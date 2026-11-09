@@ -8,7 +8,7 @@ function openYoutube(url: string) {
   void Linking.openURL(url).catch(() => {});
 }
 
-export function RecentYoutubeVideos({ data }: { data?: RecentVideos }) {
+export function RecentYoutubeVideos({ data, loading }: { data?: RecentVideos; loading?: boolean }) {
   const theme = useAppTheme();
   const videos = data?.videos ?? [];
 
@@ -19,7 +19,9 @@ export function RecentYoutubeVideos({ data }: { data?: RecentVideos }) {
         actionLabel="Ver canal"
         onActionPress={() => openYoutube(data?.channelUrl ?? "https://www.youtube.com/@viva_sede/videos")}
       />
-      {videos.length ? (
+      {loading ? (
+        <Text style={{ color: theme.colors.foregroundMuted }}>Carregando vídeos…</Text>
+      ) : videos.length ? (
         <FlatList
           data={videos}
           horizontal
