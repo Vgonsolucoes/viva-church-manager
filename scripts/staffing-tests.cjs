@@ -14,9 +14,64 @@ test('Rescheduling keeps the assigned volunteers, reopens planning and requests 
 test('Schedules already explicitly linked to an event are reused without creating a duplicate',async()=>{const state=setup();state.rows.set('manual',{id:'manual',eventId:'event1',title:'Equipe existente',startsAt:event.startsAt});assert.equal(await state.service.syncStaffingSchedule(event,now),'manual');assert.equal(state.rows.size,1);assert.equal(state.writes,0);});
 test('Pending, draft, complete and refused/substitution states remain distinct without fabricated minimums',()=>{const status=(assignments,staffingCompletedAt=null)=>utils.staffingState({assignments,staffingCompletedAt}).key;assert.equal(status([]),'pending');assert.equal(status([{status:'PENDING'}]),'draft');assert.equal(status([{status:'PENDING'}],now),'complete');assert.equal(status([{status:'DECLINED'}],now),'review');assert.equal(status([{status:'CONFIRMED',substitutionRequests:[{status:'REQUESTED'}]}],now),'review');});
 test('Assignments enforce write access, ministry membership, and retain the serving ministry',async()=>{let allowed=true,linked=true;const added=[];let complete=now;const db={schedule:{findUnique:async()=>({id:'s1'}),update:async({data})=>{complete=data.staffingCompletedAt}},volunteerProfile:{findUnique:async()=>({id:'v1',ministryId:null,member:{ministryId:null,memberMinistries:linked?[{ministryId:'kids'}]:[]}})},ministry:{findFirst:async()=>({id:'kids'})},scheduleAssignment:{create:async({data})=>{added.push(data);return {id:'a1',...data}}},$transaction:async fn=>fn(db)};
- const actions=load('src/app/(admin)/admin/schedules/actions.ts',{'@/server/access-control':{assertWebPermission:async()=>{if(!allowed)throw Error('DENIED');return {uid:'admin'}}},'next/navigation':{redirect:()=>{}},'@/lib/staffing':utils,'next/cache':{revalidatePath:()=>{}},'next-auth':{getServerSession:async()=>({uid:'admin'})},zod:require('zod'),'@/server/auth':{authOptions:{}},'@/server/audit':{logAudit:async()=>{}},'@/server/db':{prisma:db}});
+ const actions=load('src/app/(admin)/admin/schedules/actions.ts',{'@/server/access-control':{assertWebPermission:async()=>{if(!allowed)throw Error('DENIED');return {uid:'admin'}}},'next/navigation':{redirect:()=>{}},'@/lib/staffing':utils,'next/cache':{revalidatePath:()=>{}},'next-auth':{getServerSession:async()=>({uid:'admin'})},zod:require('zod'),'@/server/auth':{authOptions:{}},'@/server/audit':{logAudit:async()=>{}},'@/server/db':{prisma:db},'@/server/notifications':{}});
  const form=new FormData();for(const [key,value] of Object.entries({scheduleId:'s1',volunteerId:'v1',ministryId:'kids',roleName:'Sala Kids'}))form.set(key,value);
  assert.equal((await actions.addAssignment({},form)).ok,true);assert.equal(added[0].ministryId,'kids');assert.equal(complete,null);linked=false;assert.equal((await actions.addAssignment({},form)).ok,false);assert.equal(added.length,1);allowed=false;await assert.rejects(actions.addAssignment({},form),/DENIED/);
+});
+test('A new assignment saves a private inbox notice and sends push only after commit', async () => {
+  const recorded = [];
+  const pushes = [];
+  let committed = false;
+  const db = {
+    schedule: {
+      findUnique: async () => ({ id: 's1' }),
+      update: async () => ({ title: 'Culto', startsAt: event.startsAt }),
+    },
+    volunteerProfile: {
+      findUnique: async () => ({
+        ministryId: 'kids',
+        member: { ministryId: 'kids', memberMinistries: [], user: { id: 'user-1' } },
+      }),
+    },
+    ministry: { findFirst: async () => ({ id: 'kids', name: 'Kids' }) },
+    scheduleAssignment: {
+      create: async () => {
+        if (committed) throw Object.assign(new Error('duplicate'), { code: 'P2002' });
+        return { id: 'a1' };
+      },
+    },
+    notification: { create: async ({ data }) => recorded.push(data) },
+    $transaction: async (callback) => {
+      const result = await callback(db);
+      committed = true;
+      return result;
+    },
+  };
+  const notifications = load('src/server/notifications.ts', { 'expo-server-sdk': {}, '@/server/db': { prisma: db } });
+  const actions = load('src/app/(admin)/admin/schedules/actions.ts', {
+    '@/server/access-control': { assertWebPermission: async () => ({ uid: 'admin' }) },
+    'next/navigation': {}, '@/lib/staffing': utils, 'next/cache': { revalidatePath: () => {} },
+    'next-auth': {}, zod: require('zod'), '@/server/auth': {}, '@/server/audit': { logAudit: async () => {} },
+    '@/server/db': { prisma: db },
+    '@/server/notifications': {
+      recordScheduleAssignmentNotification: notifications.recordScheduleAssignmentNotification,
+      sendExpoPushToUsers: async (userIds, payload) => {
+        assert.ok(committed);
+        pushes.push({ userId: userIds[0], count: userIds.length, payload });
+      },
+    },
+  });
+  const form = new FormData();
+  for (const [name, value] of Object.entries({ scheduleId: 's1', volunteerId: 'v1', ministryId: 'kids', roleName: 'Sala Kids' })) form.set(name, value);
+  assert.equal((await actions.addAssignment({}, form)).ok, true);
+  assert.equal(recorded[0].deliveries.create.userId, 'user-1');
+  assert.match(recorded[0].body, /08\/11\/2026.*18:00/);
+  assert.equal(pushes[0].userId, 'user-1');
+  assert.equal(pushes[0].count, 1);
+  assert.equal(pushes[0].payload.body, recorded[0].body);
+  assert.equal((await actions.addAssignment({}, form)).ok, false);
+  assert.equal(recorded.length, 1);
+  assert.equal(pushes.length, 1);
 });
 test('Creating an event opens its scheduling pendency with Brasília time and unchecked options',async()=>{
  let created,linked;const deps={'@/server/staffing':{syncStaffingSchedule:async source=>{linked=source;return 'staffing-event-event-new'}},'@/lib/staffing':utils,'@/server/rbac':{hasPermission:(_p,key)=>key==='schedules:read'},'@/server/access-control':{assertWebPermission:async()=>({uid:'admin'})},'next/navigation':{redirect:url=>{throw Error(url)}},'next/cache':{revalidatePath:()=>{}},'next-auth':{getServerSession:async()=>({uid:'admin',permissions:['events:write','schedules:read']})},zod:require('zod'),'@/server/auth':{authOptions:{}},'@/server/db':{prisma:{event:{create:async({data})=>{created={id:'event-new',...data};return created}}}},'@/server/audit':{logAudit:async()=>{}},'@/server/uploads':{savePublicImageUpload:async()=>null}};

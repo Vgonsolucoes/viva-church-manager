@@ -6,6 +6,7 @@ import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 import * as Notifications from "expo-notifications";
 import * as Application from "expo-application";
+import Constants from "expo-constants";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -179,6 +180,7 @@ function NetworkInit() {
 function PushIntegration({ fontsReady }: { fontsReady: boolean }) {
   const router = useRouter();
   const accessToken = useSessionStore((s) => s.accessToken);
+  const expoPushToken = useSessionStore((s) => s.expoPushToken);
   const setExpoPushToken = useSessionStore((s) => s.setExpoPushToken);
   const me = useSessionStore((s) => s.me);
   const initialized = useSessionStore((s) => s.initialized);
@@ -190,10 +192,16 @@ function PushIntegration({ fontsReady }: { fontsReady: boolean }) {
     let subscription2: Notifications.Subscription | undefined;
 
     (async () => {
-      if (!fontsReady) return;
+      if (!fontsReady || !accessToken) return;
       if (Platform.OS === "web") return;
 
       try {
+        if (Platform.OS === "android") {
+          await Notifications.setNotificationChannelAsync("default", {
+            name: "Avisos da igreja",
+            importance: Notifications.AndroidImportance.HIGH,
+          });
+        }
         const permsExisting = await Notifications.getPermissionsAsync() as any;
         let finalStatus = permsExisting?.status ?? permsExisting?.ios?.status ?? "undetermined";
         if (finalStatus !== "granted") {
@@ -203,9 +211,10 @@ function PushIntegration({ fontsReady }: { fontsReady: boolean }) {
         if (finalStatus !== "granted") {
           return;
         }
-        const projectId = undefined;
+        const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+        if (!projectId) return;
         const tokenRes = await Notifications.getExpoPushTokenAsync({
-          ...(projectId ? { projectId } : {}),
+          projectId,
         });
         if (!mounted) return;
         const token = tokenRes.data;
@@ -216,7 +225,7 @@ function PushIntegration({ fontsReady }: { fontsReady: boolean }) {
     })();
 
     subscription1 = Notifications.addNotificationReceivedListener(() => {
-      // foreground reception
+      void queryClient.invalidateQueries({ queryKey: ["notifications-list"] });
     });
     subscription2 = Notifications.addNotificationResponseReceivedListener((response) => {
       try {
@@ -241,11 +250,10 @@ function PushIntegration({ fontsReady }: { fontsReady: boolean }) {
       subscription1?.remove?.();
       subscription2?.remove?.();
     };
-  }, [fontsReady, router, setExpoPushToken]);
+  }, [accessToken, fontsReady, router, setExpoPushToken]);
 
   useEffect(() => {
     if (!initialized || !accessToken) return;
-    const expoPushToken = useSessionStore.getState().expoPushToken;
     if (!expoPushToken) return;
     if (lastRegisteredRef.current === `${me?.id ?? "anon"}:${expoPushToken}`) return;
     (async () => {
@@ -264,7 +272,7 @@ function PushIntegration({ fontsReady }: { fontsReady: boolean }) {
         // ignore register failure
       }
     })();
-  }, [initialized, accessToken, me?.id]);
+  }, [initialized, accessToken, me?.id, expoPushToken]);
 
   return null;
 }

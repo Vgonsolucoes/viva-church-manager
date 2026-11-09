@@ -29,6 +29,7 @@ export async function GET(req: Request) {
         id: d.notification.id,
         title: d.notification.title,
         body: d.notification.body,
+        deepLink: d.notification.deepLink,
         createdAt: d.notification.createdAt,
       },
     })),

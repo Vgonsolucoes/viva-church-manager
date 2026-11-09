@@ -9,6 +9,7 @@ import { z } from "zod";
 import { authOptions } from "@/server/auth";
 import { logAudit } from "@/server/audit";
 import { prisma } from "@/server/db";
+import { recordScheduleAssignmentNotification, sendExpoPushToUsers } from "@/server/notifications";
 
 const scheduleKindEnum = z.enum([
   "SERVICE",
@@ -193,26 +194,42 @@ export async function addAssignment(_prev: ScheduleFormState, formData: FormData
   const { scheduleId, volunteerId, ministryId, roleName } = parsed.data;
   const [schedule, volunteer, ministry] = await Promise.all([
     prisma.schedule.findUnique({ where: { id: scheduleId } }),
-    prisma.volunteerProfile.findUnique({ where: { id: volunteerId }, include: { member: { include: { memberMinistries: true } } } }),
+    prisma.volunteerProfile.findUnique({ where: { id: volunteerId }, include: { member: { include: { memberMinistries: true, user: { select: { id: true } } } } } }),
     prisma.ministry.findFirst({ where: { id: ministryId, active: true } }),
   ]);
   if (!schedule || !volunteer || !ministry) return fail("Escala, voluntário ou ministério não encontrado.");
   const linked = volunteer.ministryId === ministryId || volunteer.member.ministryId === ministryId || volunteer.member.memberMinistries.some(link => link.ministryId === ministryId);
   if (!linked) return fail("Este voluntário não está vinculado ao ministério selecionado. Atualize o cadastro de Voluntários ou Membros.");
+  const userId = volunteer.member.user?.id;
   try {
-    const assignment = await prisma.$transaction(async tx => {
+    const { assignment, notification } = await prisma.$transaction(async tx => {
       const created = await tx.scheduleAssignment.create({ data: { scheduleId, volunteerId, ministryId, roleName, status: "PENDING" } });
-      await tx.schedule.update({ where: { id: scheduleId }, data: { staffingCompletedAt: null } });
-      return created;
+      const updated = await tx.schedule.update({ where: { id: scheduleId }, data: { staffingCompletedAt: null } });
+      const notification = userId ? await recordScheduleAssignmentNotification(tx, userId, session.uid, {
+        title: updated.title,
+        startsAt: updated.startsAt,
+        ministryName: ministry.name,
+        roleName,
+      }) : null;
+      return { assignment: created, notification };
     });
     await logAudit({ actorUserId: session.uid, action: "CREATE", entityType: "ScheduleAssignment", entityId: assignment.id, after: { scheduleId, volunteerId, ministryId, roleName } });
+    if (userId && notification) {
+      await sendExpoPushToUsers([userId], notification).catch(() => {
+        console.error("[schedules] Falha ao enviar push da escala", assignment.id);
+      });
+    }
   } catch (error) {
     if (typeof error === "object" && error && "code" in error && error.code === "P2002") return fail("Este voluntário já está alocado nesta função. Para trocá-lo de ministério, remova a alocação anterior.");
     throw error;
   }
   revalidatePath("/admin/schedules");
   revalidatePath("/admin/calendar");
-  return { ok: true, message: "Voluntário alocado. Aguardando confirmação no aplicativo.", error: "" };
+  return {
+    ok: true,
+    message: userId ? "Voluntário alocado. Aviso disponível nas notificações do aplicativo." : "Voluntário alocado. Para receber avisos, ele precisa de uma conta vinculada ao cadastro.",
+    error: "",
+  };
 }
 
 export async function changeStaffingState(_prev: ScheduleFormState, form: FormData): Promise<ScheduleFormState> {

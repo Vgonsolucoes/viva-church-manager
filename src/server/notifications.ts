@@ -1,5 +1,5 @@
 import { Expo, type ExpoPushMessage, type ExpoPushReceipt } from "expo-server-sdk";
-import type { MemberType, RoleKey } from "@/generated/prisma/client";
+import type { MemberType, Prisma, RoleKey } from "@/generated/prisma/client";
 import { prisma } from "@/server/db";
 
 const expoClient = (() => {
@@ -282,32 +282,36 @@ export async function sendScheduleReminders2h() {
   return { reminders: assignments.length, campaignIds };
 }
 
-export async function sendNewScheduleNotification(
-  volunteerUserId: string,
-  schedule: { id: string; title: string; startsAt: Date; ministryName?: string; roleName?: string },
-  mode: "new" | "changed" | "cancelled" = "new",
+export async function recordScheduleAssignmentNotification(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  createdById: string,
+  schedule: { title: string; startsAt: Date; ministryName?: string; roleName: string },
 ) {
-  const map: Record<typeof mode, { title: string; prefix: string }> = {
-    new: { title: "Nova Escala", prefix: "Você foi escalado para" },
-    changed: { title: "Escala Alterada", prefix: "Sua escala foi atualizada em" },
-    cancelled: { title: "Escala Cancelada", prefix: "Sua escala foi cancelada em" },
+  const date = new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: "America/Sao_Paulo",
+  }).format(schedule.startsAt);
+  const payload = {
+    title: "Nova escala",
+    body: [
+      `Você foi escalado para ${schedule.title}.`,
+      `${date} (horário de Brasília)`,
+      schedule.ministryName && `Ministério: ${schedule.ministryName}`,
+      `Função: ${schedule.roleName}`,
+    ].filter(Boolean).join("\n"),
+    deepLink: "/escalas",
   };
-  const dateStr = schedule.startsAt.toLocaleString("pt-BR", {
-    weekday: "long",
-    hour: "2-digit",
-    minute: "2-digit",
+  await tx.notification.create({
+    data: {
+      ...payload,
+      channel: "PUSH",
+      createdById,
+      targetRoles: [],
+      targetMemberTypes: [],
+      deliveries: { create: { userId } },
+    },
   });
-  const body =
-    `${map[mode].prefix}: ${schedule.title}.\n` +
-    `${dateStr}\n` +
-    (schedule.ministryName ? `Ministério: ${schedule.ministryName}\n` : "") +
-    (schedule.roleName ? `Função: ${schedule.roleName}\n` : "") +
-    `\nToque para confirmar.`;
-  return createNotificationCampaign({
-    title: map[mode].title,
-    body,
-    channel: "PUSH",
-    deepLink: `/(tabs)/escalas`,
-    targetUsersOverride: { userIds: [volunteerUserId] },
-  });
+  return payload;
 }
