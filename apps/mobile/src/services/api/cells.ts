@@ -30,7 +30,7 @@ export async function getMyCell(): Promise<CellDetail | null> {
       ? new Date(String(raw.nextMeetingAt))
       : null;
   const membersCount =
-    raw.members && Array.isArray(raw.members) ? (raw.members as unknown[]).length : 0;
+    typeof raw.membersCount === "number" ? raw.membersCount : Array.isArray(raw.members) ? raw.members.length : 0;
   const mapped: CellDetail = {
     id: String(raw.id ?? ""),
     name: String(raw.name ?? ""),
@@ -53,7 +53,7 @@ export async function getMyCell(): Promise<CellDetail | null> {
       raw.leader && typeof raw.leader === "object" && raw.leader !== null
         ? String((raw.leader as Record<string, unknown>).name ?? "")
         : "",
-    leaderPhone: null,
+    leaderPhone: typeof raw.leaderPhone === "string" ? raw.leaderPhone : null,
     nextMeetingDate,
     membersCount,
   };

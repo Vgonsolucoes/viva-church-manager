@@ -1,5 +1,5 @@
 import React, { useCallback } from "react";
-import { View, StyleSheet, Text, Linking, Pressable } from "react-native";
+import { View, StyleSheet, Text, Linking, Alert } from "react-native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ScreenContainer } from "@/components/ScreenContainer";
 import { AppHeader } from "@/components/AppHeader";
@@ -16,8 +16,7 @@ import {
   MapPin,
   Clock,
   Users,
-  ChevronRight,
-  User,
+  MessageCircle,
   ClipboardList,
 } from "lucide-react-native";
 import { useAppTheme } from "@/theme";
@@ -111,7 +110,7 @@ export default function MyCellScreen() {
 
   const nextMeeting = (data as CellDetail & {
     nextMeeting?: { startsAt?: string; title?: string; id?: string };
-  }).nextMeeting;
+  } | undefined)?.nextMeeting;
 
   if (isLoading) {
     return (
@@ -192,7 +191,7 @@ export default function MyCellScreen() {
             {data.address ? (
               <View style={styles.infoRow}>
                 <MapPin size={16} color={theme.colors.pink400} />
-                <Text style={[styles.infoText, { flex: 1 }]} numberOfLines={2}>
+                <Text style={[styles.infoText, { flex: 1 }]}>
                   {data.address}
                 </Text>
               </View>
@@ -205,13 +204,28 @@ export default function MyCellScreen() {
             </View>
           </View>
 
-          <SecondaryButton
-            variant="outline"
-            title="ABRIR NO MAPA"
-            onPress={() => openMap(data.address)}
-            style={{ marginTop: theme.spacing.lg }}
-            leftIcon={<MapPin size={16} color={theme.colors.foreground} />}
-          />
+          {data.address ? (
+            <SecondaryButton
+              variant="outline"
+              title="Abrir no mapa"
+              onPress={() => openMap(data.address)}
+              style={{ marginTop: theme.spacing.lg }}
+              leftIcon={<MapPin size={16} color={theme.colors.foreground} />}
+            />
+          ) : null}
+          {data.leaderPhone && /^[1-9]\d{7,14}$/.test(data.leaderPhone) ? (
+            <SecondaryButton
+              variant="outline"
+              title={`WhatsApp do líder · +${data.leaderPhone}`}
+              onPress={() => {
+                Linking.openURL(`https://wa.me/${data.leaderPhone}`).catch(() =>
+                  Alert.alert("Não foi possível abrir o WhatsApp", `Contato: +${data.leaderPhone}`),
+                );
+              }}
+              style={{ marginTop: theme.spacing.sm }}
+              leftIcon={<MessageCircle size={16} color={theme.colors.foreground} />}
+            />
+          ) : null}
         </AppCard>
 
         {canRegisterAttendance && nextMeeting?.id ? (
@@ -235,16 +249,16 @@ export default function MyCellScreen() {
 
         <SectionHeader title="Próxima Reunião" />
         <AppCard style={styles.sectionCard}>
-          {nextMeeting ? (
+          {nextMeeting || data.nextMeetingDate ? (
             <>
               <Text style={styles.meetingTitle}>
-                {nextMeeting.title || "Reunião semanal"}
+                {nextMeeting?.title || "Reunião semanal"}
               </Text>
-              {nextMeeting.startsAt ? (
+              {nextMeeting?.startsAt || data.nextMeetingDate ? (
                 <View style={styles.infoRow}>
                   <CalendarOutline color={theme.colors.green400} />
                   <Text style={styles.infoText}>
-                    {new Date(nextMeeting.startsAt).toLocaleString("pt-BR")}
+                    {(nextMeeting?.startsAt ? new Date(nextMeeting.startsAt) : data.nextMeetingDate)?.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}
                   </Text>
                 </View>
               ) : null}

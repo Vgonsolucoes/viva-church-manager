@@ -1,5 +1,7 @@
 import { assertWebPermission } from "@/server/access-control";
 import { revalidatePath } from "next/cache";
+import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { Badge } from "@/components/ui/Badge";
@@ -12,50 +14,62 @@ import { prisma } from "@/server/db";
 
 export const dynamic = "force-dynamic";
 
-const createCellSchema = z.object({
-  name: z.string().min(2),
+const participantsChanged = new Error("Participantes já vinculados a outra célula.");
+const cellsPath = "/admin/cells";
+const weekdays = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
+const cellSchema = z.object({
+  name: z.string().trim().min(2),
   leaderId: z.string().min(1),
   hostId: z.string().optional().or(z.literal("")),
-  address: z.string().optional().or(z.literal("")),
-  weekday: z.string().min(1),
-  time: z.string().min(1),
+  address: z.string().trim(),
+  leaderWhatsapp: z.string().trim().regex(/^[+\d().\s-]*$/).transform((value) => {
+    const digits = value.replace(/\D/g, "");
+    return !value ? null : !value.startsWith("+") && (digits.length === 10 || digits.length === 11) ? `55${digits}` : digits;
+  }).refine((value) => value === null || /^[1-9]\d{7,14}$/.test(value)),
+  weekday: z.string().regex(/^[0-6]$/).transform(Number),
+  time: z.string().trim().min(1),
 });
 
-async function createCell(formData: FormData) {
+async function saveCell(cellId: string | null, formData: FormData) {
   "use server";
-  await assertWebPermission("cells:write");
+  const session = await assertWebPermission("cells:write");
+  const parsed = cellSchema.safeParse(Object.fromEntries(formData));
+  const editPath = cellId ? `${cellsPath}?edit=${encodeURIComponent(cellId)}` : cellsPath;
+  const errorPath = `${editPath}${cellId ? "&" : "?"}erro=1#form-celula`;
+  if (!parsed.success) redirect(errorPath);
 
-  const session = await getServerSession(authOptions);
-  const parsed = createCellSchema.safeParse({
-    name: formData.get("name"),
-    leaderId: formData.get("leaderId"),
-    hostId: formData.get("hostId"),
-    address: formData.get("address"),
-    weekday: formData.get("weekday"),
-    time: formData.get("time"),
-  });
-  if (!parsed.success) return;
-
-  const cell = await prisma.cell.create({
-    data: {
-      name: parsed.data.name.trim(),
-      leaderId: parsed.data.leaderId,
-      hostId: parsed.data.hostId ? parsed.data.hostId : null,
-      address: parsed.data.address ? parsed.data.address.trim() : null,
-      weekday: Number(parsed.data.weekday),
-      time: parsed.data.time.trim(),
-    },
+  const data = { ...parsed.data, hostId: parsed.data.hostId || null, address: parsed.data.address || null };
+  const participantIds = z.array(z.string().min(1)).parse(formData.getAll("participantIds"));
+  const uniqueIds = [...new Set(participantIds)];
+  const cell = await prisma.$transaction(async (tx) => {
+    const saved = cellId
+      ? await tx.cell.update({ where: { id: cellId }, data })
+      : await tx.cell.create({ data });
+    const assigned = await tx.member.updateMany({
+      where: { id: { in: uniqueIds }, OR: [{ cellId: null }, { cellId: saved.id }] },
+      data: { cellId: saved.id, participatesInCell: true },
+    });
+    if (assigned.count !== uniqueIds.length) throw participantsChanged;
+    await tx.member.updateMany({
+      where: { cellId: saved.id, id: { notIn: uniqueIds } },
+      data: { cellId: null, participatesInCell: false },
+    });
+    return saved;
+  }).catch((error: unknown) => {
+    if (error === participantsChanged) redirect(errorPath);
+    throw error;
   });
 
   await logAudit({
     actorUserId: session?.uid ?? null,
-    action: "CREATE",
+    action: cellId ? "UPDATE" : "CREATE",
     entityType: "Cell",
     entityId: cell.id,
     after: { id: cell.id, name: cell.name, leaderId: cell.leaderId },
   });
 
-  revalidatePath("/admin/cells");
+  revalidatePath(cellsPath);
+  redirect(`${cellsPath}?salvo=1`);
 }
 
 const createMeetingSchema = z.object({
@@ -117,9 +131,19 @@ async function createMeeting(formData: FormData) {
   revalidatePath("/admin/cells");
 }
 
-export default async function CellsPage() {
-  const [members, cells] = await Promise.all([
-    prisma.member.findMany({ orderBy: { fullName: "asc" }, take: 800 }),
+export default async function CellsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ edit?: string; erro?: string; salvo?: string }>;
+}) {
+  const [params, session] = await Promise.all([searchParams, getServerSession(authOptions)]);
+  const canEdit = session?.permissions?.includes("cells:write");
+  const editId = canEdit && typeof params.edit === "string" ? params.edit : undefined;
+  const [members, cells, editing] = await Promise.all([
+    prisma.member.findMany({
+      orderBy: { fullName: "asc" },
+      select: { id: true, fullName: true, cellId: true },
+    }),
     prisma.cell.findMany({
       orderBy: { createdAt: "desc" },
       take: 60,
@@ -133,6 +157,7 @@ export default async function CellsPage() {
         },
       },
     }),
+    editId ? prisma.cell.findUnique({ where: { id: editId } }) : null,
   ]);
 
   const weekdayLabel = (w: number) =>
@@ -146,6 +171,7 @@ export default async function CellsPage() {
           Gestão de células, reuniões, presença e pedidos de oração.
         </div>
       </div>
+      {params.salvo === "1" ? <p role="status">Célula salva com sucesso.</p> : null}
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <Card className="p-5 xl:col-span-2">
@@ -167,7 +193,14 @@ export default async function CellsPage() {
                         {c.address ? ` • ${c.address}` : ""}
                       </div>
                     </div>
-                    <Badge className="shrink-0">{c.meetings.length} reuniões (últimas)</Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge className="shrink-0">{c.meetings.length} reuniões (últimas)</Badge>
+                      {canEdit ? (
+                        <Link className="text-sm font-medium underline" href={`${cellsPath}?edit=${c.id}#form-celula`}>
+                          Editar<span className="sr-only"> {c.name}</span>
+                        </Link>
+                      ) : null}
+                    </div>
                   </div>
 
                   <div className="mt-3 space-y-2">
@@ -258,20 +291,27 @@ export default async function CellsPage() {
           </div>
         </Card>
 
-        <Card className="p-5">
-          <div className="text-sm font-medium">Nova célula</div>
-          <form action={createCell} className="mt-4 space-y-3">
+        {canEdit ? <Card id="form-celula" className="p-5">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-medium">{editing ? "Editar célula" : "Nova célula"}</h2>
+            {editing ? <Link href={cellsPath} className="text-sm underline">Cancelar</Link> : null}
+          </div>
+          {params.erro === "1" ? (
+            <p role="alert" className="mt-3 text-sm">Não foi possível salvar. Confira os campos e se os participantes ainda estão disponíveis.</p>
+          ) : null}
+          <form key={editing?.id ?? "new"} action={saveCell.bind(null, editing?.id ?? null)} className="mt-4 space-y-3">
             <div className="space-y-2">
               <div className="text-xs font-medium text-muted-foreground">Nome da célula</div>
-              <Input name="name" placeholder="Ex: Célula Central" required />
+              <Input aria-label="Nome da célula" name="name" defaultValue={editing?.name} placeholder="Ex: Célula Central" minLength={2} required />
             </div>
             <div className="space-y-2">
               <div className="text-xs font-medium text-muted-foreground">Líder</div>
               <select
                 name="leaderId"
+                aria-label="Líder da célula"
                 className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm"
                 required
-                defaultValue=""
+                defaultValue={editing?.leaderId ?? ""}
               >
                 <option value="" disabled>
                   Selecionar membro
@@ -287,8 +327,9 @@ export default async function CellsPage() {
               <div className="text-xs font-medium text-muted-foreground">Anfitrião</div>
               <select
                 name="hostId"
+                aria-label="Anfitrião"
                 className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm"
-                defaultValue=""
+                defaultValue={editing?.hostId ?? ""}
               >
                 <option value="">(opcional)</option>
                 {members.map((m) => (
@@ -300,35 +341,46 @@ export default async function CellsPage() {
             </div>
             <div className="space-y-2">
               <div className="text-xs font-medium text-muted-foreground">Endereço</div>
-              <Input name="address" placeholder="Rua / bairro" />
+              <Input aria-label="Endereço da célula" name="address" defaultValue={editing?.address ?? ""} placeholder="Rua, número, bairro e cidade" />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="cell-whatsapp" className="text-xs font-medium text-muted-foreground">WhatsApp do líder</label>
+              <Input id="cell-whatsapp" name="leaderWhatsapp" type="tel" defaultValue={editing?.leaderWhatsapp ? `+${editing.leaderWhatsapp}` : ""} placeholder="(11) 99999-9999" />
+              <p className="text-xs text-muted-foreground">Disponível no app para as pessoas vinculadas à célula.</p>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-2">
                 <div className="text-xs font-medium text-muted-foreground">Dia</div>
                 <select
                   name="weekday"
+                  aria-label="Dia da semana"
                   className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm"
-                  defaultValue="2"
+                  defaultValue={String(editing?.weekday ?? 2)}
                 >
-                  <option value="0">Domingo</option>
-                  <option value="1">Segunda</option>
-                  <option value="2">Terça</option>
-                  <option value="3">Quarta</option>
-                  <option value="4">Quinta</option>
-                  <option value="5">Sexta</option>
-                  <option value="6">Sábado</option>
+                  {weekdays.map((day, index) => <option key={day} value={index}>{day}</option>)}
                 </select>
               </div>
               <div className="space-y-2">
                 <div className="text-xs font-medium text-muted-foreground">Horário</div>
-                <Input name="time" placeholder="19:30" required />
+                <Input aria-label="Horário" name="time" defaultValue={editing?.time} placeholder="19:30" required />
               </div>
             </div>
+            <details>
+              <summary className="cursor-pointer text-sm font-medium">Vincular participantes</summary>
+              <div className="mt-2 max-h-48 space-y-2 overflow-auto rounded-xl border border-border p-3">
+                {members.filter((member) => !member.cellId || member.cellId === editing?.id).map((member) => (
+                  <label key={member.id} className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" name="participantIds" value={member.id} defaultChecked={!!editing && member.cellId === editing.id} />
+                    {member.fullName}
+                  </label>
+                ))}
+              </div>
+            </details>
             <Button className="w-full" type="submit">
-              Criar célula
+              {editing ? "Salvar alterações" : "Criar célula"}
             </Button>
           </form>
-        </Card>
+        </Card> : null}
       </div>
     </div>
   );

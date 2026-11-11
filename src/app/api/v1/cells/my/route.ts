@@ -17,17 +17,23 @@ export async function GET(req: Request) {
 
   const memberId = ctx.member.id;
   const canWriteCells = hasPermission(ctx.permissions, "cells:write");
+  const cellId = new URL(req.url).searchParams.get("cellId") || undefined;
 
   const cells = await prisma.cell.findMany({
     where: {
-      OR: [{ leaderId: memberId }, { hostId: memberId }],
+      id: cellId,
+      OR: [{ leaderId: memberId }, { hostId: memberId }, { participants: { some: { id: memberId } } }],
     },
     include: {
       leader: { select: { id: true, fullName: true, photoUrl: true } },
       host: { select: { id: true, fullName: true, photoUrl: true } },
+      _count: { select: { participants: true } },
     },
     orderBy: { weekday: "asc" },
   });
+
+  const assignedIndex = cells.findIndex((cell) => cell.leaderId === memberId);
+  if (assignedIndex > 0) cells.unshift(...cells.splice(assignedIndex, 1));
 
   const result = await Promise.all(
     cells.map(async (cell) => {
@@ -40,7 +46,7 @@ export async function GET(req: Request) {
 
       if (includeMembers) {
         const memberList = await prisma.member.findMany({
-          where: { participatesInCell: true },
+          where: { cellId: cell.id },
           select: { id: true, fullName: true, photoUrl: true },
           orderBy: { fullName: "asc" },
         });
@@ -67,6 +73,8 @@ export async function GET(req: Request) {
         weekday: cell.weekday,
         time: cell.time,
         address: cell.address,
+        leaderPhone: cell.leaderWhatsapp,
+        membersCount: cell._count.participants,
         nextMeetingAt,
         members,
       };

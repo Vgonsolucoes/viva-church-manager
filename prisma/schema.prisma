@@ -305,6 +305,8 @@ model Member {
 
   cellLeading Cell[] @relation("CellLeader")
   cellHosting Cell[] @relation("CellHost")
+  cellId      String?
+  cell        Cell?  @relation("CellParticipants", fields: [cellId], references: [id], onDelete: SetNull)
 
   discipleshipsAsDisciple    Discipleship[] @relation("Disciple")
   discipleshipsAsDiscipler   Discipleship[] @relation("Discipler")
@@ -327,6 +329,7 @@ model Member {
   @@index([email])
   @@index([cpf])
   @@index([type])
+  @@index([cellId])
 }
 
 model Raffle {
@@ -651,6 +654,7 @@ model Cell {
   leaderId    String
   hostId      String?
   address     String?
+  leaderWhatsapp String?
   weekday     Int
   time        String
   createdAt   DateTime @default(now())
@@ -659,6 +663,7 @@ model Cell {
   leader Member @relation("CellLeader", fields: [leaderId], references: [id], onDelete: Cascade)
   host   Member? @relation("CellHost", fields: [hostId], references: [id], onDelete: SetNull)
   meetings CellMeeting[]
+  participants Member[] @relation("CellParticipants")
 
   @@index([leaderId])
   @@index([weekday])
