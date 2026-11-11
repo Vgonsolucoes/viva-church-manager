@@ -664,6 +664,7 @@ model Cell {
   host   Member? @relation("CellHost", fields: [hostId], references: [id], onDelete: SetNull)
   meetings CellMeeting[]
   participants Member[] @relation("CellParticipants")
+  prayerEntries CellPrayerRequest[]
 
   @@index([leaderId])
   @@index([weekday])
@@ -681,9 +682,26 @@ model CellMeeting {
 
   cell Cell @relation(fields: [cellId], references: [id], onDelete: Cascade)
   attendance CellMeetingAttendance[]
+  prayerEntries CellPrayerRequest[]
 
   @@index([cellId])
   @@index([meetingDate])
+}
+
+model CellPrayerRequest {
+  id            String    @id @default(cuid())
+  cellId        String
+  meetingId     String?
+  requesterName String
+  reason        String
+  createdAt     DateTime  @default(now())
+  closedAt      DateTime?
+
+  cell    Cell         @relation(fields: [cellId], references: [id], onDelete: Cascade)
+  meeting CellMeeting? @relation(fields: [meetingId], references: [id], onDelete: SetNull)
+
+  @@index([cellId, closedAt])
+  @@index([meetingId])
 }
 
 model CellMeetingAttendance {

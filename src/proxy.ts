@@ -27,7 +27,9 @@ export default async function proxy(req: NextRequest) {
       if (fallback && fallback !== pathname) return NextResponse.redirect(new URL(fallback, req.url));
       return NextResponse.json({ error: "PERMISSION_DENIED" }, { status: 403 });
     }
-    if (req.method === "POST" && entry.write.length && !entry.write.some(p => hasPermission(access.webPermissions, p))) return NextResponse.json({ error: "PERMISSION_DENIED" }, { status: 403 });
+    // The cell detail actions check leadership for that cell. Deletion still requires cells:write.
+    const cellDetail = entry.key === "cells" && /^\/admin\/cells\/[^/]+$/.test(pathname);
+    if (req.method === "POST" && !cellDetail && entry.write.length && !entry.write.some(p => hasPermission(access.webPermissions, p))) return NextResponse.json({ error: "PERMISSION_DENIED" }, { status: 403 });
   }
   // Legacy report/export routes must not bypass the entry grants.
   if (pathname.startsWith("/api/reports/") && !access.webModules.includes("reports")) return NextResponse.json({ error: "PERMISSION_DENIED" }, { status: 403 });

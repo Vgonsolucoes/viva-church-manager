@@ -282,6 +282,7 @@ export const CellDetailSchema = z.object({
   leaderId: z.string(),
   leaderName: z.string(),
   leaderPhone: z.string().nullable(),
+  hostName: z.string().nullish(),
   nextMeetingDate: z.coerce.date().nullable(),
   membersCount: z.number().int(),
 });

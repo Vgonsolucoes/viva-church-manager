@@ -6,6 +6,47 @@ function setup(){const rows=new Map(),resets=[],assignments=[];let writes=0;
  const db={schedule:{findUnique:async({where})=>rows.get(where.id)??null,findFirst:async({where})=>[...rows.values()].find(row=>Object.entries(where).every(([key,value])=>row[key]===value))??null,upsert:async({where,create,update})=>{writes++;if(!rows.has(where.id))rows.set(where.id,{staffingCompletedAt:null,...create});else Object.assign(rows.get(where.id),update);return rows.get(where.id)}},scheduleAssignment:{updateMany:async args=>{resets.push(args);for(const a of assignments)if(a.scheduleId===args.where.scheduleId&&a.status!=='DECLINED')Object.assign(a,args.data)}},$transaction:async fn=>fn(db),event:{findMany:async()=>[]},course:{findMany:async()=>[]}};
  return {rows,resets,assignments,db,get writes(){return writes},service:load('src/server/staffing.ts',{'@/server/db':{prisma:db},'@/lib/staffing':utils})};}
 const now=new Date('2026-11-04T15:00:00Z');
+
+test('Mobile replies update the selected assignment, preserve other volunteers and tolerate retries', async () => {
+  const rows = [
+    { id: 'a1', scheduleId: 's1', volunteerId: 'v1', status: 'PENDING' },
+    { id: 'a2', scheduleId: 's1', volunteerId: 'v2', status: 'PENDING' },
+    { id: 'a3', scheduleId: 's1', volunteerId: 'v2', status: 'PENDING' },
+  ];
+  const audit = [];
+  const matching = (where) => rows.filter((row) => Object.entries(where).every(([key, value]) => row[key] === value));
+  const prisma = {
+    scheduleAssignment: {
+      findUnique: async ({ where }) => matching(where)[0] ?? null,
+      findMany: async ({ where, take }) => matching(where).slice(0, take),
+      updateMany: async ({ where, data }) => {
+        const found = matching(where);
+        found.forEach((row) => Object.assign(row, data));
+        return { count: found.length };
+      },
+    },
+    $transaction: async (operation) => operation(prisma),
+  };
+  const { respondToSchedule } = load('src/server/schedule-response.ts', {
+    'next/server': { NextResponse: { json: (body, options) => ({ body, status: options?.status ?? 200 }) } },
+    '@/server/db': { prisma },
+    '@/server/audit': { logAudit: async (entry) => audit.push(entry) },
+    '@/server/rbac': { hasPermission: () => false },
+  });
+  const v1 = { user: { id: 'u1' }, volunteerProfile: { id: 'v1' }, permissions: [] };
+  const v2 = { user: { id: 'u2' }, volunteerProfile: { id: 'v2' }, permissions: [] };
+  const confirm = { reason: 'CONFIRMED' };
+  const refusal = { reason: 'VIAGEM', note: null };
+  assert.equal((await respondToSchedule(v2, 'a1', 'CONFIRMED', confirm)).status, 403);
+  assert.equal((await respondToSchedule(v2, 's1', 'DECLINED', refusal)).status, 409);
+  assert.equal((await respondToSchedule(v2, 'a2', 'DECLINED', refusal)).body.status, 'DECLINED');
+  assert.equal((await respondToSchedule(v2, 'a2', 'DECLINED', refusal)).status, 200);
+  assert.equal((await respondToSchedule(v2, 'a2', 'CONFIRMED', confirm)).status, 409);
+  assert.equal((await respondToSchedule(v1, 'a1', 'CONFIRMED', confirm)).body.status, 'CONFIRMED');
+  assert.equal(rows[2].status, 'PENDING');
+  assert.equal(audit.length, 2);
+});
+
 const event={id:'event1',name:'Culto de domingo',type:'SERVICE',startsAt:new Date('2026-11-08T21:00:00Z'),endsAt:null};
 test('Month boundaries use Brasília time, include the whole month, and exclude the next month',()=>{const {from,to}=utils.staffingMonthRange('2026-11');assert.equal(from.toISOString(),'2026-11-01T03:00:00.000Z');assert.equal(to.toISOString(),'2026-12-01T03:00:00.000Z');assert.equal(utils.staffingMonth(new Date('2026-12-01T02:59:00Z')),'2026-11');assert.equal(utils.staffingMonthRange('2026-12').to.toISOString(),'2027-01-01T03:00:00.000Z');assert.throws(()=>utils.staffingMonthRange('2026-13'));});
 test('Every service/event gets one linked pending schedule and repeated reads do not overwrite completion',async()=>{const state=setup();const id=await state.service.syncStaffingSchedule(event,now);assert.equal(state.rows.get(id).eventId,'event1');assert.equal(state.rows.get(id).kind,'SERVICE');state.rows.get(id).staffingCompletedAt=now;await state.service.syncStaffingSchedule(event,now);assert.equal(state.rows.size,1);assert.equal(state.writes,1);assert.equal(state.rows.get(id).staffingCompletedAt,now);await state.service.syncStaffingSchedule({...event,id:'conference',type:'CONFERENCE'},now);assert.equal(state.rows.get('staffing-event-conference').kind,'EVENT');});

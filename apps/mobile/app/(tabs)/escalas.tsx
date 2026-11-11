@@ -9,6 +9,7 @@ import {
   TextInput,
   View,
   Platform,
+  Alert,
 } from "react-native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
@@ -198,14 +199,29 @@ export default function EscalasScreen() {
     void queryClient.invalidateQueries({ queryKey: ["volunteer-availability"] });
   };
 
+  const updateResponse = (updated: ScheduleAssignment) => {
+    queryClient.setQueryData<ScheduleAssignment[]>(["my-schedules"], (items) =>
+      items?.map((item) => item.id === updated.id ? { ...item, ...updated } : item),
+    );
+    void queryClient.invalidateQueries({ queryKey: ["my-schedules"] });
+  };
+  const showResponseError = (error: Error) => {
+    Alert.alert("Não foi possível responder à escala", error.message || "Tente novamente.");
+    void queryClient.invalidateQueries({ queryKey: ["my-schedules"] });
+  };
   const confirmMut = useMutation({
     mutationFn: (id: string) => confirmSchedule(id),
-    onSuccess: refreshAll,
+    onSuccess: updateResponse,
+    onError: showResponseError,
   });
   const refuseMut = useMutation({
     mutationFn: (p: { id: string; reason: ScheduleDeclineReason; note?: string | null }) =>
       refuseSchedule(p.id, { reason: p.reason, note: p.note }),
-    onSuccess: refreshAll,
+    onSuccess: (updated) => {
+      updateResponse(updated);
+      setRefuseFor(null);
+    },
+    onError: showResponseError,
   });
   const subMut = useMutation({
     mutationFn: (p: {
@@ -270,7 +286,7 @@ export default function EscalasScreen() {
               onConfirm={(s) => confirmMut.mutate(s.id)}
               onRefuse={(s) => setRefuseFor(s)}
               onSubstitute={(s) => setSubFor(s)}
-              confirmingId={confirmMut.variables ?? null}
+              confirmingId={confirmMut.isPending ? confirmMut.variables : null}
               readOnly={false}
               tint="schedules"
             />
@@ -310,14 +326,13 @@ export default function EscalasScreen() {
       </View>
 
       {refuseFor ? (
-        <BottomSheetModal visible onClose={() => setRefuseFor(null)} title="Motivo da recusa">
+        <BottomSheetModal visible onClose={() => !refuseMut.isPending && setRefuseFor(null)} title="Motivo da recusa">
           <RefuseForm
             initialNote=""
             submitting={refuseMut.isPending}
-            onCancel={() => setRefuseFor(null)}
+            onCancel={() => !refuseMut.isPending && setRefuseFor(null)}
             onSubmit={(reason, note) => {
               refuseMut.mutate({ id: refuseFor.id, reason, note });
-              setRefuseFor(null);
             }}
           />
         </BottomSheetModal>
@@ -549,6 +564,7 @@ function CompatScheduleCard({
                 title="Recusar"
                 variant="default"
                 height={44}
+                disabled={confirming}
                 onPress={() => onRefuse?.(item)}
                 textStyle={{ color: theme.colors.danger500 }}
               />
@@ -794,6 +810,7 @@ function RefuseForm({
         label="Observações (opcional)"
         value={note}
         onChangeText={setNote}
+        maxLength={1000}
         multiline
         numberOfLines={3}
         style={{ minHeight: 80, textAlignVertical: "top" }}

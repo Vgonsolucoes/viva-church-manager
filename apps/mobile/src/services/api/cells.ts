@@ -25,6 +25,7 @@ export async function getMyCell(): Promise<CellDetail | null> {
   if (!Array.isArray(res)) return CellDetailSchema.parse(res);
   if (res.length === 0) return null;
   const raw = res[0] as Record<string, unknown>;
+  const host = raw.host as { name?: unknown } | null | undefined;
   const nextMeetingDate =
     raw.nextMeetingAt !== undefined && raw.nextMeetingAt !== null
       ? new Date(String(raw.nextMeetingAt))
@@ -54,6 +55,7 @@ export async function getMyCell(): Promise<CellDetail | null> {
         ? String((raw.leader as Record<string, unknown>).name ?? "")
         : "",
     leaderPhone: typeof raw.leaderPhone === "string" ? raw.leaderPhone : null,
+    hostName: typeof host?.name === "string" ? host.name : null,
     nextMeetingDate,
     membersCount,
   };

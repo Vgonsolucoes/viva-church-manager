@@ -72,69 +72,10 @@ async function saveCell(cellId: string | null, formData: FormData) {
   redirect(`${cellsPath}?salvo=1`);
 }
 
-const createMeetingSchema = z.object({
-  cellId: z.string().min(1),
-  meetingDate: z.string().min(5),
-  participantsCount: z.string().optional().or(z.literal("")),
-  visitorsCount: z.string().optional().or(z.literal("")),
-  prayerRequests: z.string().optional().or(z.literal("")),
-  notes: z.string().optional().or(z.literal("")),
-});
-
-async function createMeeting(formData: FormData) {
-  "use server";
-  await assertWebPermission("cells:write");
-
-  const session = await getServerSession(authOptions);
-  const parsed = createMeetingSchema.safeParse({
-    cellId: formData.get("cellId"),
-    meetingDate: formData.get("meetingDate"),
-    participantsCount: formData.get("participantsCount"),
-    visitorsCount: formData.get("visitorsCount"),
-    prayerRequests: formData.get("prayerRequests"),
-    notes: formData.get("notes"),
-  });
-  if (!parsed.success) return;
-
-  const presentMemberIds = formData.getAll("presentMemberIds").map((v) => String(v));
-
-  const meeting = await prisma.cellMeeting.create({
-    data: {
-      cellId: parsed.data.cellId,
-      meetingDate: new Date(parsed.data.meetingDate),
-      participantsCount: parsed.data.participantsCount
-        ? Number(parsed.data.participantsCount)
-        : null,
-      visitorsCount: parsed.data.visitorsCount ? Number(parsed.data.visitorsCount) : null,
-      prayerRequests: parsed.data.prayerRequests ? parsed.data.prayerRequests.trim() : null,
-      notes: parsed.data.notes ? parsed.data.notes.trim() : null,
-      attendance: {
-        create: presentMemberIds.map((memberId) => ({ memberId, present: true })),
-      },
-    },
-    include: { attendance: true },
-  });
-
-  await logAudit({
-    actorUserId: session?.uid ?? null,
-    action: "CREATE",
-    entityType: "CellMeeting",
-    entityId: meeting.id,
-    after: {
-      id: meeting.id,
-      cellId: meeting.cellId,
-      meetingDate: meeting.meetingDate,
-      attendanceCount: meeting.attendance.length,
-    },
-  });
-
-  revalidatePath("/admin/cells");
-}
-
 export default async function CellsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ edit?: string; erro?: string; salvo?: string }>;
+  searchParams: Promise<{ edit?: string; erro?: string; salvo?: string; excluida?: string }>;
 }) {
   const [params, session] = await Promise.all([searchParams, getServerSession(authOptions)]);
   const canEdit = session?.permissions?.includes("cells:write");
@@ -150,11 +91,7 @@ export default async function CellsPage({
       include: {
         leader: true,
         host: true,
-        meetings: {
-          orderBy: { meetingDate: "desc" },
-          take: 6,
-          include: { attendance: { include: { member: true } } },
-        },
+        _count: { select: { meetings: true } },
       },
     }),
     editId ? prisma.cell.findUnique({ where: { id: editId } }) : null,
@@ -172,6 +109,7 @@ export default async function CellsPage({
         </div>
       </div>
       {params.salvo === "1" ? <p role="status">Célula salva com sucesso.</p> : null}
+      {params.excluida === "1" ? <p role="status">Célula excluída.</p> : null}
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <Card className="p-5 xl:col-span-2">
@@ -193,96 +131,23 @@ export default async function CellsPage({
                         {c.address ? ` • ${c.address}` : ""}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge className="shrink-0">{c.meetings.length} reuniões (últimas)</Badge>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <Badge className="shrink-0">{c._count.meetings} reuniões</Badge>
+                      <Link className="text-sm font-medium underline" href={`${cellsPath}/${c.id}`}>
+                        Abrir painel<span className="sr-only"> de {c.name}</span>
+                      </Link>
                       {canEdit ? (
-                        <Link className="text-sm font-medium underline" href={`${cellsPath}?edit=${c.id}#form-celula`}>
-                          Editar<span className="sr-only"> {c.name}</span>
-                        </Link>
+                        <>
+                          <Link className="text-sm font-medium underline" href={`${cellsPath}?edit=${c.id}#form-celula`}>
+                            Editar<span className="sr-only"> {c.name}</span>
+                          </Link>
+                          <Link className="text-sm font-medium text-destructive underline" href={`${cellsPath}/${c.id}?excluir=1#excluir`}>
+                            Excluir<span className="sr-only"> {c.name}</span>
+                          </Link>
+                        </>
                       ) : null}
                     </div>
                   </div>
-
-                  <div className="mt-3 space-y-2">
-                    {c.meetings.length ? (
-                      c.meetings.map((m) => (
-                        <div key={m.id} className="rounded-xl border border-border bg-card p-3">
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <div className="text-sm font-semibold">
-                              {new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" }).format(
-                                m.meetingDate,
-                              )}
-                            </div>
-                            <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                              <span>
-                                Presentes:{" "}
-                                {m.participantsCount ?? m.attendance.length ?? 0}
-                              </span>
-                              <span>Visitantes: {m.visitorsCount ?? 0}</span>
-                            </div>
-                          </div>
-                          {m.prayerRequests ? (
-                            <div className="mt-2 text-xs text-muted-foreground">
-                              Pedidos: {m.prayerRequests}
-                            </div>
-                          ) : null}
-                          {m.attendance.length ? (
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              {m.attendance.slice(0, 12).map((a) => (
-                                <Badge key={a.id}>{a.member.fullName}</Badge>
-                              ))}
-                              {m.attendance.length > 12 ? (
-                                <Badge>+{m.attendance.length - 12}</Badge>
-                              ) : null}
-                            </div>
-                          ) : null}
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-sm text-muted-foreground">
-                        Nenhuma reunião registrada ainda.
-                      </div>
-                    )}
-                  </div>
-
-                  <form action={createMeeting} className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-6">
-                    <input type="hidden" name="cellId" value={c.id} />
-                    <Input name="meetingDate" type="date" required className="md:col-span-1" />
-                    <Input
-                      name="participantsCount"
-                      placeholder="Presentes"
-                      className="md:col-span-1"
-                    />
-                    <Input
-                      name="visitorsCount"
-                      placeholder="Visitantes"
-                      className="md:col-span-1"
-                    />
-                    <Input
-                      name="prayerRequests"
-                      placeholder="Pedidos de oração"
-                      className="md:col-span-2"
-                    />
-                    <Button type="submit" variant="secondary" className="md:col-span-1">
-                      Registrar
-                    </Button>
-                    <div className="md:col-span-6">
-                      <div className="text-xs font-medium text-muted-foreground">
-                        Presença (membros)
-                      </div>
-                      <select
-                        name="presentMemberIds"
-                        multiple
-                        className="mt-2 h-32 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
-                      >
-                        {members.map((m) => (
-                          <option key={m.id} value={m.id}>
-                            {m.fullName}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </form>
                 </div>
               ))
             ) : (

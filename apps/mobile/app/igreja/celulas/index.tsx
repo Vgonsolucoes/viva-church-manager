@@ -17,6 +17,7 @@ import {
   Clock,
   Users,
   MessageCircle,
+  House,
   ClipboardList,
 } from "lucide-react-native";
 import { useAppTheme } from "@/theme";
@@ -176,7 +177,7 @@ export default function MyCellScreen() {
                     name={data.leaderName}
                     size={28}
                   />
-                  <Text style={styles.leaderName}>Líder: {data.leaderName}</Text>
+                  <Text style={styles.leaderName}>Líder da célula: {data.leaderName}</Text>
                 </View>
               ) : null}
             </View>
@@ -184,6 +185,12 @@ export default function MyCellScreen() {
           </View>
 
           <View style={styles.infoCol}>
+            {data.hostName ? (
+              <View style={styles.infoRow}>
+                <House size={16} color={theme.colors.primary400} />
+                <Text style={[styles.infoText, { flex: 1 }]}>Anfitrião: {data.hostName}</Text>
+              </View>
+            ) : null}
             <View style={styles.infoRow}>
               <Clock size={16} color={theme.colors.cyan400} />
               <Text style={styles.infoText}>{formatDayHour(data)}</Text>
@@ -192,7 +199,7 @@ export default function MyCellScreen() {
               <View style={styles.infoRow}>
                 <MapPin size={16} color={theme.colors.pink400} />
                 <Text style={[styles.infoText, { flex: 1 }]}>
-                  {data.address}
+                  Endereço: {data.address}
                 </Text>
               </View>
             ) : null}
