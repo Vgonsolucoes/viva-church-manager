@@ -313,7 +313,6 @@ export default async function EventsPage() {
                               className="object-cover"
                               sizes="(max-width: 1280px) 100vw, 800px"
                               unoptimized
-                              loader={({ src }) => src}
                             />
                           </div>
                         </div>
