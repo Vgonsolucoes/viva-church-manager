@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 
@@ -80,6 +80,16 @@ export function TemporaryMemberIntakeForm(props: {
   const [cepStatus, setCepStatus] = useState<"idle" | "loading" | "error" | "ok">("idle");
   const [submitStatus, setSubmitStatus] = useState<"idle" | "submitting">("idle");
   const [cpfError, setCpfError] = useState<string | null>(null);
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [password, setPassword] = useState("");
+  useEffect(() => {
+    if (!photo) { setPreview(null); return; }
+    const url = URL.createObjectURL(photo);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [photo]);
 
   function toggleType(value: MemberTypeValue) {
     setSelectedTypes((prev) => {
@@ -126,6 +136,12 @@ export function TemporaryMemberIntakeForm(props: {
           return;
         }
         const raw = new FormData(e.currentTarget);
+        setFormError(null);
+        if (raw.get("password") !== raw.get("passwordConfirmation")) {
+          e.preventDefault();
+          setFormError("As senhas devem ser iguais.");
+          return;
+        }
         const cpfDigits = String(raw.get("cpf") ?? "").replace(/\D/g, "");
         const types = raw.getAll("types");
         if (!validateCpf(cpfDigits)) {
@@ -142,6 +158,27 @@ export function TemporaryMemberIntakeForm(props: {
         setSubmitStatus("submitting");
       }}
     >
+      <div className="space-y-2">
+        <label htmlFor="profile-photo" className="text-sm font-medium">Foto de perfil (opcional)</label>
+        {preview ? (
+          // The preview is a temporary browser URL for the selected upload.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={preview} alt="Prévia da foto de perfil" className="size-24 rounded-full object-cover" />
+        ) : null}
+        <Input id="profile-photo" name="photo" type="file" accept="image/jpeg,image/png,image/webp"
+          onChange={(event) => {
+            const selected = event.target.files?.[0] ?? null;
+            if (selected && (selected.size > 2 * 1024 * 1024 || !["image/jpeg", "image/png", "image/webp"].includes(selected.type))) {
+              event.target.value = "";
+              setPhoto(null);
+              setFormError("Envie uma foto JPG, PNG ou WebP de até 2 MB.");
+              return;
+            }
+            setPhoto(selected);
+            setFormError(null);
+          }} />
+        <p className="text-xs text-muted-foreground">JPG, PNG ou WebP, até 2 MB.</p>
+      </div>
       <div className="space-y-2">
         <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Nome completo
@@ -166,7 +203,7 @@ export function TemporaryMemberIntakeForm(props: {
         </div>
         <div className="space-y-2">
           <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">E-mail</div>
-          <Input name="email" type="email" placeholder="email@exemplo.com" />
+          <Input name="email" type="email" autoComplete="email" placeholder="email@exemplo.com" required={!!password} />
         </div>
         <div className="space-y-2">
           <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Telefone WhatsApp</div>
@@ -174,6 +211,20 @@ export function TemporaryMemberIntakeForm(props: {
         </div>
       </div>
 
+      <fieldset className="space-y-3 rounded-2xl border border-border p-4">
+        <legend className="px-1 text-sm font-medium">Criar acesso (opcional)</legend>
+        <p className="text-sm text-muted-foreground">Para entrar com seu e-mail no aplicativo e nos módulos liberados para seu cadastro, defina uma senha.</p>
+        <label className="grid gap-2 text-sm">Senha
+          <Input name="password" type="password" autoComplete="new-password" minLength={8} maxLength={72}
+            value={password} onChange={(event) => setPassword(event.target.value)} />
+        </label>
+        <label className="grid gap-2 text-sm">Confirmar senha
+          <Input name="passwordConfirmation" type="password" autoComplete="new-password"
+            minLength={8} maxLength={72} required={!!password} />
+        </label>
+        <p className="text-xs text-muted-foreground">Use de 8 a 72 caracteres. O e-mail é obrigatório ao definir uma senha.</p>
+      </fieldset>
+      {formError ? <p role="alert" className="text-sm text-destructive">{formError}</p> : null}
       <div className="space-y-2">
         <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Tipos do cadastro

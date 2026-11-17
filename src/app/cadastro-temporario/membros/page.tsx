@@ -1,11 +1,13 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import bcrypt from "bcryptjs";
 import { Card } from "@/components/ui/Card";
 import { prisma } from "@/server/db";
 import { logAudit } from "@/server/audit";
 import { getTempMemberIntakePath } from "@/server/temp-member-intake";
 import { isPublicMemberRegistrationEnabled } from "@/server/settings";
 import { TemporaryMemberIntakeForm } from "./TemporaryMemberIntakeForm";
+import { saveMemberAvatarUploadDetailed } from "@/server/uploads";
 
 export const dynamic = "force-dynamic";
 
@@ -65,6 +67,12 @@ const createMemberSchema = z.object({
   baptized: z.boolean().optional(),
   baptismYear: yearField,
   conversionYear: yearField,
+  password: z.string().max(72).refine((value) => !value || (value.length >= 8 && Buffer.byteLength(value, "utf8") <= 72)),
+  passwordConfirmation: z.string(),
+}).refine((data) => data.password === data.passwordConfirmation, {
+  path: ["passwordConfirmation"], message: "As senhas devem ser iguais.",
+}).refine((data) => !data.password || !!data.email, {
+  path: ["password"], message: "Informe um e-mail para criar o acesso.",
 });
 
 function getSelectedTypes(types: MemberTypeValue[]) {
@@ -105,9 +113,14 @@ async function createTemporaryMember(formData: FormData) {
       baptized: formData.get("baptized") === "on",
       baptismYear: formData.get("baptismYear"),
       conversionYear: formData.get("conversionYear"),
+      password: String(formData.get("password") ?? ""),
+      passwordConfirmation: String(formData.get("passwordConfirmation") ?? ""),
     });
 
     if (!parsed.success) {
+      if (parsed.error.issues.some((issue) => String(issue.path[0]).startsWith("password"))) {
+        redirect(`${intakePath}?status=senha-invalida`);
+      }
       const issueCode = parsed.error.issues.find((issue) => issue.path[0] === "cpf")?.code;
       if (issueCode) redirect(`${intakePath}?status=cpf-invalido`);
       redirect(`${intakePath}?status=erro`);
@@ -131,6 +144,11 @@ async function createTemporaryMember(formData: FormData) {
         select: { id: true },
       });
       if (existingByEmail) redirect(`${intakePath}?status=email-existente`);
+      const existingUser = await prisma.user.findFirst({
+        where: { email: { equals: normalizedEmail, mode: "insensitive" } },
+        select: { id: true },
+      });
+      if (existingUser) redirect(`${intakePath}?status=email-existente`);
     }
 
     const ministryIds = Array.from(
@@ -144,9 +162,26 @@ async function createTemporaryMember(formData: FormData) {
       : [];
     const validMinistryIds = validMinistries.map((ministry) => ministry.id);
 
+    const passwordHash = parsed.data.password ? await bcrypt.hash(parsed.data.password, 12) : null;
+    let photoUrl: string | null = null;
+    const photo = formData.get("photo");
+    if (photo instanceof File && photo.size > 0) {
+      const uploaded = await saveMemberAvatarUploadDetailed(photo);
+      if (!uploaded.ok) redirect(`${intakePath}?status=foto-invalida`);
+      photoUrl = uploaded.url;
+    }
     const member = await prisma.member.create({
       data: {
         fullName: parsed.data.fullName.trim(),
+        photoUrl,
+        user: passwordHash && normalizedEmail ? {
+          create: {
+            name: parsed.data.fullName.trim(),
+            email: normalizedEmail,
+            passwordHash,
+            roles: { create: { role: "MEMBER" } },
+          },
+        } : undefined,
         cpf: normalizedCpf,
         email: normalizedEmail,
         phone: parsed.data.phone ? String(parsed.data.phone).trim() : null,
@@ -201,12 +236,18 @@ async function createTemporaryMember(formData: FormData) {
     ) {
       throw err;
     }
+    if (err && typeof err === "object" && "code" in err && err.code === "P2002") {
+      redirect(`${intakePath}?status=cadastro-existente`);
+    }
     console.error("[temp-members] Falha ao processar cadastro temporario:", err);
     redirect(`${intakePath}?status=falha-servidor`);
   }
 }
 
 function getMessage(status: string | undefined) {
+  if (status === "senha-invalida") return { tone: "warning", text: "Informe um e-mail válido e uma senha de 8 a 72 caracteres. Confirme a mesma senha nos dois campos." } as const;
+  if (status === "foto-invalida") return { tone: "warning", text: "Envie uma foto JPG, PNG ou WebP de até 2 MB." } as const;
+  if (status === "cadastro-existente") return { tone: "warning", text: "Já existe um cadastro com estes dados. Entre com sua conta ou procure a secretaria." } as const;
   if (status === "ok") {
     return {
       tone: "success",
