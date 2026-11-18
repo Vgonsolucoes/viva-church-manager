@@ -1,3 +1,6 @@
+import { canManageDiscipleship } from "@/server/discipleship-network";
+import { MonthlyDiscipleshipMaterial } from "./groups/MonthlyMaterial";
+import { selectedMonth, monthlyRange } from "@/server/discipleship-monthly";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -216,6 +219,7 @@ async function createDiscipleship(formData: FormData) {
   if (parsed.data.discipleId === parsed.data.disciplerId) return;
   if (parsed.data.coDisciplerId && [parsed.data.discipleId, parsed.data.disciplerId].includes(parsed.data.coDisciplerId)) return;
 
+  if (!(await canManageDiscipleship(session, { disciplerId: parsed.data.disciplerId, coDisciplerId: parsed.data.coDisciplerId }))) return;
   const progress = parseProgress(parsed.data.progress) ?? 0;
 
   try {
@@ -291,6 +295,7 @@ async function updateCoDiscipler(formData: FormData) {
   const result = await prisma.$transaction(async (tx) => {
     const before = await tx.discipleship.findUnique({ where: { id } });
     if (!before || before.status !== "ACTIVE" || before.coDisciplerId === coDisciplerId) return null;
+    if (!(await canManageDiscipleship(session, before))) return null;
     if (coDisciplerId) {
       if ([before.discipleId, before.disciplerId].includes(coDisciplerId)) return null;
       if (await wouldCreateCycle(tx, before.discipleId, coDisciplerId)) return null;
@@ -331,7 +336,7 @@ async function updateStatus(formData: FormData) {
 
   const progress = parseProgress(parsed.data.progress);
   const before = await prisma.discipleship.findUnique({ where: { id: parsed.data.id } });
-  if (!before) return;
+  if (!before || !(await canManageDiscipleship(session, before))) return;
 
   if (
     parsed.data.status === "ACTIVE" &&
@@ -403,7 +408,7 @@ async function registerMeeting(formData: FormData) {
 
   const session = await getServerSession(authOptions);
   if (!session) return;
-  const canWriteAll = hasPermission(session.permissions ?? [], "discipleships:write");
+  const canWriteAll = session.roles?.includes("SUPER_ADMIN") ?? false;
   const canWriteMine = hasPermission(session.permissions ?? [], "discipleship:my:write");
   if (!canWriteAll && !canWriteMine) return;
   const parsed = meetingSchema.safeParse({
@@ -419,7 +424,7 @@ async function registerMeeting(formData: FormData) {
   if (!parsed.success) return;
 
   const before = await prisma.discipleship.findUnique({ where: { id: parsed.data.discipleshipId } });
-  if (!before) return;
+  if (!before || !(await canManageDiscipleship(session, before))) return;
 
   // Sem permissão administrativa, o discipulador só registra encontros dos próprios discípulos diretos.
   if (!canWriteAll) {
@@ -521,7 +526,8 @@ async function transferDisciple(formData: FormData) {
   if (!parsed.success) return;
 
   const current = await prisma.discipleship.findUnique({ where: { id: parsed.data.discipleshipId } });
-  if (!current || current.status !== "ACTIVE") return;
+  if (!current || current.status !== "ACTIVE" || !(await canManageDiscipleship(session, current))) return;
+  if (!(await canManageDiscipleship(session, { disciplerId: parsed.data.newDisciplerId, coDisciplerId: parsed.data.coDisciplerId }))) return;
   if (current.disciplerId === parsed.data.newDisciplerId && current.coDisciplerId === (parsed.data.coDisciplerId || null)) return;
   if (parsed.data.coDisciplerId && [current.discipleId, parsed.data.newDisciplerId].includes(parsed.data.coDisciplerId)) return;
 
@@ -611,7 +617,7 @@ async function endDiscipleship(formData: FormData) {
   if (!parsed.success) return;
 
   const before = await prisma.discipleship.findUnique({ where: { id: parsed.data.id } });
-  if (!before) return;
+  if (!before || !(await canManageDiscipleship(session, before))) return;
   if (before.status !== "ACTIVE" && before.status !== "PAUSED") return;
 
   const reason = parsed.data.reason.trim();
@@ -714,9 +720,9 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
   const session = await getServerSession(authOptions);
   if (!session) redirect("/admin");
   const roles = session.roles ?? [];
-  const canViewAll = hasPermission(session?.permissions ?? [], "discipleships:read");
+  const canViewAll = roles.includes("SUPER_ADMIN");
   const canViewMine = hasPermission(session?.permissions ?? [], "discipleship:my:read");
-  if (!canViewAll && !canViewMine) redirect("/admin");
+  if (!canViewAll && !canViewMine && !hasPermission(session.permissions ?? [], "discipleships:read")) redirect("/admin");
   const canWrite = hasPermission(session?.permissions ?? [], "discipleships:write");
   const canRegisterMeeting = canWrite || hasPermission(session?.permissions ?? [], "discipleship:my:write");
 
@@ -728,6 +734,7 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
   const currentMemberId = currentUser?.memberId ?? null;
 
   const searchParams = props.searchParams ? await props.searchParams : {};
+  const month = selectedMonth(getSearchValue(searchParams?.month));
   const viewParam = getSearchValue(searchParams?.vinculo) ? "list" : getSearchValue(searchParams?.view);
   if (viewParam === "network") redirect("/admin/discipleships/network");
   const view: PageView =
@@ -821,6 +828,7 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
     prisma.discipleshipMeeting.findMany({
       where: {
         status: "COMPLETED",
+        meetingAt: { lt: monthlyRange(month).lt },
         attendance: { not: null },
         discipleship: { status: "ACTIVE", ...scopeWhere },
       },
@@ -924,6 +932,7 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
     totalMeetingsCompleted,
   ] = await Promise.all([
     prisma.member.findMany({
+      where: canViewAll ? {} : { id: { in: scopeDisciplerIds ?? [] } },
       orderBy: { fullName: "asc" },
       take: 500,
       select: {
@@ -948,7 +957,7 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
       },
     }),
     prisma.discipleshipMeeting.findMany({
-      where: meetingScopeWhere,
+      where: { ...meetingScopeWhere, meetingAt: monthlyRange(month) },
       orderBy: { meetingAt: "desc" },
       take: 200,
       include: {
@@ -974,7 +983,7 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
       distinct: ["disciplerId"],
     }),
     prisma.discipleshipMeeting.count({
-      where: { AND: [{ status: "COMPLETED" }, meetingScopeWhere] },
+      where: { AND: [{ status: "COMPLETED", meetingAt: monthlyRange(month) }, meetingScopeWhere] },
     }),
   ]);
 
@@ -1046,6 +1055,7 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
 
   const buildListHref = (overrides: Record<string, string | null> = {}) => {
     const params = new URLSearchParams();
+    params.set("month", month);
     params.set("view", "list");
     if (q) params.set("q", q);
     if (listStatus !== "active") params.set("status", listStatus);
@@ -1219,6 +1229,7 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
   };
 
   const scopeParams = new URLSearchParams();
+  scopeParams.set("month", month);
   if (redeParam) scopeParams.set("rede", redeParam);
   if (abrangencia === "direta") scopeParams.set("abrangencia", "direta");
   const scopeQuery = scopeParams.toString();
@@ -1229,6 +1240,7 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
     : "/admin/discipleships/network";
 
   const internalMenu = [
+    { key: "groups", label: "Encontro em Grupo", icon: <Users className="size-4" />, href: "/admin/discipleships/groups" },
     { key: "list", label: "Visão geral dos discipulados", icon: <Users className="size-4" />, href: withScope("/admin/discipleships?view=list") },
     { key: "overview", label: "Cadastros e indicadores", icon: <Waypoints className="size-4" />, href: withScope("/admin/discipleships?view=overview") },
     { key: "network", label: "Rede de Discipulado", icon: <GitBranchPlus className="size-4" />, href: networkHref },
@@ -1239,6 +1251,7 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
 
   return (
     <div className="space-y-6">
+      <MonthlyDiscipleshipMaterial month={month} />
       <div className="flex flex-col gap-2 xl:flex-row xl:items-end xl:justify-between">
         <div>
           <div className="text-xl font-semibold tracking-tight">Discipulados</div>

@@ -4,6 +4,7 @@ import { prisma } from "@/server/db";
 import { requireLoggedIn } from "@/server/session-helpers";
 import { hasPermission } from "@/server/rbac";
 import { createAuditLog } from "@/server/audit";
+import { canManageDiscipleship } from "@/server/discipleship-network";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +50,9 @@ export async function POST(req: Request) {
   const isDiscipler = !!ctx.member && [discipleship.disciplerId, discipleship.coDisciplerId].includes(ctx.member.id);
 
   if (!canWriteAll && !(canWriteMy && isDiscipler)) {
+    return NextResponse.json({ error: "PERMISSION_DENIED" }, { status: 403 });
+  }
+  if (!(await canManageDiscipleship({ uid: ctx.user.id, roles: ctx.roles }, discipleship))) {
     return NextResponse.json({ error: "PERMISSION_DENIED" }, { status: 403 });
   }
 

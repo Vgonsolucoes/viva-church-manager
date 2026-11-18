@@ -53,9 +53,9 @@ export default async function DiscipleshipsNetworkPage(props: { searchParams?: S
   const session = await getServerSession(authOptions);
   if (!session) redirect("/admin");
   const roles = session.roles ?? [];
-  const canViewAll = hasPermission(session?.permissions ?? [], "discipleships:read");
+  const canViewAll = roles.includes("SUPER_ADMIN");
   const canViewMine = hasPermission(session?.permissions ?? [], "discipleship:my:read");
-  if (!canViewAll && !canViewMine) redirect("/admin");
+  if (!canViewAll && !canViewMine && !hasPermission(session.permissions ?? [], "discipleships:read")) redirect("/admin");
 
   // O membro do usuário autenticado é sempre resolvido no backend (nunca vem do navegador).
   const currentUser = await prisma.user.findUnique({
@@ -128,7 +128,7 @@ export default async function DiscipleshipsNetworkPage(props: { searchParams?: S
 
   // Escopo server-side: sem permissão administrativa, apenas a subárvore do próprio usuário
   // é serializada para o client (filtrar a interface não substitui autorização).
-  let memberScope: Set<string> | null = null;
+  let memberScope: Set<string> | null = canViewAll ? null : new Set<string>();
   if (!canViewAll && currentMemberId) {
     const childrenMap = new Map<string, string[]>();
     for (const row of activeRows) {

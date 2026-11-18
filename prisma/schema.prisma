@@ -312,6 +312,8 @@ model Member {
   discipleshipsAsDisciple    Discipleship[] @relation("Disciple")
   discipleshipsAsDiscipler   Discipleship[] @relation("Discipler")
   discipleshipsAsCoDiscipler Discipleship[] @relation("CoDiscipler")
+  discipleshipMaterials DiscipleshipMaterial[]
+  discipleshipGroups DiscipleshipGroupMeeting[]
   discipleshipHistory        DiscipleshipHistory[] @relation("DiscipleshipHistoryMember")
   discipleshipHistoryAsPreviousDiscipler DiscipleshipHistory[] @relation("DiscipleshipHistoryPreviousDiscipler")
   discipleshipHistoryAsNewDiscipler      DiscipleshipHistory[] @relation("DiscipleshipHistoryNewDiscipler")
@@ -762,13 +764,42 @@ model DiscipleshipMeeting {
   attendance     Boolean?
   createdById    String?
   createdAt      DateTime                 @default(now())
+  groupMeetingId String?
 
   discipleship Discipleship @relation(fields: [discipleshipId], references: [id], onDelete: Cascade)
   createdBy    User?        @relation("DiscipleshipMeetingCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  groupMeeting DiscipleshipGroupMeeting? @relation(fields: [groupMeetingId], references: [id], onDelete: Cascade)
 
   @@index([discipleshipId])
   @@index([meetingAt])
   @@index([status])
+  @@unique([groupMeetingId, discipleshipId])
+}
+
+model DiscipleshipMaterial {
+  id           String   @id @default(cuid())
+  rootMemberId String
+  month        String
+  title        String
+  filename     String
+  data         Bytes
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  rootMember Member @relation(fields: [rootMemberId], references: [id], onDelete: Cascade)
+  @@unique([rootMemberId, month])
+}
+
+model DiscipleshipGroupMeeting {
+  id        String   @id @default(cuid())
+  leaderId  String
+  month     String
+  meetingAt DateTime
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  leader    Member @relation(fields: [leaderId], references: [id], onDelete: Cascade)
+  meetings  DiscipleshipMeeting[]
+  @@unique([leaderId, month])
 }
 
 model DiscipleshipHistory {
