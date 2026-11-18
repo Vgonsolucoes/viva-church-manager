@@ -229,7 +229,10 @@ function buildLayout(roots: string[], childrenMap: Map<string, string[]>) {
 function NetworkNode(props: NodeProps<Node<FlowNodeData>>) {
   const { member, partners, isCollapsed, onToggleCollapse, isSelected, onShowDetails } = props.data;
   const people = [member, ...partners];
-  const label = people.map((person) => person.fullName).join(" e ");
+  const fullLabel = people.map((person) => person.fullName).join(" e ");
+  const label = partners.length
+    ? people.map((person) => person.fullName.trim().split(/\s+/)[0]).join(" e ")
+    : member.fullName;
   return (
     <div className={cn("flex w-[240px] items-center gap-2 rounded-2xl border bg-card p-3 text-card-foreground shadow-sm", isSelected ? "border-primary ring-2 ring-primary/20" : "border-border")}>
       <Handle type="target" position={Position.Top} />
@@ -243,7 +246,7 @@ function NetworkNode(props: NodeProps<Node<FlowNodeData>>) {
           </div>
         ))}
       </div>
-      <div className="min-w-0 flex-1 break-words text-sm font-semibold" title={label}>{label}</div>
+      <div className="min-w-0 flex-1 break-words text-sm font-semibold" title={fullLabel}>{label}</div>
       <div className="flex shrink-0 flex-col gap-1">
         <button type="button" className="nodrag nopan rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label={`Ver informações de ${member.fullName}`} onClick={event => { event.stopPropagation(); onShowDetails(member.id); }}><Eye className="size-4" /></button>
         {member.directCount > 0 ? <button type="button" className="nodrag nopan rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label={isCollapsed ? "Expandir ramo" : "Recolher ramo"} aria-expanded={!isCollapsed} onClick={event => { event.stopPropagation(); onToggleCollapse(member.id); }}>{isCollapsed ? <PlusSquare className="size-4" /> : <MinusSquare className="size-4" />}</button> : null}
