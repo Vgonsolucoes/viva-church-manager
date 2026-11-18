@@ -69,6 +69,7 @@ enum DiscipleshipMeetingStatus {
 }
 
 enum DiscipleshipHistoryAction {
+  DISCIPLERS_UPDATED
   CREATED
   STATUS_CHANGED
   MEETING_RECORDED
@@ -310,6 +311,7 @@ model Member {
 
   discipleshipsAsDisciple    Discipleship[] @relation("Disciple")
   discipleshipsAsDiscipler   Discipleship[] @relation("Discipler")
+  discipleshipsAsCoDiscipler Discipleship[] @relation("CoDiscipler")
   discipleshipHistory        DiscipleshipHistory[] @relation("DiscipleshipHistoryMember")
   discipleshipHistoryAsPreviousDiscipler DiscipleshipHistory[] @relation("DiscipleshipHistoryPreviousDiscipler")
   discipleshipHistoryAsNewDiscipler      DiscipleshipHistory[] @relation("DiscipleshipHistoryNewDiscipler")
@@ -722,6 +724,7 @@ model Discipleship {
   id           String            @id @default(cuid())
   discipleId   String
   disciplerId  String
+  coDisciplerId String?
   startedAt    DateTime          @default(now())
   status       DiscipleshipStatus @default(ACTIVE)
   level        Int               @default(1)
@@ -735,11 +738,13 @@ model Discipleship {
 
   disciple  Member @relation("Disciple", fields: [discipleId], references: [id], onDelete: Cascade)
   discipler Member @relation("Discipler", fields: [disciplerId], references: [id], onDelete: Cascade)
+  coDiscipler Member? @relation("CoDiscipler", fields: [coDisciplerId], references: [id], onDelete: SetNull)
   meetings  DiscipleshipMeeting[]
   historyEntries DiscipleshipHistory[]
 
   @@index([discipleId])
   @@index([disciplerId])
+  @@index([coDisciplerId])
   @@index([status])
   @@index([level])
   @@index([nextMeetingAt])

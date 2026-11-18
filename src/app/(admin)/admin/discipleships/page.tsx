@@ -44,6 +44,7 @@ const meetingStatuses = ["SCHEDULED", "COMPLETED", "MISSED"] as const;
 const createSchema = z.object({
   discipleId: z.string().min(1),
   disciplerId: z.string().min(1),
+  coDisciplerId: z.string().optional(),
   startedAt: z.string().min(1),
   nextMeetingAt: z.string().optional().or(z.literal("")),
   progress: z.string().optional().or(z.literal("")),
@@ -71,6 +72,7 @@ const meetingSchema = z.object({
 const transferSchema = z.object({
   discipleshipId: z.string().min(1),
   newDisciplerId: z.string().min(1),
+  coDisciplerId: z.string().optional(),
   note: z.string().optional().or(z.literal("")),
   nextMeetingAt: z.string().optional().or(z.literal("")),
 });
@@ -95,6 +97,7 @@ const meetingStatusLabels: Record<(typeof meetingStatuses)[number], string> = {
 };
 
 const historyActionLabels = {
+  DISCIPLERS_UPDATED: "Discipuladores atualizados",
   CREATED: "Cadastro criado",
   STATUS_CHANGED: "Status alterado",
   MEETING_RECORDED: "Encontro registrado",
@@ -139,20 +142,23 @@ async function wouldCreateCycle(
   discipleId: string,
   disciplerId: string,
 ) {
-  let current = disciplerId;
+  const queue = [disciplerId];
   const visited = new Set<string>();
 
-  while (current) {
+  while (queue.length) {
+    const current = queue.pop()!;
     if (current === discipleId) return true;
-    if (visited.has(current)) return true;
+    if (visited.has(current)) continue;
     visited.add(current);
 
     const parent = await tx.discipleship.findFirst({
       where: { discipleId: current, status: "ACTIVE" },
-      select: { disciplerId: true },
+      select: { disciplerId: true, coDisciplerId: true },
     });
-    if (!parent) return false;
-    current = parent.disciplerId;
+    if (parent) {
+      queue.push(parent.disciplerId);
+      if (parent.coDisciplerId) queue.push(parent.coDisciplerId);
+    }
   }
 
   return false;
@@ -200,6 +206,7 @@ async function createDiscipleship(formData: FormData) {
   const parsed = createSchema.safeParse({
     discipleId: formData.get("discipleId"),
     disciplerId: formData.get("disciplerId"),
+    coDisciplerId: String(formData.get("coDisciplerId") ?? ""),
     startedAt: formData.get("startedAt"),
     nextMeetingAt: formData.get("nextMeetingAt"),
     progress: formData.get("progress"),
@@ -207,6 +214,7 @@ async function createDiscipleship(formData: FormData) {
   });
   if (!parsed.success) return;
   if (parsed.data.discipleId === parsed.data.disciplerId) return;
+  if (parsed.data.coDisciplerId && [parsed.data.discipleId, parsed.data.disciplerId].includes(parsed.data.coDisciplerId)) return;
 
   const progress = parseProgress(parsed.data.progress) ?? 0;
 
@@ -220,12 +228,16 @@ async function createDiscipleship(formData: FormData) {
       if (await wouldCreateCycle(tx, parsed.data.discipleId, parsed.data.disciplerId)) {
         throw new Error("A ligação criaria um ciclo na rede.");
       }
+      if (parsed.data.coDisciplerId && await wouldCreateCycle(tx, parsed.data.discipleId, parsed.data.coDisciplerId)) {
+        throw new Error("A ligação do casal criaria um ciclo na rede.");
+      }
 
       const level = await getNextLevel(tx, parsed.data.disciplerId);
       const row = await tx.discipleship.create({
         data: {
           discipleId: parsed.data.discipleId,
           disciplerId: parsed.data.disciplerId,
+          coDisciplerId: parsed.data.coDisciplerId || null,
           startedAt: new Date(parsed.data.startedAt),
           nextMeetingAt: toOptionalDate(parsed.data.nextMeetingAt),
           progress,
@@ -257,6 +269,7 @@ async function createDiscipleship(formData: FormData) {
         id: result.id,
         discipleId: result.discipleId,
         disciplerId: result.disciplerId,
+        coDisciplerId: result.coDisciplerId,
         level: result.level,
         progress: result.progress,
       },
@@ -266,6 +279,41 @@ async function createDiscipleship(formData: FormData) {
   }
 
   revalidatePath("/admin/discipleships");
+  revalidatePath("/admin/discipleships/network");
+}
+
+async function updateCoDiscipler(formData: FormData) {
+  "use server";
+  const session = await getServerSession(authOptions);
+  if (!session || !hasPermission(session.permissions ?? [], "discipleships:write")) return;
+  const id = String(formData.get("id") ?? "");
+  const coDisciplerId = String(formData.get("coDisciplerId") ?? "") || null;
+  const result = await prisma.$transaction(async (tx) => {
+    const before = await tx.discipleship.findUnique({ where: { id } });
+    if (!before || before.status !== "ACTIVE" || before.coDisciplerId === coDisciplerId) return null;
+    if (coDisciplerId) {
+      if ([before.discipleId, before.disciplerId].includes(coDisciplerId)) return null;
+      if (await wouldCreateCycle(tx, before.discipleId, coDisciplerId)) return null;
+    }
+    const updated = await tx.discipleship.update({ where: { id }, data: { coDisciplerId } });
+    await createHistoryEntry(tx, {
+      discipleshipId: id,
+      memberId: before.discipleId,
+      action: "DISCIPLERS_UPDATED",
+      note: "Composição do casal discipulador atualizada.",
+      createdById: session.uid,
+    });
+    return { before, updated };
+  });
+  if (result) {
+    await logAudit({
+      actorUserId: session.uid, action: "UPDATE", entityType: "Discipleship", entityId: id,
+      before: { coDisciplerId: result.before.coDisciplerId },
+      after: { coDisciplerId: result.updated.coDisciplerId },
+    });
+  }
+  revalidatePath("/admin/discipleships");
+  revalidatePath("/admin/discipleships/network");
 }
 
 async function updateStatus(formData: FormData) {
@@ -347,6 +395,7 @@ async function updateStatus(formData: FormData) {
   });
 
   revalidatePath("/admin/discipleships");
+  revalidatePath("/admin/discipleships/network");
 }
 
 async function registerMeeting(formData: FormData) {
@@ -378,7 +427,7 @@ async function registerMeeting(formData: FormData) {
       where: { id: session.uid },
       select: { memberId: true },
     });
-    if (!currentUser?.memberId || before.disciplerId !== currentUser.memberId) return;
+    if (!currentUser?.memberId || ![before.disciplerId, before.coDisciplerId].includes(currentUser.memberId)) return;
   }
 
   // Presença individual só faz sentido em encontros efetivamente realizados.
@@ -454,6 +503,7 @@ async function registerMeeting(formData: FormData) {
   });
 
   revalidatePath("/admin/discipleships");
+  revalidatePath("/admin/discipleships/network");
 }
 
 async function transferDisciple(formData: FormData) {
@@ -464,6 +514,7 @@ async function transferDisciple(formData: FormData) {
   const parsed = transferSchema.safeParse({
     discipleshipId: formData.get("discipleshipId"),
     newDisciplerId: formData.get("newDisciplerId"),
+    coDisciplerId: String(formData.get("coDisciplerId") ?? ""),
     note: formData.get("note"),
     nextMeetingAt: formData.get("nextMeetingAt"),
   });
@@ -471,12 +522,16 @@ async function transferDisciple(formData: FormData) {
 
   const current = await prisma.discipleship.findUnique({ where: { id: parsed.data.discipleshipId } });
   if (!current || current.status !== "ACTIVE") return;
-  if (current.disciplerId === parsed.data.newDisciplerId) return;
+  if (current.disciplerId === parsed.data.newDisciplerId && current.coDisciplerId === (parsed.data.coDisciplerId || null)) return;
+  if (parsed.data.coDisciplerId && [current.discipleId, parsed.data.newDisciplerId].includes(parsed.data.coDisciplerId)) return;
 
   try {
     const result = await prisma.$transaction(async (tx) => {
       if (await wouldCreateCycle(tx, current.discipleId, parsed.data.newDisciplerId)) {
         throw new Error("A transferência criaria um ciclo.");
+      }
+      if (parsed.data.coDisciplerId && await wouldCreateCycle(tx, current.discipleId, parsed.data.coDisciplerId)) {
+        throw new Error("A transferência do casal criaria um ciclo.");
       }
 
       const level = await getNextLevel(tx, parsed.data.newDisciplerId);
@@ -494,6 +549,7 @@ async function transferDisciple(formData: FormData) {
         data: {
           discipleId: current.discipleId,
           disciplerId: parsed.data.newDisciplerId,
+          coDisciplerId: parsed.data.coDisciplerId || null,
           startedAt: new Date(),
           nextMeetingAt: toOptionalDate(parsed.data.nextMeetingAt),
           progress: current.progress,
@@ -531,14 +587,15 @@ async function transferDisciple(formData: FormData) {
       action: "TRANSFER",
       entityType: "Discipleship",
       entityId: result.next.id,
-      before: { disciplerId: current.disciplerId, status: current.status },
-      after: { disciplerId: result.next.disciplerId, status: result.next.status },
+      before: { disciplerId: current.disciplerId, coDisciplerId: current.coDisciplerId, status: current.status },
+      after: { disciplerId: result.next.disciplerId, coDisciplerId: result.next.coDisciplerId, status: result.next.status },
     });
   } catch {
     return;
   }
 
   revalidatePath("/admin/discipleships");
+  revalidatePath("/admin/discipleships/network");
 }
 
 async function endDiscipleship(formData: FormData) {
@@ -595,6 +652,7 @@ async function endDiscipleship(formData: FormData) {
   });
 
   revalidatePath("/admin/discipleships");
+  revalidatePath("/admin/discipleships/network");
 }
 
 function getDescendantCounter(activeRows: Array<{ disciplerId: string; discipleId: string }>) {
@@ -706,10 +764,11 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
       : "todos";
 
   // Grafo global de vínculos ativos: base para subárvore, escopo e contagens estruturais.
-  const activeGraphRows = await prisma.discipleship.findMany({
+  const activeGraphBonds = await prisma.discipleship.findMany({
     where: { status: "ACTIVE" },
-    select: { disciplerId: true, discipleId: true },
+    select: { disciplerId: true, coDisciplerId: true, discipleId: true },
   });
+  const activeGraphRows = activeGraphBonds.flatMap((row) => [row, ...(row.coDisciplerId ? [{ ...row, disciplerId: row.coDisciplerId }] : [])]);
   const childrenByDiscipler = buildChildrenMap(activeGraphRows);
   const hasOwnNetwork = currentMemberId
     ? (childrenByDiscipler.get(currentMemberId)?.length ?? 0) > 0
@@ -751,11 +810,11 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
     scopeDisciplerIds = [];
   }
   const scopeWhere: Prisma.DiscipleshipWhereInput =
-    scopeDisciplerIds === null ? {} : { disciplerId: { in: scopeDisciplerIds } };
+    scopeDisciplerIds === null ? {} : { OR: [{ disciplerId: { in: scopeDisciplerIds } }, { coDisciplerId: { in: scopeDisciplerIds } }] };
   const meetingScopeWhere: Prisma.DiscipleshipMeetingWhereInput =
     scopeDisciplerIds === null
       ? {}
-      : { discipleship: { disciplerId: { in: scopeDisciplerIds } } };
+      : { discipleship: scopeWhere };
 
   // Ausências consecutivas por vínculo ativo: somente encontros concluídos com presença informada.
   const [attendanceRows, activeBondIds] = await Promise.all([
@@ -847,7 +906,7 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
           : listStatus === "ended"
             ? { status: { in: ["FINISHED", "TRANSFERRED"] } }
             : {},
-      disciplerFilter ? { disciplerId: disciplerFilter } : {},
+      disciplerFilter ? { OR: [{ disciplerId: disciplerFilter }, { coDisciplerId: disciplerFilter }] } : {},
       presencaBondIds ? { id: { in: presencaBondIds } } : {},
       ...(searchOr.length ? [{ OR: searchOr }] : []),
     ],
@@ -885,6 +944,7 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
       include: {
         disciple: { select: memberRelationSelect },
         discipler: { select: memberRelationSelect },
+        coDiscipler: { select: memberRelationSelect },
       },
     }),
     prisma.discipleshipMeeting.findMany({
@@ -929,6 +989,7 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
     include: {
       disciple: { select: memberRelationSelect },
       discipler: { select: memberRelationSelect },
+        coDiscipler: { select: memberRelationSelect },
     },
   });
 
@@ -938,13 +999,14 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
         include: {
           disciple: { select: memberRelationSelect },
           discipler: { select: memberRelationSelect },
+        coDiscipler: { select: memberRelationSelect },
         },
       })
     : null;
   // Um vínculo fora da rede selecionada (ou fora da rede do usuário) não pode ser aberto.
   const detailRow =
     detailRowRaw &&
-    (scopeDisciplerIds === null || scopeDisciplerIds.includes(detailRowRaw.disciplerId))
+    (scopeDisciplerIds === null || [detailRowRaw.disciplerId, detailRowRaw.coDisciplerId].some((id) => id && scopeDisciplerIds.includes(id)))
       ? detailRowRaw
       : null;
 
@@ -1123,9 +1185,9 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
   // Participantes autorizados no registro de encontro: sempre os discípulos diretos da rede em foco.
   const registerRows = canWrite
     ? scopeRootId
-      ? activeRows.filter((row) => row.disciplerId === scopeRootId)
+      ? activeRows.filter((row) => row.disciplerId === scopeRootId || row.coDisciplerId === scopeRootId)
       : activeRows
-    : activeRows.filter((row) => row.disciplerId === currentMemberId);
+    : activeRows.filter((row) => row.disciplerId === currentMemberId || row.coDisciplerId === currentMemberId);
 
   const scopeIsEmpty = scopeDisciplerIds !== null && activeBondIds.length === 0;
   const emptyNetworkMessage =
@@ -1331,7 +1393,7 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
                   <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="truncate text-base font-semibold">
-                        {detailRow.discipler.fullName} <span className="text-muted-foreground">→</span> {detailRow.disciple.fullName}
+                        {[detailRow.discipler.fullName, detailRow.coDiscipler?.fullName].filter(Boolean).join(" e ")} <span className="text-muted-foreground">→</span> {detailRow.disciple.fullName}
                       </div>
                       <div className="mt-1 text-xs text-muted-foreground">
                         Início {formatDate(detailRow.startedAt)} • Nível {detailRow.level} • Encontros {detailRow.meetingsDone}
@@ -1352,6 +1414,20 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
                     </div>
                   </div>
 
+                  {canWrite && detailRow.status === "ACTIVE" ? (
+                    <form action={updateCoDiscipler} className="mt-4 space-y-2 rounded-2xl border border-border p-4">
+                      <input type="hidden" name="id" value={detailRow.id} />
+                      <label htmlFor="existing-co-discipler" className="block text-sm font-medium">Segundo discipulador do casal (opcional)</label>
+                      <select id="existing-co-discipler" name="coDisciplerId" defaultValue={detailRow.coDisciplerId ?? ""}
+                        className="h-11 w-full rounded-2xl border border-border bg-background px-3 text-sm">
+                        <option value="">Somente {detailRow.discipler.fullName}</option>
+                        {members.filter((member) => ![detailRow.discipleId, detailRow.disciplerId].includes(member.id)).map((member) => (
+                          <option key={member.id} value={member.id}>{member.fullName}</option>
+                        ))}
+                      </select>
+                      <Button type="submit" variant="secondary">Salvar discipuladores</Button>
+                    </form>
+                  ) : null}
                   <div className="mt-4 grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
                     <div className="rounded-2xl border border-border/70 bg-muted/10 p-3">
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -1471,7 +1547,7 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
                     {canWrite && (detailRow.status === "ACTIVE" || detailRow.status === "PAUSED") ? (
                       <EndDiscipleshipDialog
                         discipleshipId={detailRow.id}
-                        disciplerName={detailRow.discipler.fullName}
+                        disciplerName={[detailRow.discipler.fullName, detailRow.coDiscipler?.fullName].filter(Boolean).join(" e ")}
                         discipleName={detailRow.disciple.fullName}
                         action={endDiscipleship}
                       />
@@ -1589,7 +1665,7 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
                         {listRows.map((row) => (
                           <tr key={row.id} className="border-b border-border/50 last:border-0">
                             <td className="max-w-44 truncate py-3 pr-3 font-medium">{row.disciple.fullName}</td>
-                            <td className="max-w-44 truncate py-3 pr-3 text-muted-foreground">{row.discipler.fullName}</td>
+                            <td className="max-w-44 truncate py-3 pr-3 text-muted-foreground">{[row.discipler.fullName, row.coDiscipler?.fullName].filter(Boolean).join(" e ")}</td>
                             <td className="py-3 pr-3">
                               {row.status === "ACTIVE" ? (
                                 (() => {
@@ -1648,7 +1724,7 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
                             <div className="min-w-0">
                               <div className="truncate text-sm font-semibold">{row.disciple.fullName}</div>
                               <div className="mt-0.5 truncate text-xs text-muted-foreground">
-                                Discipulador: {row.discipler.fullName}
+                                Discipulador: {[row.discipler.fullName, row.coDiscipler?.fullName].filter(Boolean).join(" e ")}
                               </div>
                             </div>
                             <Badge>{statusLabels[row.status]}</Badge>
@@ -1719,7 +1795,7 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
                 <Card className="p-5" id="discipleship-create-form">
                   <div className="text-sm font-semibold">Novo discipulado</div>
                   <div className="mt-1 text-xs text-muted-foreground">
-                    Crie novos vínculos preservando a regra de um discipulador ativo por discípulo.
+                    Selecione um discipulador ou as duas pessoas do casal para o mesmo vínculo.
                   </div>
                   <form action={createDiscipleship} className="mt-4 space-y-3">
                     <div className="space-y-2">
@@ -1739,6 +1815,18 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
                       </select>
                     </div>
                     <div className="space-y-2">
+                      <label className="text-xs font-medium text-muted-foreground" htmlFor="create-co-discipler">
+                        Segundo discipulador do casal (opcional)
+                      </label>
+                      <select id="create-co-discipler" name="coDisciplerId" defaultValue=""
+                        className="h-11 w-full rounded-2xl border border-border/80 bg-background px-3 text-sm">
+                        <option value="">Somente uma pessoa</option>
+                        {members.map((member) => (
+                          <option key={member.id} value={member.id}>{member.fullName}</option>
+                        ))}
+                      </select>
+                    </div>
+<div className="space-y-2">
                       <div className="text-xs font-medium text-muted-foreground">Discípulo</div>
                       <select
                         name="discipleId"
@@ -1799,7 +1887,7 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
                         {transferCandidates.length ? (
                           transferCandidates.map((row) => (
                             <option key={row.id} value={row.id}>
-                              {row.disciple.fullName} • atual: {row.discipler.fullName}
+                              {row.disciple.fullName} • atual: {[row.discipler.fullName, row.coDiscipler?.fullName].filter(Boolean).join(" e ")}
                             </option>
                           ))
                         ) : (
@@ -1822,7 +1910,19 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
                         ))}
                       </select>
                     </div>
-                    <Input name="nextMeetingAt" type="date" />
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-muted-foreground" htmlFor="transfer-co-discipler">
+                        Segundo discipulador do casal (opcional)
+                      </label>
+                      <select id="transfer-co-discipler" name="coDisciplerId" defaultValue=""
+                        className="h-11 w-full rounded-2xl border border-border/80 bg-background px-3 text-sm">
+                        <option value="">Somente uma pessoa</option>
+                        {members.map((member) => (
+                          <option key={member.id} value={member.id}>{member.fullName}</option>
+                        ))}
+                      </select>
+                    </div>
+<Input name="nextMeetingAt" type="date" />
                     <textarea
                       name="note"
                       className="min-h-24 w-full rounded-2xl border border-border/80 bg-background px-3 py-3 text-sm"
@@ -1862,7 +1962,7 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
                       {registerRows.length ? (
                         registerRows.map((row) => (
                           <option key={row.id} value={row.id}>
-                            {row.discipler.fullName} → {row.disciple.fullName}
+                            {[row.discipler.fullName, row.coDiscipler?.fullName].filter(Boolean).join(" e ")} → {row.disciple.fullName}
                           </option>
                         ))
                       ) : (
@@ -2025,7 +2125,7 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
                         <div key={row.id} className="rounded-2xl border border-border/70 bg-muted/10 p-3">
                           <div className="text-sm font-semibold">{row.disciple.fullName}</div>
                           <div className="mt-1 text-xs text-muted-foreground">
-                            Discipulador: {row.discipler.fullName}
+                            Discipulador: {[row.discipler.fullName, row.coDiscipler?.fullName].filter(Boolean).join(" e ")}
                           </div>
                           <div className="mt-1 text-xs text-muted-foreground">
                             Último encontro: {latestMeeting ? formatDate(latestMeeting.meetingAt, true) : "Nenhum"}
@@ -2064,7 +2164,7 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
                     {pausedRows.length ? (
                       pausedRows.map((row) => (
                         <div key={row.id} className="rounded-2xl border border-border/70 bg-muted/10 p-3 text-sm">
-                          {row.disciple.fullName} • {row.discipler.fullName}
+                          {row.disciple.fullName} • {[row.discipler.fullName, row.coDiscipler?.fullName].filter(Boolean).join(" e ")}
                         </div>
                       ))
                     ) : (
@@ -2083,7 +2183,7 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
                             {row.disciple.fullName} • {statusLabels[row.status]}
                           </div>
                           <div className="mt-1 text-xs text-muted-foreground">
-                            {row.discipler.fullName} • iniciado em {formatDate(row.startedAt)}
+                            {[row.discipler.fullName, row.coDiscipler?.fullName].filter(Boolean).join(" e ")} • iniciado em {formatDate(row.startedAt)}
                           </div>
                         </div>
                       ))

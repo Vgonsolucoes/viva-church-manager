@@ -27,6 +27,7 @@ export async function GET(req: Request) {
       status: "ACTIVE",
     },
     include: {
+      coDiscipler: { select: { id: true, fullName: true, photoUrl: true } },
       discipler: {
         select: { id: true, fullName: true, photoUrl: true },
       },
@@ -49,7 +50,7 @@ export async function GET(req: Request) {
 
   const myDiscipleships = await prisma.discipleship.findMany({
     where: {
-      disciplerId: memberId,
+      OR: [{ disciplerId: memberId }, { coDisciplerId: memberId }],
       status: "ACTIVE",
     },
     include: {
@@ -77,6 +78,7 @@ export async function GET(req: Request) {
           meetingsDone: asDisciple.meetingsDone,
           progress: asDisciple.progress,
           discipler: asDisciple.discipler,
+          coDiscipler: asDisciple.coDiscipler,
         }
       : null,
     disciplerLastMeeting,

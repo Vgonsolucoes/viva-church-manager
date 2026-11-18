@@ -46,7 +46,7 @@ async function buildNetwork(
   while (currentLevelIds.length > 0 && currentDepth < maxDepth) {
     const discipleships = await prisma.discipleship.findMany({
       where: {
-        disciplerId: { in: currentLevelIds },
+        OR: [{ disciplerId: { in: currentLevelIds } }, { coDisciplerId: { in: currentLevelIds } }],
         status: "ACTIVE",
       },
       include: {
@@ -59,10 +59,10 @@ async function buildNetwork(
     const nextLevelIds: string[] = [];
 
     for (const ds of discipleships) {
-      if (!disciplesByDiscipler.has(ds.disciplerId)) {
-        disciplesByDiscipler.set(ds.disciplerId, []);
+      for (const parentId of [ds.disciplerId, ds.coDisciplerId].filter((id): id is string => !!id && currentLevelIds.includes(id))) {
+        if (!disciplesByDiscipler.has(parentId)) disciplesByDiscipler.set(parentId, []);
+        disciplesByDiscipler.get(parentId)!.push(ds.disciple);
       }
-      disciplesByDiscipler.get(ds.disciplerId)!.push(ds.disciple);
 
       if (!memberMap.has(ds.disciple.id)) {
         memberMap.set(ds.disciple.id, ds.disciple);

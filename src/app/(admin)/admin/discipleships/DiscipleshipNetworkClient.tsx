@@ -66,6 +66,7 @@ type MemberNode = {
 type Relationship = {
   id: string;
   disciplerId: string;
+  coDisciplerId?: string | null;
   discipleId: string;
   status: "ACTIVE" | "PAUSED" | "FINISHED" | "TRANSFERRED";
   level: number;
@@ -108,6 +109,7 @@ type PastoralNote = {
 
 type FlowNodeData = {
   member: MemberNode;
+  partners: MemberNode[];
   isCollapsed: boolean;
   onToggleCollapse: (memberId: string) => void;
   isSelected: boolean;
@@ -148,6 +150,9 @@ function buildChildrenMap(relationships: Relationship[]) {
       ...(map.get(relationship.disciplerId) ?? []),
       relationship.discipleId,
     ]);
+    if (relationship.coDisciplerId) {
+      map.set(relationship.coDisciplerId, [...(map.get(relationship.coDisciplerId) ?? []), relationship.discipleId]);
+    }
   }
   for (const [key, values] of map) {
     map.set(key, Array.from(new Set(values)));
@@ -222,18 +227,23 @@ function buildLayout(roots: string[], childrenMap: Map<string, string[]>) {
 }
 
 function NetworkNode(props: NodeProps<Node<FlowNodeData>>) {
-  const { member, isCollapsed, onToggleCollapse, isSelected, onShowDetails } = props.data;
+  const { member, partners, isCollapsed, onToggleCollapse, isSelected, onShowDetails } = props.data;
+  const people = [member, ...partners];
+  const label = people.map((person) => person.fullName).join(" e ");
   return (
     <div className={cn("flex w-[240px] items-center gap-2 rounded-2xl border bg-card p-3 text-card-foreground shadow-sm", isSelected ? "border-primary ring-2 ring-primary/20" : "border-border")}>
       <Handle type="target" position={Position.Top} />
-      {member.photoUrl ? (
-        <Image src={member.photoUrl} alt={member.fullName} width={40} height={40} className="size-10 shrink-0 rounded-full object-cover" />
-      ) : (
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-          {member.fullName.split(" ").filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase()}
-        </div>
-      )}
-      <div className="min-w-0 flex-1 break-words text-sm font-semibold" title={member.fullName}>{member.fullName}</div>
+      <div className="flex shrink-0 -space-x-3">
+        {people.map((person) => person.photoUrl ? (
+          <Image key={person.id} src={person.photoUrl} alt={person.fullName} unoptimized width={40} height={40}
+            className="size-10 rounded-full border-2 border-card object-cover" />
+        ) : (
+          <div key={person.id} title={person.fullName} className="flex size-10 items-center justify-center rounded-full border-2 border-card bg-muted text-xs font-semibold">
+            {person.fullName.split(" ").filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase()}
+          </div>
+        ))}
+      </div>
+      <div className="min-w-0 flex-1 break-words text-sm font-semibold" title={label}>{label}</div>
       <div className="flex shrink-0 flex-col gap-1">
         <button type="button" className="nodrag nopan rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label={`Ver informações de ${member.fullName}`} onClick={event => { event.stopPropagation(); onShowDetails(member.id); }}><Eye className="size-4" /></button>
         {member.directCount > 0 ? <button type="button" className="nodrag nopan rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label={isCollapsed ? "Expandir ramo" : "Recolher ramo"} aria-expanded={!isCollapsed} onClick={event => { event.stopPropagation(); onToggleCollapse(member.id); }}>{isCollapsed ? <PlusSquare className="size-4" /> : <MinusSquare className="size-4" />}</button> : null}
@@ -346,7 +356,7 @@ function DiscipleshipNetworkCanvas(props: {
       const subtree = collectSubtree(disciplerFilter, buildChildrenMap(current));
       current = current.filter(
         (relationship) =>
-          subtree.has(relationship.disciplerId) && subtree.has(relationship.discipleId),
+          (subtree.has(relationship.disciplerId) || !!relationship.coDisciplerId && subtree.has(relationship.coDisciplerId)) && subtree.has(relationship.discipleId),
       );
     }
 
@@ -363,7 +373,7 @@ function DiscipleshipNetworkCanvas(props: {
       const matchedSet = new Set(matchedMemberIds);
       current = current.filter(
         (relationship) =>
-          matchedSet.has(relationship.discipleId) || matchedSet.has(relationship.disciplerId),
+          matchedSet.has(relationship.discipleId) || matchedSet.has(relationship.disciplerId) || !!relationship.coDisciplerId && matchedSet.has(relationship.coDisciplerId),
       );
     }
 
@@ -386,7 +396,7 @@ function DiscipleshipNetworkCanvas(props: {
       if (!hidden.has(relationship.disciplerId)) ids.add(relationship.disciplerId);
       if (!hidden.has(relationship.discipleId)) ids.add(relationship.discipleId);
     }
-    if (disciplerFilter !== "ALL") ids.add(disciplerFilter);
+    if (disciplerFilter !== "ALL" && !filteredRelationships.some((row) => row.coDisciplerId === disciplerFilter)) ids.add(disciplerFilter);
     return ids;
   }, [collapsedNodes, disciplerFilter, filteredRelationships]);
 
@@ -411,6 +421,8 @@ function DiscipleshipNetworkCanvas(props: {
         targetPosition: Position.Top,
         data: {
           member,
+          partners: [...new Set(visibleRelationships.filter((row) => row.disciplerId === memberId && row.coDisciplerId).map((row) => row.coDisciplerId!))]
+            .map((id) => membersMap.get(id)).filter((partner): partner is MemberNode => !!partner),
           isCollapsed: collapsedNodes.has(memberId),
           onToggleCollapse: (targetId) => {
             setCollapsedNodes((current) => {
@@ -484,7 +496,7 @@ function DiscipleshipNetworkCanvas(props: {
     () =>
       selectedMember
         ? activeRelationships
-            .filter((relationship) => relationship.disciplerId === selectedMember.id)
+            .filter((relationship) => relationship.disciplerId === selectedMember.id || relationship.coDisciplerId === selectedMember.id)
             .map((relationship) => membersMap.get(relationship.discipleId))
             .filter((member): member is MemberNode => Boolean(member))
         : [],

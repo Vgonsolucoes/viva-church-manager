@@ -46,7 +46,7 @@ export async function POST(req: Request) {
 
   const canWriteAll = hasPermission(ctx.permissions, "discipleships:write");
   const canWriteMy = hasPermission(ctx.permissions, "discipleship:my:write");
-  const isDiscipler = ctx.member?.id === discipleship.disciplerId;
+  const isDiscipler = !!ctx.member && [discipleship.disciplerId, discipleship.coDisciplerId].includes(ctx.member.id);
 
   if (!canWriteAll && !(canWriteMy && isDiscipler)) {
     return NextResponse.json({ error: "PERMISSION_DENIED" }, { status: 403 });

@@ -17,6 +17,7 @@ const meetingStatusLabels: Record<string, string> = {
 };
 
 const historyActionLabels: Record<string, string> = {
+  DISCIPLERS_UPDATED: "Discipuladores atualizados",
   CREATED: "Cadastro criado",
   STATUS_CHANGED: "Status alterado",
   MEETING_RECORDED: "Encontro registrado",
@@ -88,6 +89,7 @@ export default async function DiscipleshipsNetworkPage(props: { searchParams?: S
       include: {
         disciple: { select: { id: true, fullName: true, photoUrl: true, phone: true, email: true, type: true } },
         discipler: { select: { id: true, fullName: true, photoUrl: true, phone: true, email: true, type: true } },
+        coDiscipler: { select: { id: true, fullName: true, photoUrl: true } },
       },
     }),
     prisma.discipleshipMeeting.findMany({
@@ -119,6 +121,10 @@ export default async function DiscipleshipsNetworkPage(props: { searchParams?: S
   ]);
 
   const activeRows = rows.filter((row) => row.status === "ACTIVE");
+  const activeEdges = activeRows.flatMap((row) => [
+    row,
+    ...(row.coDisciplerId ? [{ ...row, disciplerId: row.coDisciplerId }] : []),
+  ]);
 
   // Escopo server-side: sem permissão administrativa, apenas a subárvore do próprio usuário
   // é serializada para o client (filtrar a interface não substitui autorização).
@@ -127,6 +133,7 @@ export default async function DiscipleshipsNetworkPage(props: { searchParams?: S
     const childrenMap = new Map<string, string[]>();
     for (const row of activeRows) {
       childrenMap.set(row.disciplerId, [...(childrenMap.get(row.disciplerId) ?? []), row.discipleId]);
+      if (row.coDisciplerId) childrenMap.set(row.coDisciplerId, [...(childrenMap.get(row.coDisciplerId) ?? []), row.discipleId]);
     }
     memberScope = new Set([currentMemberId]);
     const queue = [currentMemberId];
@@ -142,25 +149,26 @@ export default async function DiscipleshipsNetworkPage(props: { searchParams?: S
   }
   const inScope = (id: string) => (memberScope ? memberScope.has(id) : true);
 
-  const scopedMembers = members.filter((member) => inScope(member.id));
-  const scopedRows = rows.filter((row) => inScope(row.disciplerId) && inScope(row.discipleId));
+  const scopedRows = rows.filter((row) => (inScope(row.disciplerId) || !!row.coDisciplerId && inScope(row.coDisciplerId)) && inScope(row.discipleId));
+  const partnerIds = new Set(scopedRows.flatMap((row) => row.coDisciplerId ? [row.disciplerId, row.coDisciplerId] : []));
+  const scopedMembers = members.filter((member) => inScope(member.id) || partnerIds.has(member.id));
   const scopedMeetings = meetings.filter(
     (meeting) =>
-      inScope(meeting.discipleship.discipler.id) && inScope(meeting.discipleship.disciple.id),
+      scopedRows.some((row) => row.id === meeting.discipleshipId),
   );
   const scopedHistory = history.filter((item) => inScope(item.memberId));
   const scopedPastoralNotes = pastoralNotes.filter((note) => inScope(note.memberId));
 
   const networkIsEmpty =
     !canViewAll &&
-    (!currentMemberId || !activeRows.some((row) => row.disciplerId === currentMemberId));
+    (!currentMemberId || !activeRows.some((row) => row.disciplerId === currentMemberId || row.coDisciplerId === currentMemberId));
 
   const { count: countDescendants } = getDescendantCounter(
-    activeRows.map((row) => ({ disciplerId: row.disciplerId, discipleId: row.discipleId })),
+    activeEdges.map((row) => ({ disciplerId: row.disciplerId, discipleId: row.discipleId })),
   );
 
   const directCountByMember = new Map<string, number>();
-  for (const row of activeRows) {
+  for (const row of activeEdges) {
     directCountByMember.set(row.disciplerId, (directCountByMember.get(row.disciplerId) ?? 0) + 1);
   }
 
@@ -192,6 +200,7 @@ export default async function DiscipleshipsNetworkPage(props: { searchParams?: S
   const networkRelationships = scopedRows.map((row) => ({
     id: row.id,
     disciplerId: row.disciplerId,
+    coDisciplerId: row.coDisciplerId,
     discipleId: row.discipleId,
     status: row.status,
     level: row.level,
