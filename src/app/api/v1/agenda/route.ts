@@ -206,7 +206,7 @@ export async function GET(req: Request) {
         where: {
           meetingAt: { gte: from, lt: to },
           discipleship: {
-            OR: [{ discipleId: memberId }, { disciplerId: memberId }],
+            OR: [{ discipleId: memberId }, { disciplerId: memberId }, { coDisciplerId: memberId }],
           },
         },
         include: {
