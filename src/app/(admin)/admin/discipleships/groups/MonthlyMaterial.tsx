@@ -7,9 +7,9 @@ import { selectedMonth, monthlySession } from "@/server/discipleship-monthly";
 import { uploadMonthlyMaterial } from "./actions";
 import { SubmitButton } from "@/app/(admin)/admin/cells/[id]/SubmitButton";
 
-export async function MonthlyDiscipleshipMaterial({ month: input, groups = false }: { month?: string; groups?: boolean }) {
-  const { context } = await monthlySession();
-  if (!context) return null;
+export async function MonthlyDiscipleshipMaterial({ month: input, groups = false, leaderId }: { month?: string; groups?: boolean; leaderId?: string }) {
+  const { context, leaders, isSuperAdmin } = await monthlySession(leaderId);
+  if (!context) return isSuperAdmin ? <Card className="p-5">Nenhum discipulador ou encontro em grupo cadastrado ainda.</Card> : null;
   const month = selectedMonth(input);
   const material = await prisma.discipleshipMaterial.findUnique({
     where: { rootMemberId_month: { rootMemberId: context.rootId, month } },
@@ -20,6 +20,13 @@ export async function MonthlyDiscipleshipMaterial({ month: input, groups = false
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-semibold">Material mensal de discipulado</h2>
         <form method="get" action={groups ? "/admin/discipleships/groups" : "/admin/discipleships"} className="flex flex-wrap items-end gap-2">
+          {isSuperAdmin ? (
+            <label className="grid gap-1 text-sm">Discipulador / rede
+              <select name="leader" defaultValue={context.leaderId} className="h-11 rounded-xl border border-border bg-background px-3 text-sm">
+                {leaders.map((leader) => <option key={leader.id} value={leader.id}>{leader.fullName}</option>)}
+              </select>
+            </label>
+          ) : null}
           <label className="grid gap-1 text-sm">Mês
             <Input type="month" name="month" defaultValue={month} required />
           </label>
@@ -37,6 +44,7 @@ export async function MonthlyDiscipleshipMaterial({ month: input, groups = false
           <summary className="cursor-pointer text-sm font-medium">{material ? "Substituir PDF do mês" : "Publicar PDF do mês"}</summary>
           <form action={uploadMonthlyMaterial} className="grid gap-3">
             <input type="hidden" name="month" value={month} />
+            <input type="hidden" name="leader" value={context.leaderId} />
             <label className="grid gap-1 text-sm">Título do material
               <Input name="title" defaultValue={material?.title ?? ""} maxLength={160} required />
             </label>
@@ -47,7 +55,7 @@ export async function MonthlyDiscipleshipMaterial({ month: input, groups = false
           </form>
         </details>
       ) : null}
-      {!groups ? <Link href={`/admin/discipleships/groups?month=${month}`} className="inline-block text-sm font-medium underline">Encontro em Grupo</Link> : null}
+      {!groups ? <Link href={`/admin/discipleships/groups?month=${month}&leader=${context.leaderId}`} className="inline-block text-sm font-medium underline">Encontro em Grupo</Link> : null}
     </Card>
   );
 }

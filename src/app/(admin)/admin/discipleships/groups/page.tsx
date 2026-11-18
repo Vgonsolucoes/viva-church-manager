@@ -17,12 +17,18 @@ const feedback: Record<string, string> = {
   "roster-changed": "A lista de discípulos foi alterada. Atualize a página e confira as presenças.",
 };
 export default async function GroupMeetingPage({ searchParams }: {
-  searchParams: Promise<{ month?: string; status?: string }>;
+  searchParams: Promise<{ month?: string; status?: string; leader?: string }>;
 }) {
   const params = await searchParams;
   const month = selectedMonth(params.month);
-  const { session, context } = await monthlySession();
-  if (!context) return <Card className="p-5">Esta área está disponível aos discipuladores com discípulos ativos na sua rede.</Card>;
+  const { session, context, isSuperAdmin } = await monthlySession(params.leader);
+  if (!context) return (
+    <div className="space-y-4">
+      <Link href="/admin/discipleships" className="text-sm underline">Voltar para discipulados</Link>
+      <h1 className="text-2xl font-semibold">Encontro em Grupo</h1>
+      <Card className="p-5">{isSuperAdmin ? "Nenhum discipulador ou encontro em grupo cadastrado ainda." : "Esta área está disponível aos discipuladores com discípulos ativos na sua rede."}</Card>
+    </div>
+  );
   const group = await prisma.discipleshipGroupMeeting.findUnique({
     where: { leaderId_month: { leaderId: context.leaderId, month } },
     include: { meetings: { include: { discipleship: { include: { disciple: { select: { fullName: true } } } } } } },
@@ -35,15 +41,15 @@ export default async function GroupMeetingPage({ searchParams }: {
   const roster = group
     ? group.meetings.map((m) => ({ id: m.discipleshipId, name: m.discipleship.disciple.fullName, present: m.attendance === true }))
     : current.map((bond) => ({ id: bond.id, name: bond.disciple.fullName, present: false }));
-  const canWrite = session.permissions?.some((p) => ["discipleship:my:write", "discipleships:write"].includes(p));
+  const canWrite = isSuperAdmin || session.permissions?.some((p) => ["discipleship:my:write", "discipleships:write"].includes(p));
   const today = churchDateKey(new Date());
   const date = group ? churchDateKey(group.meetingAt) : today.startsWith(month) ? today : `${month}-01`;
   const presentCount = roster.filter((p) => p.present).length;
   return (
     <div className="space-y-5">
-      <Link href={`/admin/discipleships?month=${month}`} className="text-sm underline">Voltar para discipulados</Link>
+      <Link href={`/admin/discipleships?month=${month}&leader=${context.leaderId}`} className="text-sm underline">Voltar para discipulados</Link>
       <h1 className="text-2xl font-semibold">Encontro em Grupo</h1>
-      <MonthlyDiscipleshipMaterial month={month} groups />
+      <MonthlyDiscipleshipMaterial month={month} leaderId={context.leaderId} groups />
       {params.status && Object.hasOwn(feedback, params.status) ? (
         <p role={params.status.includes("saved") ? "status" : "alert"} className="rounded-xl border border-border p-3 text-sm">{feedback[params.status]}</p>
       ) : null}
@@ -57,6 +63,7 @@ export default async function GroupMeetingPage({ searchParams }: {
         <p className="text-sm text-muted-foreground">Marque os discípulos presentes. Ao salvar, os demais serão registrados como ausentes. Cada mês tem um encontro por discipulador ou casal.</p>
         <form action={saveGroupMeeting} className="space-y-4" key={month}>
           <input type="hidden" name="month" value={month} />
+          <input type="hidden" name="leader" value={context.leaderId} />
           <label className="grid max-w-sm gap-1 text-sm">Data do encontro
             <Input name="date" type="date" defaultValue={date} required disabled={!canWrite} />
           </label>

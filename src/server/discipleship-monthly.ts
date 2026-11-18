@@ -27,11 +27,29 @@ export async function monthlyLeaderContext(memberId: string | null | undefined) 
   return { memberId, rootId, canUpload: memberId === rootId || rootCouple, leaderId: primary, bonds };
 }
 
-export async function monthlySession() {
+export async function monthlySession(requestedLeaderId?: string) {
   const session = await getServerSession(authOptions);
-  if (!session?.uid || !session.permissions?.some((p) => ["discipleship:my:read", "discipleships:read"].includes(p))) {
+  const isSuperAdmin = session?.roles?.includes("SUPER_ADMIN") ?? false;
+  if (!session?.uid || (!isSuperAdmin && !session.permissions?.some((p) => ["discipleship:my:read", "discipleships:read"].includes(p)))) {
     throw new Error("Você não tem acesso ao módulo de discipulado.");
   }
+  if (isSuperAdmin) {
+    const leaders = await prisma.member.findMany({
+      where: { OR: [
+        { discipleshipsAsDiscipler: { some: { status: "ACTIVE" } } },
+        { discipleshipGroups: { some: {} } },
+      ] },
+      select: { id: true, fullName: true },
+      orderBy: { fullName: "asc" },
+    });
+    const leader = leaders.find((member) => member.id === requestedLeaderId) ?? leaders[0];
+    const activeContext = await monthlyLeaderContext(leader?.id);
+    const context = leader ? activeContext ?? {
+      memberId: leader.id, leaderId: leader.id, rootId: leader.id,
+      canUpload: true, bonds: await activeNetworkBonds(),
+    } : null;
+    return { session, isSuperAdmin, leaders, context: context ? { ...context, canUpload: true } : null };
+  }
   const user = await prisma.user.findUnique({ where: { id: session.uid }, select: { memberId: true } });
-  return { session, context: await monthlyLeaderContext(user?.memberId) };
+  return { session, isSuperAdmin, leaders: [], context: await monthlyLeaderContext(user?.memberId) };
 }

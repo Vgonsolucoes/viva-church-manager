@@ -8,21 +8,21 @@ import { logAudit } from "@/server/audit";
 import { churchDateTime } from "@/lib/weekly-services";
 import { monthlySession, monthSchema } from "@/server/discipleship-monthly";
 
-function finish(month: string, status: string): never {
+function finish(month: string, status: string, leaderId: string): never {
   revalidatePath("/admin/discipleships");
   revalidatePath("/admin/discipleships/groups");
-  redirect(`/admin/discipleships/groups?month=${encodeURIComponent(month)}&status=${status}`);
+  redirect(`/admin/discipleships/groups?month=${encodeURIComponent(month)}&leader=${encodeURIComponent(leaderId)}&status=${status}`);
 }
 
 export async function uploadMonthlyMaterial(form: FormData) {
-  const { session, context } = await monthlySession();
+  const { session, context } = await monthlySession(String(form.get("leader") ?? ""));
   if (!context?.canUpload) throw new Error("Somente o discipulador do topo desta rede pode publicar o material.");
   const month = monthSchema.parse(form.get("month"));
   const title = z.string().trim().min(1).max(160).safeParse(form.get("title"));
   const file = form.get("pdf");
-  if (!title.success || !(file instanceof File) || file.size < 5 || file.size > 8 * 1024 * 1024) finish(month, "invalid-pdf");
+  if (!title.success || !(file instanceof File) || file.size < 5 || file.size > 8 * 1024 * 1024) finish(month, "invalid-pdf", context.leaderId);
   const data = Buffer.from(await file.arrayBuffer());
-  if (data.subarray(0, 5).toString() !== "%PDF-") finish(month, "invalid-pdf");
+  if (data.subarray(0, 5).toString() !== "%PDF-") finish(month, "invalid-pdf", context.leaderId);
   const material = await prisma.discipleshipMaterial.upsert({
     where: { rootMemberId_month: { rootMemberId: context.rootId, month } },
     create: { rootMemberId: context.rootId, month, title: title.data, filename: file.name.slice(0, 200), data },
@@ -30,7 +30,7 @@ export async function uploadMonthlyMaterial(form: FormData) {
     select: { id: true },
   });
   await logAudit({ actorUserId: session.uid, action: "UPLOAD", entityType: "DiscipleshipMaterial", entityId: material.id, after: { rootMemberId: context.rootId, month } });
-  finish(month, "material-saved");
+  finish(month, "material-saved", context.leaderId);
 }
 
 const groupSchema = z.object({
@@ -42,8 +42,8 @@ const groupSchema = z.object({
 }).refine((data) => data.date.startsWith(data.month + "-"));
 
 export async function saveGroupMeeting(form: FormData) {
-  const { session, context } = await monthlySession();
-  if (!context || !session.permissions?.some((p) => ["discipleship:my:write", "discipleships:write"].includes(p))) {
+  const { session, context, isSuperAdmin } = await monthlySession(String(form.get("leader") ?? ""));
+  if (!context || (!isSuperAdmin && !session.permissions?.some((p) => ["discipleship:my:write", "discipleships:write"].includes(p)))) {
     throw new Error("Você não tem permissão para registrar este encontro.");
   }
   const parsed = groupSchema.safeParse({
@@ -51,10 +51,10 @@ export async function saveGroupMeeting(form: FormData) {
     bondIds: form.getAll("bondIds"), present: form.getAll("present"),
   });
   const month = monthSchema.parse(form.get("month"));
-  if (!parsed.success) finish(month, "invalid-meeting");
+  if (!parsed.success) finish(month, "invalid-meeting", context.leaderId);
   const data = { ...parsed.data, present: [...new Set(parsed.data.present)] };
   const uniqueIds = [...new Set(data.bondIds)];
-  if (uniqueIds.length !== data.bondIds.length || data.present.some((id) => !uniqueIds.includes(id))) finish(month, "roster-changed");
+  if (uniqueIds.length !== data.bondIds.length || data.present.some((id) => !uniqueIds.includes(id))) finish(month, "roster-changed", context.leaderId);
   const where = { leaderId: context.leaderId, month };
   let savedId = "";
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -86,7 +86,7 @@ export async function saveGroupMeeting(form: FormData) {
           if (!before) {
             await tx.discipleship.update({ where: { id: discipleshipId }, data: { meetingsDone: { increment: 1 } } });
             await tx.discipleshipHistory.create({
-              data: { discipleshipId, memberId: context.bonds.find((bond) => bond.id === discipleshipId)!.discipleId,
+              data: { discipleshipId, memberId: (await tx.discipleship.findUniqueOrThrow({ where: { id: discipleshipId }, select: { discipleId: true } })).discipleId,
                 action: "MEETING_RECORDED", note: `Encontro em Grupo · ${month}`, createdById: session.uid },
             });
           }
@@ -95,12 +95,12 @@ export async function saveGroupMeeting(form: FormData) {
       }, { isolationLevel: "Serializable", timeout: 20000 });
       break;
     } catch (error) {
-      if (error instanceof Error && error.message === "ROSTER_CHANGED") finish(month, "roster-changed");
+      if (error instanceof Error && error.message === "ROSTER_CHANGED") finish(month, "roster-changed", context.leaderId);
       if (error && typeof error === "object" && "code" in error
         && (error.code === "P2034" || error.code === "P2002") && attempt < 2) continue;
       throw error;
     }
   }
   await logAudit({ actorUserId: session.uid, action: "SAVE", entityType: "DiscipleshipGroupMeeting", entityId: savedId, after: { ...where, present: data.present.length, absent: uniqueIds.length - data.present.length } });
-  finish(month, "meeting-saved");
+  finish(month, "meeting-saved", context.leaderId);
 }

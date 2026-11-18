@@ -1251,7 +1251,7 @@ export default async function DiscipleshipsPage(props: { searchParams?: SearchPa
 
   return (
     <div className="space-y-6">
-      <MonthlyDiscipleshipMaterial month={month} />
+      <MonthlyDiscipleshipMaterial month={month} leaderId={getSearchValue(searchParams?.leader)} />
       <div className="flex flex-col gap-2 xl:flex-row xl:items-end xl:justify-between">
         <div>
           <div className="text-xl font-semibold tracking-tight">Discipulados</div>
