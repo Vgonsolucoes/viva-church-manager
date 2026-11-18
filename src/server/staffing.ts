@@ -4,14 +4,15 @@ import { staffingMonth, staffingMonthRange } from "@/lib/staffing";
 type Source = { id: string; startsAt: Date; endsAt: Date | null } & ({ name: string; type: string } | { title: string; agendaVisible: boolean });
 export async function syncStaffingSchedule(source: Source, now = new Date()) {
   const event = "name" in source;
-  const id = `staffing-${event ? "event" : "course"}-${source.id}`;
-  const existing = await prisma.schedule.findUnique({ where: { id }, select: { id: true, title: true, kind: true, startsAt: true, endsAt: true } });
+  let id = `staffing-${event ? "event" : "course"}-${source.id}`;
+  const select = { id: true, title: true, kind: true, startsAt: true, endsAt: true } as const;
+  let existing = await prisma.schedule.findUnique({ where: { id }, select });
   if (!existing) {
     // Respect schedules already explicitly linked to this source.
-    const linked = await prisma.schedule.findFirst({ where: event ? { eventId: source.id } : { courseId: source.id }, select: { id: true } });
-    if (linked) return linked.id;
+    const linked = await prisma.schedule.findFirst({ where: event ? { eventId: source.id } : { courseId: source.id }, select });
+    if (linked) { existing = linked; id = linked.id; }
     // Required-course templates have a nominal creation date, not an execution date.
-    if (!event && !source.agendaVisible && source.startsAt < now) return null;
+    if (!existing && !event && !source.agendaVisible && source.startsAt < now) return null;
   }
   const data = { title: event ? source.name : source.title, kind: event && source.type === "SERVICE" ? "SERVICE" as const : event ? "EVENT" as const : "OTHER" as const, startsAt: source.startsAt, endsAt: source.endsAt };
   const moved = existing && (existing.startsAt.getTime() !== source.startsAt.getTime() || existing.endsAt?.getTime() !== source.endsAt?.getTime());

@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/Badge";
 import { prisma } from "@/server/db";
 import { ensureWeeklyServices } from "@/server/weekly-services";
 import { ensureStaffingSchedules } from "@/server/staffing";
-import { staffingMonth, staffingMonthRange, staffingState } from "@/lib/staffing";
+import { staffingMonth, staffingMonthRange, staffingState, staffingVisibleFrom } from "@/lib/staffing";
 import { createSchedule, removeAssignment } from "./actions";
 import { ScheduleEditModal } from "./ScheduleEditModal";
 import { AssignmentForm, StaffingControls } from "./StaffingForms";
@@ -18,17 +18,22 @@ const dateFormat = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeSt
 const monthLabel = (key: string) => new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(key + "-01T12:00:00Z"));
 function toLocalInputValue(date: Date) { return new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(date).replace(" ", "T"); }
 const statusLabels: Record<string, string> = { PENDING: "Aguardando confirmação", CONFIRMED: "Confirmado", DECLINED: "Recusado", SUBSTITUTE_REQUESTED: "Substituição solicitada", NO_SHOW: "Faltou" };
-export default async function SchedulesPage({ searchParams }: { searchParams: Promise<{ month?: string; focus?: string }> }) {
+export default async function SchedulesPage({ searchParams }: { searchParams: Promise<{ month?: string; focus?: string; history?: string }> }) {
   const [query, session] = await Promise.all([searchParams, getServerSession(authOptions)]);
   const now = new Date();
   const currentMonth = staffingMonth(now);
   const selectedMonth = query.month && /^\d{4}-(0[1-9]|1[0-2])$/.test(query.month) ? query.month : currentMonth;
   const { from, to } = staffingMonthRange(selectedMonth);
+  const history = query.history === "1";
+  const cutoff = staffingVisibleFrom(now);
+  const dateFilter = history
+    ? { gte: from, lt: new Date(Math.min(to.getTime(), cutoff.getTime())) }
+    : { gte: selectedMonth === currentMonth ? cutoff : new Date(Math.max(from.getTime(), cutoff.getTime())), lt: to };
   const canWrite = hasPermission(session?.permissions ?? [], "schedules:write");
   await ensureWeeklyServices();
   await ensureStaffingSchedules(now);
   const [schedules, volunteers, ministries, dates] = await Promise.all([
-    prisma.schedule.findMany({ where: { startsAt: { gte: from, lt: to } }, orderBy: { startsAt: "asc" }, include: { ministry: true, event: true, course: true, assignments: { include: { substitutionRequests: { where: { status: { in: ["REQUESTED", "VOLUNTEER_B_ACCEPTED"] } } }, ministry: true, volunteer: { include: { member: true } } } } } }),
+    prisma.schedule.findMany({ where: { startsAt: dateFilter }, orderBy: { startsAt: "asc" }, include: { ministry: true, event: true, course: true, assignments: { include: { substitutionRequests: { where: { status: { in: ["REQUESTED", "VOLUNTEER_B_ACCEPTED"] } } }, ministry: true, volunteer: { include: { member: true } } } } } }),
     canWrite ? prisma.volunteerProfile.findMany({ orderBy: { member: { fullName: "asc" } }, include: { member: { include: { memberMinistries: true } } } }) : [],
     prisma.ministry.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
     prisma.schedule.findMany({ select: { startsAt: true }, orderBy: { startsAt: "asc" } }),
@@ -41,13 +46,18 @@ export default async function SchedulesPage({ searchParams }: { searchParams: Pr
   const completed = schedules.filter(s => staffingState(s).key === "complete").length;
   return <div className="space-y-6">
     <header><h1 className="text-xl font-semibold tracking-tight">Escalas e pendências</h1><p className="mt-1 text-sm text-muted-foreground">Cultos, eventos e cursos com execução prevista entram aqui para montar a equipe de voluntários.</p></header>
+    <div className="flex flex-wrap items-center gap-3 text-sm">
+      <Link href={`/admin/schedules?month=${selectedMonth}`} className={history ? "underline" : "font-semibold text-primary"}>Próximas escalas</Link>
+      <Link href={`/admin/schedules?month=${selectedMonth}&history=1`} className={history ? "font-semibold text-primary" : "underline"}>Consultar histórico</Link>
+      <span className="text-xs text-muted-foreground">As escalas saem da lista principal 24 horas após o início.</span>
+    </div>
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4"><h2 className="font-semibold capitalize">{monthLabel(selectedMonth)}</h2><span className="text-sm text-muted-foreground">{schedules.length} escalas neste mês</span>{selectedMonth !== currentMonth ? <Link href="/admin/schedules" className="text-sm font-semibold text-primary">Voltar ao mês atual</Link> : null}</div>
     <div className="grid gap-3 sm:grid-cols-3">{[["Pendentes / revisar", pending], ["Em montagem", drafting], ["Montagem concluída", completed]].map(([label, count]) => <Card key={label} className="p-4"><div className="text-xs text-muted-foreground">{label}</div><div className="mt-1 text-2xl font-semibold">{count}</div></Card>)}</div>
-    <details className="rounded-2xl border border-border bg-card p-4"><summary className="cursor-pointer text-sm font-medium">Expandir outros meses ({[...months.keys()].filter(month => month !== selectedMonth).length})</summary><div className="mt-3 flex flex-wrap gap-2">{[...months.entries()].filter(([month]) => month !== selectedMonth).map(([month, count]) => <Link key={month} href={"/admin/schedules?month=" + month} className="rounded-xl border border-border px-3 py-2 text-sm capitalize hover:bg-muted/20">{monthLabel(month)} · {count} escalas</Link>)}{months.size <= 1 ? <p className="text-sm text-muted-foreground">Sem escalas em outros meses.</p> : null}</div></details>
+    <details className="rounded-2xl border border-border bg-card p-4"><summary className="cursor-pointer text-sm font-medium">Expandir outros meses ({[...months.keys()].filter(month => month !== selectedMonth).length})</summary><div className="mt-3 flex flex-wrap gap-2">{[...months.entries()].filter(([month]) => month !== selectedMonth).map(([month, count]) => <Link key={month} href={"/admin/schedules?month=" + month + (month < currentMonth ? "&history=1" : "")} className="rounded-xl border border-border px-3 py-2 text-sm capitalize hover:bg-muted/20">{monthLabel(month)} · {count} escalas</Link>)}{months.size <= 1 ? <p className="text-sm text-muted-foreground">Sem escalas em outros meses.</p> : null}</div></details>
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-3"><div className="space-y-4 xl:col-span-2">
       {schedules.length ? schedules.map(s => {
         const state = staffingState(s);
-        const automatic = s.id.startsWith("staffing-");
+        const automatic = !!s.eventId || !!s.courseId || s.id.startsWith("staffing-");
         const source = s.courseId ? "Curso" : s.event?.type === "SERVICE" ? "Culto" : s.eventId ? "Evento" : ({ SERVICE: "Culto", EVENT: "Evento", CELL: "Célula", MEETING: "Reunião", REHEARSAL: "Ensaio", OTHER: "Outro" } as Record<string,string>)[s.kind];
         const showCoverage = source === "Culto" || source === "Evento";
         const counts = new Map<string | null, { name: string; volunteers: Set<string> }>();

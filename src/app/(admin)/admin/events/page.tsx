@@ -4,6 +4,7 @@ import { hasPermission } from "@/server/rbac";
 import { redirect } from "next/navigation";
 import { assertWebPermission } from "@/server/access-control";
 import Image from "next/image";
+import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { z } from "zod";
@@ -65,9 +66,16 @@ function parseOptionalPositiveInt(raw: string | undefined) {
 
 async function createEvent(formData: FormData) {
   "use server";
+  await saveEvent(null, formData);
+}
+
+async function saveEvent(eventId: string | null, formData: FormData) {
+  "use server";
   await assertWebPermission("events:write");
 
   const session = await getServerSession(authOptions);
+  const before = eventId ? await prisma.event.findUnique({ where: { id: eventId } }) : null;
+  if (eventId && (!before || eventId.startsWith("viva-weekly-"))) return;
   const parsed = createEventSchema.safeParse({
     name: formData.get("name"),
     type: formData.get("type"),
@@ -85,8 +93,10 @@ async function createEvent(formData: FormData) {
   if (!parsed.success) return;
 
   const bannerFile = formData.get("bannerFile");
-  const uploadedBannerUrl = await savePublicImageUpload(bannerFile as unknown as File);
-  const bannerImageUrl = uploadedBannerUrl ?? (parsed.data.bannerImageUrl || null);
+  const uploadedBannerUrl = bannerFile instanceof File && bannerFile.size
+    ? await savePublicImageUpload(bannerFile) : null;
+  if (bannerFile instanceof File && bannerFile.size && !uploadedBannerUrl) return;
+  const bannerImageUrl = uploadedBannerUrl ?? (parsed.data.bannerImageUrl || before?.bannerImageUrl || null);
 
   const capacity = parseOptionalPositiveInt(parsed.data.capacity);
   const isPaid = parsed.data.isPaid === "on";
@@ -100,12 +110,14 @@ async function createEvent(formData: FormData) {
   if (isPaid && (!ticketPriceCents || ticketPriceCents <= 0)) return;
   if (isPaid && !allowPix && !allowCreditCard) return;
 
-  const event = await prisma.event.create({
-    data: {
+  const startsAt = new Date(`${parsed.data.startsAt}-03:00`);
+  const endsAt = parsed.data.endsAt ? new Date(`${parsed.data.endsAt}-03:00`) : null;
+  if (Number.isNaN(startsAt.getTime()) || (endsAt && (Number.isNaN(endsAt.getTime()) || endsAt < startsAt))) return;
+  const data = {
       name: parsed.data.name.trim(),
       type: parsed.data.type,
-      startsAt: new Date(`${parsed.data.startsAt}-03:00`),
-      endsAt: parsed.data.endsAt ? new Date(`${parsed.data.endsAt}-03:00`) : null,
+      startsAt,
+      endsAt,
       location: parsed.data.location ? parsed.data.location.trim() : null,
       bannerImageUrl,
       capacity,
@@ -114,12 +126,19 @@ async function createEvent(formData: FormData) {
       allowPix,
       allowCreditCard,
       public: parsed.data.public === "on",
-    },
-  });
+  };
+  const event = eventId
+    ? await prisma.event.update({ where: { id: eventId }, data })
+    : await prisma.event.create({ data: {
+      ...data,
+      schedules: { create: {
+        title: data.name, kind: data.type === "SERVICE" ? "SERVICE" : "EVENT", startsAt, endsAt,
+      } },
+    } });
 
   await logAudit({
     actorUserId: session?.uid ?? null,
-    action: "CREATE",
+    action: eventId ? "UPDATE" : "CREATE",
     entityType: "Event",
     entityId: event.id,
     after: {
@@ -141,6 +160,25 @@ async function createEvent(formData: FormData) {
   revalidatePath("/admin/events");
   revalidatePath("/admin/schedules");
   if (staffingId && hasPermission(session?.permissions ?? [], "schedules:read")) redirect(staffingUrl(staffingId, event.startsAt));
+  redirect("/admin/events?salvo=1");
+}
+
+async function deleteEvent(eventId: string) {
+  "use server";
+  const session = await assertWebPermission("events:write");
+  if (eventId.startsWith("viva-weekly-")) return;
+  const removed = await prisma.$transaction(async (tx) => {
+    const event = await tx.event.findUnique({ where: { id: eventId } });
+    if (!event) return null;
+    await tx.schedule.deleteMany({ where: { eventId } });
+    await tx.event.delete({ where: { id: eventId } });
+    return event;
+  });
+  if (removed) await logAudit({ actorUserId: session.uid, action: "DELETE", entityType: "Event", entityId: eventId, before: { id: eventId, name: removed.name } });
+  revalidatePath("/admin/events");
+  revalidatePath("/admin/schedules");
+  revalidatePath("/admin/finance");
+  redirect("/admin/events?excluido=1");
 }
 
 async function createSale(formData: FormData) {
@@ -242,13 +280,23 @@ async function createSale(formData: FormData) {
   revalidatePath("/admin/finance");
 }
 
-export default async function EventsPage() {
+export default async function EventsPage({ searchParams }: {
+  searchParams: Promise<{ edit?: string; salvo?: string; excluido?: string }>;
+}) {
+  const [query, session] = await Promise.all([searchParams, getServerSession(authOptions)]);
+  const canEdit = hasPermission(session?.permissions ?? [], "events:write");
+  const editing = canEdit && query.edit && !query.edit.startsWith("viva-weekly-")
+    ? await prisma.event.findUnique({ where: { id: query.edit } }) : null;
+  const localDateTime = (date?: Date | null) => date
+    ? new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(date).replace(" ", "T")
+    : "";
   const [events, recentSales] = await Promise.all([
     prisma.event.findMany({
       where: { NOT: { id: { startsWith: "viva-weekly-" } } },
       orderBy: { startsAt: "desc" },
       take: 50,
       include: {
+        schedules: { select: { id: true }, take: 1 },
         sales: {
           select: {
             id: true,
@@ -285,6 +333,8 @@ export default async function EventsPage() {
           Eventos internos e externos, com vagas, ingressos e recebimentos integrados ao financeiro.
         </div>
       </div>
+      {query.salvo === "1" ? <p role="status">Evento salvo com sucesso.</p> : null}
+      {query.excluido === "1" ? <p role="status">Evento e escalas vinculadas excluídos.</p> : null}
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <div className="space-y-4 xl:col-span-2">
@@ -358,6 +408,21 @@ export default async function EventsPage() {
                           <div className="mt-1">Financeiro: {formatMoney(revenueCents)}</div>
                         </div>
                       </div>
+                      {canEdit ? (
+                        <div className="mt-3 flex flex-wrap items-start gap-4">
+                          <Link href={`/admin/events?edit=${event.id}#event-form`} className="text-sm font-medium underline">Editar evento</Link>
+                          <Link href={staffingUrl(event.schedules[0]?.id ?? `staffing-event-${event.id}`, event.startsAt)} className="text-sm font-medium underline">Montar escala</Link>
+                          <details className="text-sm">
+                            <summary className="cursor-pointer text-destructive">Excluir evento</summary>
+                            <div className="mt-2 space-y-2">
+                              <p className="max-w-md text-xs text-muted-foreground">A exclusão remove o evento, suas escalas e os registros de ingressos. Os lançamentos financeiros são mantidos.</p>
+                              <form action={deleteEvent.bind(null, event.id)}>
+                                <Button type="submit" variant="destructive" size="sm">Confirmar exclusão</Button>
+                              </form>
+                            </div>
+                          </details>
+                        </div>
+                      ) : null}
                     </div>
                   );
                 })
@@ -410,18 +475,21 @@ export default async function EventsPage() {
 
         <div className="space-y-4">
           <Card className="p-5">
-            <div className="text-sm font-medium">Novo evento</div>
-            <form action={createEvent} className="mt-4 space-y-3">
+            <div id="event-form" className="flex items-center justify-between gap-2">
+              <div className="text-sm font-medium">{editing ? "Editar evento" : "Novo evento"}</div>
+              {editing ? <Link href="/admin/events" className="text-sm underline">Cancelar</Link> : null}
+            </div>
+            <form key={editing?.id ?? "new"} action={editing ? saveEvent.bind(null, editing.id) : createEvent} className="mt-4 space-y-3">
               <div className="space-y-2">
                 <div className="text-xs font-medium text-muted-foreground">Nome</div>
-                <Input name="name" placeholder="Ex: Conferência Viva" required />
+                <Input name="name" defaultValue={editing?.name} placeholder="Ex: Conferência Viva" required />
               </div>
               <div className="space-y-2">
                 <div className="text-xs font-medium text-muted-foreground">Tipo</div>
                 <select
                   name="type"
                   className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm"
-                  defaultValue="SERVICE"
+                  defaultValue={editing?.type ?? "SERVICE"}
                 >
                   <option value="SERVICE">Culto</option>
                   <option value="CONFERENCE">Conferência</option>
@@ -434,16 +502,16 @@ export default async function EventsPage() {
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div className="space-y-2">
                   <div className="text-xs font-medium text-muted-foreground">Início</div>
-                  <Input name="startsAt" type="datetime-local" required />
+                  <Input name="startsAt" type="datetime-local" defaultValue={localDateTime(editing?.startsAt)} required />
                 </div>
                 <div className="space-y-2">
                   <div className="text-xs font-medium text-muted-foreground">Fim</div>
-                  <Input name="endsAt" type="datetime-local" />
+                  <Input name="endsAt" type="datetime-local" defaultValue={localDateTime(editing?.endsAt)} />
                 </div>
               </div>
               <div className="space-y-2">
                 <div className="text-xs font-medium text-muted-foreground">Local</div>
-                <Input name="location" placeholder="Ex: Sede" />
+                <Input name="location" defaultValue={editing?.location ?? ""} placeholder="Ex: Sede" />
               </div>
               <div className="space-y-2">
                 <div className="text-xs font-medium text-muted-foreground">Banner (horizontal)</div>
@@ -453,7 +521,8 @@ export default async function EventsPage() {
                   accept="image/png,image/jpeg,image/webp"
                   className="block w-full rounded-2xl border border-border/80 bg-background px-3 py-2 text-sm file:mr-3 file:rounded-xl file:border-0 file:bg-muted/30 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-foreground hover:file:bg-muted/40"
                 />
-                <Input name="bannerImageUrl" placeholder="Ou cole uma URL de imagem (opcional)" />
+                <Input name="bannerImageUrl" defaultValue={editing?.bannerImageUrl?.startsWith("http") ? editing.bannerImageUrl : ""} placeholder="Ou cole uma URL de imagem (opcional)" />
+                {editing?.bannerImageUrl ? <p className="text-xs text-muted-foreground">Envie uma nova imagem para substituir a arte atual.</p> : null}
                 <div className="rounded-2xl border border-border/70 bg-muted/10 p-3">
                   <div className="text-xs text-muted-foreground">
                     Recomendado: banner horizontal (ex: 1200×400 ou 3:1).
@@ -462,33 +531,33 @@ export default async function EventsPage() {
               </div>
               <div className="space-y-2">
                 <div className="text-xs font-medium text-muted-foreground">Quantidade de vagas</div>
-                <Input name="capacity" type="number" min="1" placeholder="Ex: 300" />
+                <Input name="capacity" type="number" min="1" defaultValue={editing?.capacity ?? ""} placeholder="Ex: 300" />
               </div>
               <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" name="isPaid" className="size-4" />
+                <input type="checkbox" name="isPaid" className="size-4" defaultChecked={editing?.isPaid ?? false} />
                 <span>Evento pago</span>
               </label>
               <div className="space-y-2">
                 <div className="text-xs font-medium text-muted-foreground">Valor do ingresso (R$)</div>
-                <Input name="ticketPrice" placeholder="0,00" />
+                <Input name="ticketPrice" defaultValue={editing?.ticketPriceCents ? (editing.ticketPriceCents / 100).toFixed(2).replace(".", ",") : ""} placeholder="0,00" />
               </div>
               <div className="space-y-2">
                 <div className="text-xs font-medium text-muted-foreground">Recebimento</div>
                 <label className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" name="allowPix" className="size-4" />
+                  <input type="checkbox" name="allowPix" className="size-4" defaultChecked={editing?.allowPix ?? false} />
                   <span>PIX</span>
                 </label>
                 <label className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" name="allowCreditCard" className="size-4" />
+                  <input type="checkbox" name="allowCreditCard" className="size-4" defaultChecked={editing?.allowCreditCard ?? false} />
                   <span>Cartão de crédito</span>
                 </label>
               </div>
               <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" name="public" className="size-4" />
+                <input type="checkbox" name="public" className="size-4" defaultChecked={editing?.public ?? false} />
                 <span>Publicar no site (API pública)</span>
               </label>
               <Button className="w-full" type="submit">
-                Cadastrar
+                {editing ? "Salvar alterações" : "Cadastrar"}
               </Button>
             </form>
           </Card>
