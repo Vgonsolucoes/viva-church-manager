@@ -33,7 +33,9 @@ COPY package.json package-lock.json ./
 RUN set -euxo pipefail; \
   [ -d node_modules ] || rm -rf node_modules; \
   if [ -f /root/.npm/_cacache/package-json-cache.lock ]; then echo "[npm cache] using existing cache"; else npm cache clean --force || true; fi; \
-  npm install --no-audit --no-fund --prefer-offline --loglevel=error;
+  npm install --no-audit --no-fund --prefer-offline --loglevel=error \
+    --maxsockets=3 --fetch-retries=5 --fetch-retry-mintimeout=20000 \
+    --fetch-retry-maxtimeout=120000 --fetch-timeout=300000;
 
 COPY . .
 
