@@ -30,7 +30,7 @@ export async function ensureWeeklyServices(now = new Date()) {
     const existing = await prisma.event.findMany({ where: { type: "SERVICE", public: true, startsAt: { gte: from, lt: to } }, select: { id: true, startsAt: true, name: true, location: true, bannerImageUrl: true } });
     const occupied = new Set(existing.map(event => event.startsAt.toISOString()));
     const occurrences = weeklyOccurrences(from, to, configs).filter(event => !occupied.has(event.startsAt.toISOString()));
-    if (occurrences.length) await prisma.event.createMany({ data: occurrences.map(event => ({ ...event, type: "SERVICE" as const, public: true, ministriesInvolved: [] })), skipDuplicates: true });
+    if (occurrences.length) await prisma.event.createMany({ data: occurrences.map(event => ({ ...event, type: "SERVICE" as const, public: true, geoCheckIn: true, ministriesInvolved: [] })), skipDuplicates: true });
     for (const event of occurrences) await syncStaffingSchedule({ ...event, type: "SERVICE", endsAt: null }, now);
     // Reconcile already-created future occurrences when series are grouped or
     // their shared artwork changes; preserve IDs, past services and manual events.

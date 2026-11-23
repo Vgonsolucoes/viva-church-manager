@@ -307,6 +307,8 @@ model Member {
   cellLeading Cell[] @relation("CellLeader")
   cellHosting Cell[] @relation("CellHost")
   cellId      String?
+  arrivalConsent ArrivalConsent?
+  servicePresence ServicePresence[]
   cell        Cell?  @relation("CellParticipants", fields: [cellId], references: [id], onDelete: SetNull)
 
   discipleshipsAsDisciple    Discipleship[] @relation("Disciple")
@@ -554,6 +556,7 @@ model Event {
   allowPix           Boolean   @default(false)
   allowCreditCard    Boolean   @default(false)
   public             Boolean   @default(false)
+  geoCheckIn         Boolean   @default(false)
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
@@ -562,11 +565,42 @@ model Event {
   donations   Donation[]
   sales       EventSale[]
   financeTransactions FinanceTransaction[] @relation("FinanceTransactionEvent")
+  servicePresence ServicePresence[]
+  serviceDecision ServiceDecision?
 
   @@index([startsAt])
   @@index([type])
   @@index([public])
   @@index([isPaid])
+}
+
+model ArrivalConsent {
+  memberId String @id
+  enabled Boolean @default(false)
+  updatedAt DateTime @updatedAt
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+}
+
+model ServicePresence {
+  id String @id @default(cuid())
+  eventId String
+  memberId String
+  arrivedAt DateTime
+  lastSeenAt DateTime
+  leftAt DateTime?
+  method String @default("GEO")
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  @@unique([eventId, memberId])
+  @@index([memberId, arrivedAt])
+}
+
+model ServiceDecision {
+  eventId String @id
+  count Int @default(0)
+  updatedAt DateTime @updatedAt
+  updatedById String
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
 }
 
 model EventSale {

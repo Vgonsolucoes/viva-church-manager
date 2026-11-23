@@ -24,6 +24,7 @@ import {
 import { prisma } from "@/server/db";
 import { hasPermission } from "@/server/rbac";
 import { AcompanhamentoListControls } from "./AcompanhamentoListControls";
+import { ServiceDecisions } from "@/components/followup/ServiceDecisions";
 
 export const dynamic = "force-dynamic";
 
@@ -1043,6 +1044,7 @@ export default async function AcompanhamentoPage(props: {
         </div>
       </div>
 
+      <ServiceDecisions canWrite={hasPermission(session.permissions ?? [], "followup:write")} />
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
         <Card className="p-5">
           <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">

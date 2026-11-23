@@ -76,11 +76,11 @@ export default function PerfilScreen() {
     },
     {
       id: "settings",
-      label: "Configurações",
+      label: "Chegada à igreja",
       Icon: Settings,
       iconBg: theme.colors.borderPrimary,
       iconColor: theme.colors.orange500,
-      onPress: () => {},
+      onPress: () => router.push("/perfil/chegada" as any),
       danger: false,
       badge: null,
     },

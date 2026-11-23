@@ -1,4 +1,5 @@
 import { MobileAccessGuard } from "@/components/MobileAccessGuard";
+import { ArrivalIntegration } from "@/components/ArrivalIntegration";
 import React, { useEffect, useState, useRef } from "react";
 import { View, StyleSheet, Text, Animated, Platform, Image, AppState } from "react-native";
 import { Stack, useRouter, useSegments } from "expo-router";
@@ -160,6 +161,7 @@ function AuthGuard({
   return (
     <>
       <PushIntegrationRuntime fontsReady={fontsReady} />
+      <ArrivalIntegration />
       <MobileAccessGuard>{children}</MobileAccessGuard>
     </>
   );

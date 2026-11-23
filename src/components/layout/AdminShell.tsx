@@ -48,6 +48,12 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   {
+    href: "/admin/direcao-culto",
+    label: "Direção de Culto",
+    icon: <ChartColumn className="size-4" />,
+    permission: "service-direction:read",
+  },
+  {
     href: "/admin",
     label: "Dashboard",
     icon: <LayoutDashboard className="size-4" />,

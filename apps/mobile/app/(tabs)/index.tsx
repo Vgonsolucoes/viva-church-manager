@@ -204,6 +204,9 @@ export default function HomeScreen() {
         refreshing={isFetchingAny && !isLoading}
         onRefresh={onRefresh}
       >
+        <View style={{ marginBottom: 16 }}>
+          <SecondaryButton title="Cheguei à igreja" onPress={() => router.push("/perfil/chegada" as any)} />
+        </View>
         {canReadVideos && (
           <View style={{ marginBottom: 20 }}>
             <RecentYoutubeVideos data={recentVideos.data} loading={recentVideos.isLoading} />

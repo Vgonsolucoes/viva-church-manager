@@ -8,6 +8,7 @@ export const WEB_MODULES = [
   { key: "followup", label: "Acompanhamento", path: "/admin/acompanhamento", read: ["followup:read"], write: ["followup:write"] },
   { key: "volunteers", label: "Voluntários", path: "/admin/volunteers", read: ["volunteers:read"], write: ["volunteers:write"] },
   { key: "schedules", label: "Escalas", path: "/admin/schedules", read: ["schedules:read"], write: ["schedules:write"] },
+  { key: "direction", label: "Direção de Culto", path: "/admin/direcao-culto", read: ["service-direction:read"], write: ["service-direction:write"] },
   { key: "ministries", label: "Ministérios", path: "/admin/ministries", read: ["ministries:read"], write: ["ministries:write"] },
   { key: "services", label: "Cultos Fixos", path: "/admin/cultos-fixos", read: ["events:read"], write: ["events:write"] },
   { key: "events", label: "Eventos", path: "/admin/events", read: ["events:read"], write: ["events:write"] },

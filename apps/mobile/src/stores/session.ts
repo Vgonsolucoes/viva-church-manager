@@ -43,6 +43,12 @@ export async function getSessionToken(): Promise<string | null> {
 
 export async function clearSessionPersistence(): Promise<void> {
   try {
+    try {
+      const { stopArrivalMonitoring } = await import("@/services/arrival");
+      await stopArrivalMonitoring(true);
+    } catch {
+      // Removing the session must still complete if a native location service fails.
+    }
     if (Platform.OS !== "web") {
       try {
         await SecureStore.deleteItemAsync(SECURE_TOKEN_KEY);

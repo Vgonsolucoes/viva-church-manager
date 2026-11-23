@@ -14,6 +14,8 @@ export type RoleKey =
   | "PARKING";
 
 export type PermissionKey =
+  | "service-direction:read"
+  | "service-direction:write"
   | "admin:access"
   | "dashboard:view"
   | "members:read"
@@ -75,6 +77,8 @@ export type PermissionKey =
 
 export const rolePermissions: Record<RoleKey, PermissionKey[]> = {
   SUPER_ADMIN: [
+    "service-direction:read",
+    "service-direction:write",
     "raffles:read",
     "raffles:write",
     "parking:read",

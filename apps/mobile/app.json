@@ -64,6 +64,16 @@
           "resizeMode": "contain",
           "backgroundColor": "#06101D"
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Permita que o Viva Church confirme sua chegada à igreja nos horários de culto, inclusive em segundo plano.",
+          "locationWhenInUsePermission": "Use sua localização para confirmar sua chegada à igreja.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
       ]
     ],
     "experiments": {
