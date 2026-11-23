@@ -30,12 +30,15 @@ ENV TEMP_MEMBER_INTAKE_ENABLED=$TEMP_MEMBER_INTAKE_ENABLED
 ENV NEXT_TELEMETRY_DISABLED=1
 
 COPY package.json package-lock.json ./
-RUN set -euxo pipefail; \
-  [ -d node_modules ] || rm -rf node_modules; \
-  if [ -f /root/.npm/_cacache/package-json-cache.lock ]; then echo "[npm cache] using existing cache"; else npm cache clean --force || true; fi; \
-  npm install --no-audit --no-fund --prefer-offline --loglevel=error \
-    --maxsockets=3 --fetch-retries=5 --fetch-retry-mintimeout=20000 \
-    --fetch-retry-maxtimeout=120000 --fetch-timeout=300000;
+RUN --mount=type=cache,target=/root/.npm set -euxo pipefail; \
+  for install_attempt in 1 2 3; do \
+    if npm install --no-audit --no-fund --prefer-offline --loglevel=error \
+      --maxsockets=3 --fetch-retries=5 --fetch-retry-mintimeout=20000 \
+      --fetch-retry-maxtimeout=120000 --fetch-timeout=300000; then break; fi; \
+    if [ "$install_attempt" -eq 3 ]; then exit 1; fi; \
+    echo "Dependency download interrupted; retrying with the cached packages"; \
+    sleep 10; \
+  done;
 
 COPY . .
 
